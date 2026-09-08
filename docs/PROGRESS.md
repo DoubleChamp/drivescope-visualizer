@@ -55,6 +55,17 @@
 
 ## 검증 결과
 
+### 두 번째 컴퓨터 환경 복원 (2026-09-08)
+
+- GitHub Desktop 내장 Git으로 `git fetch origin`을 실행하고 현재 `feat/phase-1-three-scene` 브랜치와 원격이 일치하며 작업 폴더가 깨끗함을 확인했다.
+- 기존 Node.js `20.15.1`을 winget에서 제공하는 Node.js LTS `24.19.0`으로 업데이트했다. 이전 컴퓨터의 `24.20.0`과 패치 버전은 다르지만 아래 실행 검증을 통과했다.
+- npm `11.17.0`과 전역 pnpm `11.24.0`을 확인했다.
+- `pnpm install --frozen-lockfile`로 잠금 파일 변경 없이 프로젝트 의존성을 복원했다.
+- `pnpm build`의 컴파일, TypeScript 검사와 정적 페이지 생성이 통과했다.
+- `pnpm dev` 기동 후 `/`와 `/viewer`의 HTTP 200 및 Viewer의 Canvas 마크업을 확인했다. 실제 GPU 격자 표시와 resize 동작은 브라우저 육안 확인이 남아 있다.
+- Phase 2는 시작하지 않았다. 기존 cleanup 이해 확인과 가상 포인트 100개 구현 승인 절차를 이어간다.
+- 아래 표는 이전 컴퓨터에서 수행한 Phase 1 검증 기록이다. 개발 서버 실행 여부는 각 컴퓨터에서 별도로 확인한다.
+
 | 검증 | 결과 |
 | --- | --- |
 | `node --version` | `v24.20.0` |
