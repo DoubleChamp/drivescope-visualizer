@@ -50,7 +50,8 @@
 - 현재 cleanup 순서가 외부 실행 차단, 사용자 GPU 리소스 해제, Scene 연결 해제, Renderer 내부 정리 순서임을 확인했다.
 - Camera와 Scene은 JS 객체이므로 별도 `dispose()`가 필요 없고 Canvas DOM은 React가 소유하므로 직접 제거하지 않는 것이 맞음을 확인했다.
 - 필수 cleanup 누락이 없어 이번 감사에서는 애플리케이션 코드를 수정하지 않았다.
-- Phase 1을 완료 처리하고 이후 승인된 단계는 검증과 문서 갱신 후 현재 브랜치에 commit·push하도록 작업 규칙을 변경했다.
+- Phase 1을 완료 처리하고 코드와 공유 문서를 `6048ba1 feat: Viewer Three.js 기본 장면 완성`으로 commit한 뒤 GitHub Desktop에서 `origin`에 push했다.
+- 이후 승인된 단계는 검증과 문서 갱신 후 Codex가 현재 브랜치에 commit까지만 하고, `origin` push는 사용자가 GitHub Desktop에서 직접 수행하도록 작업 규칙을 변경했다.
 
 ## 검증 결과
 
@@ -85,11 +86,11 @@
 
 - 첫 커밋 `8d7c3f2 초기 환경 구성`이 `main`과 `origin/main`에 존재한다.
 - 현재 작업 브랜치는 `feat/phase-1-three-scene`이다.
-- Phase 1 코드와 공유 문서는 `feat/phase-1-three-scene`에 commit하고 `origin`에 push한다.
+- Phase 1 코드와 공유 문서는 `feat/phase-1-three-scene`의 `6048ba1`에 commit하고 `origin`에 push했다.
 - `AGENTS.md`, `CLAUDE.md`, `docs/`는 Git에서 추적해 다른 컴퓨터에서도 같은 작업 기준을 사용한다.
 - 루트 HTML의 한국어 언어 태그는 올바른 BCP 47 코드인 `ko`를 사용한다.
 - 공개 프로젝트 소개용 `README.md`는 추적 가능한 상태로 남긴다.
-- 이후 승인된 단계는 구현과 검증을 마칠 때마다 현재 작업 브랜치에 commit하고 push한다.
+- 이후 승인된 단계는 구현과 검증을 마칠 때마다 Codex가 현재 작업 브랜치에 commit까지만 한다. 사용자가 GitHub Desktop에서 변경을 확인한 뒤 직접 push한다.
 
 ## 다음 구현 진입 조건
 
@@ -100,4 +101,4 @@
 
 ## 추천 커밋 메시지
 
-Phase 1 변경에는 `feat: Viewer Three.js 기본 장면 완성`을 사용한다. 이후에도 각 단계의 검증과 문서 갱신이 끝나면 한글 Conventional Commit을 만들고 push한다.
+Phase 1 변경에는 `feat: Viewer Three.js 기본 장면 완성`을 사용했다. 이후에도 각 단계의 검증과 문서 갱신이 끝나면 한글 Conventional Commit을 만들되 push는 사용자가 직접 수행한다.
