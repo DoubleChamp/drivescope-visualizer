@@ -5,7 +5,7 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 1 — 완료
-- 현재 작업: Phase 1 구현·cleanup 감사와 공유 문서 Git 추적 전환 완료
+- 현재 작업: 두 번째 컴퓨터 환경 복원, Phase 1의 로컬 `main` 병합과 작업 브랜치 삭제 완료. 앞으로 `main`에서만 작업한다.
 - 다음 한 단계: 사용자가 GC와 명시적 cleanup의 차이를 확인한 뒤 Phase 2의 가상 포인트 100개 구현안을 설명하고 승인을 기다린다.
 - 아직 구현하지 않은 것: 가상 포인트와 `BufferGeometry`를 포함한 Phase 2 이후 기능
 
@@ -95,13 +95,16 @@
 
 ## 현재 Git 상태
 
-- 첫 커밋 `8d7c3f2 초기 환경 구성`이 `main`과 `origin/main`에 존재한다.
-- 현재 작업 브랜치는 `feat/phase-1-three-scene`이다.
+- 첫 커밋 `8d7c3f2 초기 환경 구성`은 이 프로젝트의 시작 커밋이다.
+- 현재 작업 브랜치는 `main`이다. 앞으로 별도 작업 브랜치를 만들지 않고 `main`에서만 작업한다.
+- 사용자 요청에 따라 `feat/phase-1-three-scene`의 `c612206`까지 로컬 `main`에 fast-forward 병합하고, 병합된 로컬 작업 브랜치를 `git branch -d`로 삭제했다.
+- 병합 직후 `main`의 파일이 기존 Phase 1 브랜치와 동일함을 확인했다. 애플리케이션 코드는 변경하지 않았으며 직전 환경 복원에서 빌드와 HTTP 검증을 통과했다.
+- `origin/main` 반영은 사용자가 GitHub Desktop에서 직접 push한다. 원격 `feat/phase-1-three-scene`은 아직 남아 있으며, `main` push 후 GitHub에서 삭제하면 된다.
 - Phase 1 코드와 공유 문서는 `feat/phase-1-three-scene`의 `6048ba1`에 commit하고 `origin`에 push했다.
 - `AGENTS.md`, `CLAUDE.md`, `docs/`는 Git에서 추적해 다른 컴퓨터에서도 같은 작업 기준을 사용한다.
 - 루트 HTML의 한국어 언어 태그는 올바른 BCP 47 코드인 `ko`를 사용한다.
 - 공개 프로젝트 소개용 `README.md`는 추적 가능한 상태로 남긴다.
-- 이후 승인된 단계는 구현과 검증을 마칠 때마다 Codex가 현재 작업 브랜치에 commit까지만 한다. 사용자가 GitHub Desktop에서 변경을 확인한 뒤 직접 push한다.
+- 이후 승인된 단계는 구현과 검증을 마칠 때마다 Codex가 `main`에 commit까지만 한다. 사용자가 GitHub Desktop에서 변경을 확인한 뒤 직접 push한다.
 
 ## 다음 구현 진입 조건
 

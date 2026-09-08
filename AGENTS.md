@@ -22,7 +22,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - 두 컴퓨터 간 충돌을 막기 위해 작업 시작 전 GitHub Desktop에서 원격 변경 여부를 확인한다.
 - `AGENTS.md`, `CLAUDE.md`, `docs/`는 두 컴퓨터의 작업 기준을 동일하게 유지하도록 Git에 추적하고 공유한다. 비밀값, 인증 정보와 불필요한 개인 경로는 기록하지 않는다.
 - 커밋 메시지는 사용자가 다르게 요청하지 않는 한 Conventional Commit 타입 뒤의 설명을 한글로 작성한다.
-- 승인된 한 단계의 구현, 검증과 문서 갱신이 끝나면 현재 작업 브랜치에 commit까지만 한다. `origin` push는 사용자가 GitHub Desktop에서 직접 수행한다.
+- 앞으로는 별도 작업 브랜치를 만들지 않고 `main`에서만 작업한다.
+- 승인된 한 단계의 구현, 검증과 문서 갱신이 끝나면 `main`에 commit까지만 한다. `origin` push는 사용자가 GitHub Desktop에서 직접 수행한다.
 - force push와 기존 변경 되돌리기는 사용자가 명시적으로 요청하지 않는 한 실행하지 않는다.
 
 상세한 제품 범위와 단계별 기준은 `docs/` 아래 문서를 따른다.
