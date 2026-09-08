@@ -39,8 +39,3 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-# local-only DriveScope guides
-/AGENTS.md
-/CLAUDE.md
-/docs/
