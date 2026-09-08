@@ -4,13 +4,19 @@
 
 ## 현재 위치
 
-- 현재 Phase: Phase 1 — 완료
-- 현재 작업: 두 번째 컴퓨터 환경 복원, Phase 1의 로컬 `main` 병합과 작업 브랜치 삭제 완료. 앞으로 `main`에서만 작업한다.
-- 다음 한 단계: 사용자가 GC와 명시적 cleanup의 차이를 확인한 뒤 Phase 2의 가상 포인트 100개 구현안을 설명하고 승인을 기다린다.
-- 아직 구현하지 않은 것: 가상 포인트와 `BufferGeometry`를 포함한 Phase 2 이후 기능
+- 현재 Phase: Phase 2 — 첫 항목 구현, 원리 이해 확인 대기
+- 현재 작업: 사용자 승인 후 기존 Grid 위에 가상 포인트 100개와 해당 Geometry·Material cleanup을 구현했다.
+- 다음 한 단계: 사용자가 좌표 배열, Geometry, Material과 Points의 역할을 설명한 뒤 `Vector3` 객체 배열의 구조와 한계를 살펴본다.
+- 아직 구현하지 않은 것: 직접 작성하는 `Float32Array`·`BufferAttribute` 연결, 포인트 10,000개, FPS 표시와 Phase 3 이후 기능
 
 ## 완료한 작업
 
+- 사용자가 rAF 취소는 다음 콜백의 실행을 막으며, 살아 있는 콜백의 closure가 객체를 참조하면 GC가 회수하지 못함을 설명했다.
+- 사용자가 `scene.clear()`의 자식 연결 해제와 `dispose()`의 그래픽 리소스 정리를 구분했다. Grid는 Geometry와 Material 모두 정리하며 현재 Renderer는 WebGL 기반임을 보완 설명했다.
+- 기존 `ViewerCanvas` effect에서 `Vector3` 100개를 만들고 `BufferGeometry.setFromPoints()`, `PointsMaterial`, `Points`로 한 묶음의 점을 추가했다.
+- 점은 10×10 배열, XZ 간격 0.5, 높이 0.25로 배치하고 노란색과 크기 0.1을 적용했다. 좌표와 리소스는 매 프레임 새로 생성하지 않는다.
+- 기존 cleanup에 포인트 Geometry와 Material의 `dispose()`를 추가하고 Viewer의 안내 문구를 현재 화면에 맞췄다.
+- 포인트 단계의 원리 이해는 아직 확인하지 않았으므로 학습 완료로 기록하지 않았다.
 - 빈 `main` 브랜치와 GitHub `origin` 연결 상태를 확인했다.
 - 원격 저장소에 아직 브랜치가 없어 pull할 변경이 없음을 확인했다.
 - GitHub Desktop 내장 Git으로 저장소를 관리하기로 결정했으며 Git for Windows CLI는 별도로 설치하지 않았다.
@@ -54,6 +60,18 @@
 - 이후 승인된 단계는 검증과 문서 갱신 후 Codex가 현재 브랜치에 commit까지만 하고, `origin` push는 사용자가 GitHub Desktop에서 직접 수행하도록 작업 규칙을 변경했다.
 
 ## 검증 결과
+
+### Phase 2: 가상 포인트 100개 (2026-09-08)
+
+- GitHub Desktop 내장 Git의 `ls-remote origin refs/heads/main` 결과와 로컬 `HEAD`가 `9cfb85a`로 일치했고 작업 시작 시 미커밋 변경이 없었다.
+- 설치된 Next.js의 Server and Client Components 가이드와 Three.js `setFromPoints()` 소스를 읽고 기존 Client Component 경계 안에 구현했다.
+- `pnpm.cmd build`: 컴파일, TypeScript 검사와 `/viewer` 정적 페이지 생성 통과. PowerShell 실행 정책에 따라 `.ps1` 대신 `.cmd` 실행 파일을 사용했다.
+- Chrome headless와 CDP로 기존 개발 서버의 `/viewer`를 실행했다. 실제 WebGL2 `drawArrays(POINTS, ..., 100)`와 스크린샷의 노란 10×10 점 배치를 확인했다.
+- 창 크기를 변경했을 때 Canvas drawing buffer가 `1264×630`에서 `944×504`로 바뀌고 CSS 표시 크기와 일치했다.
+- SPA 홈 이동 시 Canvas가 제거되고 포인트 draw 횟수가 더 증가하지 않았다. cleanup에서 WebGL buffer 삭제 3회와 program 삭제 2회를 관찰했다.
+- Viewer 재진입 시 Canvas 1개와 포인트 100개 렌더링이 복원되었다. 동일한 페이지 전역 식별자로 전체 새로고침 없이 검사했음을 확인했다.
+- 임시 검증 명령: `node node_modules/.cache/drivescope-browser-check/check.mjs`. 기능 검사 8개는 통과했고 JS 런타임 예외는 없었다. 기존 `/favicon.ico`의 HTTP 404로 전체 브라우저 오류 없음 검사만 실패했다. 임시 스크립트·결과·스크린샷은 Git에서 제외되는 의존성 캐시 안에 두었다.
+- `git diff --check`: 공백 오류 없음. 이번 단계는 `main`에 `feat: 가상 포인트 100개 표시와 리소스 정리 추가`로 로컬 commit하고 push는 사용자가 수행한다.
 
 ### 두 번째 컴퓨터 환경 복원 (2026-09-08)
 
@@ -99,7 +117,7 @@
 - 현재 작업 브랜치는 `main`이다. 앞으로 별도 작업 브랜치를 만들지 않고 `main`에서만 작업한다.
 - 사용자 요청에 따라 `feat/phase-1-three-scene`의 `c612206`까지 로컬 `main`에 fast-forward 병합하고, 병합된 로컬 작업 브랜치를 `git branch -d`로 삭제했다.
 - 병합 직후 `main`의 파일이 기존 Phase 1 브랜치와 동일함을 확인했다. 애플리케이션 코드는 변경하지 않았으며 직전 환경 복원에서 빌드와 HTTP 검증을 통과했다.
-- `origin/main` 반영은 사용자가 GitHub Desktop에서 직접 push한다. 원격 `feat/phase-1-three-scene`은 아직 남아 있으며, `main` push 후 GitHub에서 삭제하면 된다.
+- 이번 단계 시작 시 로컬 `main`과 원격 `main`은 `9cfb85a`로 일치했다. 이번 단계의 commit도 `origin` push는 사용자가 GitHub Desktop에서 직접 수행한다.
 - Phase 1 코드와 공유 문서는 `feat/phase-1-three-scene`의 `6048ba1`에 commit하고 `origin`에 push했다.
 - `AGENTS.md`, `CLAUDE.md`, `docs/`는 Git에서 추적해 다른 컴퓨터에서도 같은 작업 기준을 사용한다.
 - 루트 HTML의 한국어 언어 태그는 올바른 BCP 47 코드인 `ko`를 사용한다.
@@ -108,10 +126,9 @@
 
 ## 다음 구현 진입 조건
 
-1. 지역 변수인 Three.js 객체가 callback closure를 통해 계속 도달 가능할 수 있음을 사용자가 설명한다.
-2. JS 객체 회수와 WebGL/GPU 리소스 해제가 서로 다른 층이라는 점을 설명한다.
-3. `grid.dispose()`, `scene.clear()`와 `renderer.dispose()`의 서로 다른 역할을 설명한다.
-4. Phase 2 첫 단계인 가상 포인트 100개의 최소 구현 범위를 설명하고 사용자 승인을 받는다.
+1. `Vector3` 좌표 배열, `BufferGeometry`, `PointsMaterial`과 `Points`의 서로 다른 역할을 사용자가 설명한다.
+2. 포인트 Geometry와 Material을 만들 때와 정리할 때가 언제인지 확인한다.
+3. 다음 항목인 `Vector3` 객체 배열의 구조와 한계를 살펴보는 범위를 설명하고 사용자 승인을 받는다.
 
 ## 추천 커밋 메시지
 

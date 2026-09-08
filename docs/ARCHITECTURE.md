@@ -4,6 +4,8 @@
 
 Next.js App Router와 TypeScript가 동작하며 Three.js는 설치되어 있다. `/viewer` 아래에 React가 소유하는 Canvas와 작은 Client Component 경계를 만들고, 컴포넌트가 마운트될 때 Scene, PerspectiveCamera, WebGLRenderer와 `GridHelper(10, 10)`를 생성한다. 창 크기가 바뀌면 Canvas의 CSS 크기를 다시 읽어 Camera의 종횡비와 투영 행렬, Renderer의 drawing buffer를 갱신한다. `requestAnimationFrame` 콜백은 Scene을 렌더링한 뒤 다음 프레임을 하나씩 다시 예약한다. 컴포넌트 해제 시 최신 animation frame과 resize 리스너를 먼저 취소하고 Grid의 Geometry와 Material, Scene과 Renderer를 정리한다.
 
+Phase 2의 첫 단계로 같은 effect에서 `Vector3` 좌표 100개를 생성한다. XZ 방향으로 간격 0.5인 10×10 배열을 원점 중심에 놓고 높이는 `y = 0.25`로 고정한다. `BufferGeometry.setFromPoints()`로 위치를 연결하고 `PointsMaterial`과 하나의 `Points`로 표시한다. 좌표와 Geometry는 마운트할 때 생성하고 기존 렌더 루프에서 재사용한다. cleanup에서는 예약과 이벤트를 차단한 뒤 포인트의 Geometry와 Material도 각각 `dispose()`한다.
+
 이 문서에서 **계획**으로 표시한 내용은 설계 방향일 뿐 아직 구현된 기능이 아니다.
 
 ## 계층별 책임
