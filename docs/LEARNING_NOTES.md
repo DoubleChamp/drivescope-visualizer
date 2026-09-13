@@ -157,18 +157,19 @@
 
 ### `Vector3` 객체 배열 구조와 한계 확인 (2026-09-13)
 
-- 현재 좌표 데이터는 배열 1개와 `x`, `y`, `z` 프로퍼티를 가진 `Vector3` 객체 100개로 시작한다.
+- 직전 구현의 좌표 데이터는 배열 1개와 `x`, `y`, `z` 프로퍼티를 가진 `Vector3` 객체 100개로 시작했다.
 - 설치된 Three.js `0.185.1`의 `setFromPoints()`는 각 객체의 세 좌표를 중간 JavaScript 배열에 복사하고, 다시 `Float32Array` 기반의 `Float32BufferAttribute`로 변환한다.
 - 런타임 검사에서 포인트 100개가 `itemSize: 3`, `count: 100`, 숫자 300개인 `Float32BufferAttribute`로 만들어짐을 확인했다.
 - Geometry는 입력한 `Vector3[]`를 계속 참조하지 않는다. 변환 뒤 원본 `Vector3`의 값을 바꿔도 Geometry의 위치 값은 함께 바뀌지 않는 것을 런타임에서 확인했다.
-- 포인트 100개를 마운트할 때 한 번 만드는 현재 코드에서는 객체 생성과 복사 비용이 작고 `Vector3`의 계산 API가 편리하다. 포인트 수가 크거나 매 Frame 반복하면 점마다 객체를 만들고 다시 연속 배열로 복사하는 과정이 할당량과 GC 부담을 늘릴 수 있다.
+- 포인트 100개를 마운트할 때 한 번 만들던 직전 코드에서는 객체 생성과 복사 비용이 작고 `Vector3`의 계산 API가 편리했다. 포인트 수가 크거나 매 Frame 반복하면 점마다 객체를 만들고 다시 연속 배열로 복사하는 과정이 할당량과 GC 부담을 늘릴 수 있다.
 - 사용자가 Geometry에는 변환된 좌표가 복사되어 원본 `Vector3` 수정이 자동 반영되지 않는 점과, 큰 객체 배열에서는 객체 할당과 반복 변환의 부담이 커질 수 있음을 설명했다.
 
 ### 한 점 갱신과 프레임 다시 그리기 (2026-09-13)
 
-- 현재 `setFromPoints()`는 effect setup에서 한 번만 실행된다. rAF 콜백은 기존 Scene과 GPU Buffer를 사용해 `renderer.render()`만 호출하므로 Geometry를 매 프레임 다시 만들거나 좌표를 다시 계산하지 않는다.
+- 직전 구현에서도 `setFromPoints()`는 effect setup에서 한 번만 실행됐다. 현재 rAF 콜백도 기존 Scene과 GPU Buffer를 사용해 `renderer.render()`만 호출하므로 Geometry를 매 프레임 다시 만들거나 좌표를 다시 계산하지 않는다.
 - 한 점을 움직일 때는 기존 위치 배열에서 그 점의 `x`, `y`, `z` 세 요소만 바꿀 수 있다. 현재 Three.js에서는 `addUpdateRange(i * 3, 3)`와 `needsUpdate = true`를 사용하면 GPU에도 해당 `Float32` 세 개, 즉 12바이트 범위만 갱신할 수 있다.
 - 데이터 일부만 갱신하는 것과 새 화면을 그리는 것은 별개다. 기본 Renderer는 프레임을 지운 뒤 하나의 `Points` draw call로 모든 점을 다시 처리하지만, 바뀌지 않은 9,999개의 좌표 데이터를 JavaScript에서 다시 계산하거나 GPU에 다시 올릴 필요는 없다.
+- Scene 순회는 Attribute의 모든 숫자나 GPU 메모리를 비교하지 않는다. `needsUpdate = true`가 Attribute의 `version`을 올리고, Renderer는 자신이 캐시한 버전과 비교해 더 새로운 경우에만 GPU 전송을 수행한다. 배열만 수정하고 `needsUpdate`를 설정하지 않으면 GPU에는 이전 값이 남는다.
 - 움직이는 한 점을 별도 `Points`로 나누면 객체와 draw call이 하나 늘어난다. 정적 장면 캐시처럼 다른 전략과 함께 쓰지 않는 한 더 빠르다고 단정할 수 없으므로 실제 데이터에서 측정한 뒤 결정한다.
 
 ### `Float32Array` 좌표 구조 확인 (2026-09-13)
@@ -178,11 +179,21 @@
 - 포인트 인덱스가 `i`이면 `x`, `y`, `z`는 각각 `i * 3`, `i * 3 + 1`, `i * 3 + 2`에 저장한다.
 - 런타임 검사에서 37번 포인트가 111, 112, 113번 슬롯을 사용하며, 세 슬롯만 수정했을 때 바로 앞 포인트의 값은 바뀌지 않음을 확인했다.
 - `Float32Array`는 생성할 때 정한 길이가 고정되고 일반 배열의 `push()`가 없다. 더 많은 점이 필요하면 더 큰 배열을 만들거나 미리 정한 여유 용량을 관리해야 한다.
-- 이번 항목에서는 메모리 배치만 확인했다. 이 배열을 Three.js `BufferAttribute`에 직접 연결하는 작업은 다음 항목이다.
+- 메모리 배치를 확인한 뒤 같은 배열을 Three.js `BufferAttribute`에 직접 연결했다.
+
+### `Float32Array`와 `BufferAttribute` 직접 연결 (2026-09-13)
+
+- `ViewerCanvas`에서 `Vector3` import와 객체 배열, `setFromPoints()`를 제거했다.
+- 포인트 100개의 좌표를 `Float32Array(300)`에 직접 채우고 `new BufferAttribute(pointPositions, 3)`으로 감쌌다.
+- `itemSize` 3은 연속된 숫자 세 개를 하나의 정점 좌표로 해석하게 하므로 Attribute의 `count`는 100이 된다.
+- Geometry의 `position` 속성은 각 정점의 공간 좌표를 나타내는 이름이며 `pointsGeometry.setAttribute("position", attribute)`로 연결한다.
+- 현재 Three.js의 기본 `BufferAttribute`는 전달한 `Float32Array`를 복사하지 않고 같은 배열을 참조한다. 런타임에서 Attribute의 `array`와 입력 배열이 동일하며 `count: 100`, `byteLength: 1200`임을 확인했다.
+- 이전 `setFromPoints()` 결과와 새 배열의 숫자 300개를 비교해 불일치가 0개임을 확인했다. 포인트의 화면 배치 데이터는 이전과 같다.
+- Geometry와 Material의 소유권은 바뀌지 않았으므로 기존 effect cleanup에서 계속 각각 `dispose()`한다.
 
 ## 다음 단계에서 배울 내용
 
 아래 항목은 Phase 2의 예정 내용이며 아직 학습 완료를 확인하지 않았다.
 
-- `Float32Array`를 `BufferAttribute`에 직접 연결하는 과정
-- Attribute 수정 뒤 `needsUpdate`로 GPU 갱신을 요청하는 과정
+- `Float32Array`, `BufferAttribute`와 GPU Buffer 사이의 데이터 전달 과정
+- 같은 구조를 포인트 10,000개로 확장했을 때의 데이터 크기와 렌더링 결과

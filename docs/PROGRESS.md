@@ -4,10 +4,10 @@
 
 ## 현재 위치
 
-- 현재 Phase: Phase 2 — 세 번째 항목 완료, 원리 이해 확인 대기
-- 현재 작업: `Float32Array`의 고정 길이, 요소 크기와 포인트별 `x`, `y`, `z` 인덱싱을 런타임에서 확인했다.
-- 다음 한 단계: 사용자가 연속 좌표 배열의 인덱싱을 설명한 뒤 `Float32Array`를 `BufferAttribute`에 직접 연결한다.
-- 아직 구현하지 않은 것: 직접 작성한 `Float32Array`와 `BufferAttribute` 연결, 포인트 10,000개, FPS 표시와 Phase 3 이후 기능
+- 현재 Phase: Phase 2 — 네 번째 항목 구현, 원리 이해 확인 대기
+- 현재 작업: `Float32Array(300)`에 만든 포인트 100개의 좌표를 `BufferAttribute`로 `BufferGeometry.position`에 직접 연결했다.
+- 다음 한 단계: 사용자가 Attribute의 `itemSize`, `count`, `version`과 draw call의 관계를 설명한 뒤 같은 구조를 포인트 10,000개로 확장한다.
+- 아직 구현하지 않은 것: 포인트 10,000개, `PointsMaterial` 조정, 포인트 수·FPS 표시와 Phase 3 이후 기능
 
 ## 완료한 작업
 
@@ -25,6 +25,11 @@
 - 한 점의 위치 변경은 Geometry 전체 재생성을 요구하지 않으며, 기존 위치 배열의 세 요소와 GPU Buffer의 해당 범위만 갱신할 수 있음을 설치된 Three.js 소스로 확인했다.
 - rAF의 `render()`는 모든 점을 다시 그리지만 기존 좌표를 JavaScript에서 다시 계산하는 과정은 아니며, 현재 Geometry와 GPU Buffer를 재사용함을 확인했다.
 - `Float32Array(300)`에 포인트 100개의 좌표를 연속 배치하고, 점 `i`가 `i * 3`부터 세 슬롯을 사용함을 런타임에서 확인했다.
+- `Vector3[]`와 `setFromPoints()`를 제거하고 직접 만든 `Float32Array`를 `BufferAttribute`의 입력으로 연결했다.
+- `BufferAttribute`가 입력 배열을 같은 참조로 보관하고 `itemSize: 3`, `count: 100`으로 해석하는 것을 런타임에서 확인했다.
+- 이전 방식과 새 방식의 위치 숫자 300개를 비교해 불일치가 없음을 확인했다.
+- Scene 순회는 좌표 배열을 비교하지 않으며, `needsUpdate`가 올린 Attribute 버전을 Renderer의 캐시 버전과 비교해 GPU 재전송 여부를 정함을 설치된 Three.js 소스로 확인했다.
+- 변화가 없는 Attribute는 기존 GPU Buffer를 재사용하지만 `renderer.render()`마다 점을 그리는 draw call은 다시 발생함을 확인했다.
 - 빈 `main` 브랜치와 GitHub `origin` 연결 상태를 확인했다.
 - 원격 저장소에 아직 브랜치가 없어 pull할 변경이 없음을 확인했다.
 - GitHub Desktop 내장 Git으로 저장소를 관리하기로 결정했으며 Git for Windows CLI는 별도로 설치하지 않았다.
@@ -68,6 +73,17 @@
 - 이후 승인된 단계는 검증과 문서 갱신 후 Codex가 현재 브랜치에 commit까지만 하고, `origin` push는 사용자가 GitHub Desktop에서 직접 수행하도록 작업 규칙을 변경했다.
 
 ## 검증 결과
+
+### Phase 2: `Float32Array`와 `BufferAttribute` 직접 연결 (2026-09-13)
+
+- 작업 시작 전 GitHub Desktop 내장 Git으로 `fetch origin`을 실행했다. 로컬 `main`은 원격보다 2커밋 앞서 있었고 원격의 새 커밋과 미커밋 변경은 없었다.
+- 설치된 Next.js의 Server and Client Components 및 `use client` 가이드를 확인하고 기존 `ViewerCanvas` Client Component 경계 안에서 변경했다.
+- TypeScript Compiler를 `--noEmit --incremental false`로 실행해 오류 없이 통과했다.
+- 실행 중인 개발 서버의 `/viewer`가 HTTP 200으로 응답하고 Canvas 및 `DriveScope 3D` 레이블을 포함함을 확인했다.
+- Three.js 런타임 검사에서 `BufferAttribute`가 입력 `Float32Array`를 같은 참조로 사용하며 `itemSize: 3`, `count: 100`, `byteLength: 1200`임을 확인했다.
+- 첫 점 `(-2.25, 0.25, -2.25)`과 마지막 점 `(2.25, 0.25, 2.25)`을 확인했다. 이전 `setFromPoints()` 결과와 숫자 300개를 비교한 결과 불일치는 0개였다.
+- 브라우저 연결이 제공되지 않아 WebGL 픽셀과 실제 draw call의 재검사는 수행하지 못했다. 기존과 동일한 위치 데이터, TypeScript 검사와 개발 서버 응답으로 변경 범위를 검증했다.
+- `git diff --check`: 공백 오류 없음.
 
 ### Phase 2: `Float32Array` 좌표 구조 (2026-09-13)
 
@@ -144,7 +160,7 @@
 - 현재 작업 브랜치는 `main`이다. 앞으로 별도 작업 브랜치를 만들지 않고 `main`에서만 작업한다.
 - `feat/phase-1-three-scene`의 `c612206`까지 `main`에 포함되어 있으며 별도 커밋은 남아 있지 않다. 현재는 같은 이름의 로컬 브랜치와 원격 브랜치 참조가 모두 남아 있다.
 - 병합 직후 `main`의 파일이 기존 Phase 1 브랜치와 동일함을 확인했다. 애플리케이션 코드는 변경하지 않았으며 직전 환경 복원에서 빌드와 HTTP 검증을 통과했다.
-- `Vector3` 학습 기록을 `66d88cc`로 로컬 `main`에 commit했고, 이번 `Float32Array` 항목은 `main`이 `origin/main`보다 1커밋 앞선 상태에서 시작했다. 각 단계의 `origin` push는 사용자가 GitHub Desktop에서 직접 수행한다.
+- `Vector3`와 `Float32Array` 학습 기록을 각각 `66d88cc`, `d06d105`로 로컬 `main`에 commit했다. 이번 `BufferAttribute` 항목은 `main`이 `origin/main`보다 2커밋 앞선 상태에서 시작했으며 각 단계의 `origin` push는 사용자가 GitHub Desktop에서 직접 수행한다.
 - Phase 1 코드와 공유 문서는 `feat/phase-1-three-scene`의 `6048ba1`에 commit하고 `origin`에 push했다.
 - `AGENTS.md`, `CLAUDE.md`, `docs/`는 Git에서 추적해 다른 컴퓨터에서도 같은 작업 기준을 사용한다.
 - 루트 HTML의 한국어 언어 태그는 올바른 BCP 47 코드인 `ko`를 사용한다.
@@ -153,9 +169,9 @@
 
 ## 다음 구현 진입 조건
 
-1. 사용자가 포인트 `i`의 `x`, `y`, `z`가 `Float32Array`의 어느 슬롯에 놓이는지 설명한다.
-2. 사용자가 한 점의 좌표 데이터 갱신과 전체 `Points`를 다시 그리는 과정이 어떻게 다른지 설명한다.
-3. 다음 항목인 `Float32Array`와 `BufferAttribute`의 직접 연결 범위를 설명하고 사용자 승인을 받는다.
+1. 사용자가 `BufferAttribute`의 `itemSize: 3`과 `count: 100`이 무엇을 뜻하는지 설명한다.
+2. 사용자가 Attribute 배열 변경, `needsUpdate`, 버전 비교, GPU Buffer 재사용과 draw call의 관계를 설명한다.
+3. 다음 항목인 포인트 10,000개 확장 범위를 설명하고 사용자 승인을 받는다.
 
 ## 추천 커밋 메시지
 

@@ -2,13 +2,13 @@
 
 import { useEffect, useRef } from "react";
 import {
+  BufferAttribute,
   BufferGeometry,
   GridHelper,
   PerspectiveCamera,
   Points,
   PointsMaterial,
   Scene,
-  Vector3,
   WebGLRenderer,
 } from "three";
 import styles from "./viewer-canvas.module.css";
@@ -31,18 +31,25 @@ export default function ViewerCanvas() {
 
     scene.add(grid);
 
-    const pointPositions: Vector3[] = [];
+    const pointPositions = new Float32Array(100 * 3);
 
     // 격자 위에 10행 × 10열의 가상 좌표를 배치한다.
     for (let row = 0; row < 10; row += 1) {
       for (let column = 0; column < 10; column += 1) {
-        pointPositions.push(
-          new Vector3((column - 4.5) * 0.5, 0.25, (row - 4.5) * 0.5),
-        );
+        const pointIndex = row * 10 + column;
+        const offset = pointIndex * 3;
+
+        pointPositions[offset] = (column - 4.5) * 0.5;
+        pointPositions[offset + 1] = 0.25;
+        pointPositions[offset + 2] = (row - 4.5) * 0.5;
       }
     }
 
-    const pointsGeometry = new BufferGeometry().setFromPoints(pointPositions);
+    const pointsGeometry = new BufferGeometry();
+    pointsGeometry.setAttribute(
+      "position",
+      new BufferAttribute(pointPositions, 3),
+    );
     const pointsMaterial = new PointsMaterial({ color: 0xffc857, size: 0.1 });
     const points = new Points(pointsGeometry, pointsMaterial);
 

@@ -4,9 +4,11 @@
 
 Next.js App Router와 TypeScript가 동작하며 Three.js는 설치되어 있다. `/viewer` 아래에 React가 소유하는 Canvas와 작은 Client Component 경계를 만들고, 컴포넌트가 마운트될 때 Scene, PerspectiveCamera, WebGLRenderer와 `GridHelper(10, 10)`를 생성한다. 창 크기가 바뀌면 Canvas의 CSS 크기를 다시 읽어 Camera의 종횡비와 투영 행렬, Renderer의 drawing buffer를 갱신한다. `requestAnimationFrame` 콜백은 Scene을 렌더링한 뒤 다음 프레임을 하나씩 다시 예약한다. 컴포넌트 해제 시 최신 animation frame과 resize 리스너를 먼저 취소하고 Grid의 Geometry와 Material, Scene과 Renderer를 정리한다.
 
-Phase 2의 첫 단계로 같은 effect에서 `Vector3` 좌표 100개를 생성한다. XZ 방향으로 간격 0.5인 10×10 배열을 원점 중심에 놓고 높이는 `y = 0.25`로 고정한다. `BufferGeometry.setFromPoints()`로 위치를 연결하고 `PointsMaterial`과 하나의 `Points`로 표시한다. 좌표와 Geometry는 마운트할 때 생성하고 기존 렌더 루프에서 재사용한다. cleanup에서는 예약과 이벤트를 차단한 뒤 포인트의 Geometry와 Material도 각각 `dispose()`한다.
+Phase 2에서는 같은 effect에서 포인트 100개의 좌표를 숫자 300개인 `Float32Array`에 생성한다. XZ 방향으로 간격 0.5인 10×10 배열을 원점 중심에 놓고 높이는 `y = 0.25`로 고정한다. `BufferAttribute(pointPositions, 3)`가 연속된 숫자 세 개를 한 점의 `x`, `y`, `z`로 해석하고, 이를 `BufferGeometry`의 `position` 속성으로 직접 연결한다. `PointsMaterial`과 하나의 `Points`로 표시하며 좌표 Buffer와 Geometry는 마운트할 때 생성하고 기존 렌더 루프에서 재사용한다. cleanup에서는 예약과 이벤트를 차단한 뒤 포인트의 Geometry와 Material도 각각 `dispose()`한다.
 
-현재 Three.js의 `setFromPoints()`는 각 `Vector3`의 `x`, `y`, `z`를 중간 JavaScript 배열에 복사한 뒤 `Float32BufferAttribute`와 그 내부의 `Float32Array`를 만든다. Geometry는 원본 `Vector3` 객체를 참조하지 않으므로 생성 뒤 원본 좌표를 바꿔도 Geometry의 위치는 자동으로 바뀌지 않는다. 포인트 100개를 마운트할 때 한 번 만드는 현재 장면에서는 이 비용이 작지만, 큰 포인트클라우드를 프레임마다 처리하면 객체 생성과 복사가 할당량과 GC 부담을 늘릴 수 있다.
+이전 `Vector3[]`와 `setFromPoints()` 경로는 좌표를 중간 JavaScript 배열과 새 `Float32Array`로 복사했다. 현재 `BufferAttribute`는 직접 만든 `Float32Array`를 같은 참조로 보관하므로 이 변환 단계를 거치지 않는다.
+
+Scene 순회는 Attribute 배열 전체를 비교하거나 GPU Buffer를 읽어 변경 여부를 찾지 않는다. 애플리케이션이 Attribute의 `needsUpdate`를 `true`로 설정하면 `version`이 증가하고, Renderer가 캐시한 이전 버전보다 클 때만 CPU 배열을 GPU Buffer에 다시 전송한다. 현재 좌표는 생성 뒤 바뀌지 않아 GPU Buffer를 재사용하지만, `renderer.render()`가 실행될 때는 기존 Buffer를 사용한 draw call이 다시 발생한다.
 
 이 문서에서 **계획**으로 표시한 내용은 설계 방향일 뿐 아직 구현된 기능이 아니다.
 

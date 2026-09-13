@@ -10,7 +10,7 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과, 예상 주행 경로를 �
 
 목표는 특정 사고 위험 장면에서 센서 인식, 객체 인식, Planning 반응, 차량 제어 사이의 시간 관계를 빠르게 파악하는 것이다. Rerun 전체를 복제하거나 새로운 렌더링 엔진을 만드는 것은 목표가 아니다.
 
-현재는 Next.js App Router, TypeScript, Three.js 기반 프로젝트 초기화와 실행 검증을 마쳤다. `/viewer`에 React가 소유하는 Canvas와 Three.js의 Scene, PerspectiveCamera, WebGLRenderer, GridHelper를 만들고 창 크기 변경과 `requestAnimationFrame` 렌더 루프를 연결했다. Phase 2의 첫 단계로 격자 위에 가상 포인트 100개를 표시한다. 가상 데이터로 구조를 학습하고 검증한 뒤 nuScenes mini를 연결한다.
+현재는 Next.js App Router, TypeScript, Three.js 기반 프로젝트 초기화와 실행 검증을 마쳤다. `/viewer`에 React가 소유하는 Canvas와 Three.js의 Scene, PerspectiveCamera, WebGLRenderer, GridHelper를 만들고 창 크기 변경과 `requestAnimationFrame` 렌더 루프를 연결했다. Phase 2에서는 격자 위의 가상 포인트 100개를 `Float32Array`와 `BufferAttribute`로 직접 연결했다. 가상 데이터로 구조를 학습하고 검증한 뒤 nuScenes mini를 연결한다.
 
 ## 핵심 분석 질문
 
