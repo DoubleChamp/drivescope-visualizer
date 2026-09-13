@@ -17,7 +17,7 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 - **Phase 0 — 완료:** 개발 도구 준비, Next.js 초기화, Three.js 설치, 실행 검증과 로컬 프로젝트 문서 구성을 마쳤다.
 - Git 작업은 현재 GitHub Desktop의 내장 Git으로 충분하다. 별도의 Git for Windows 설치와 시스템 PATH 등록은 필요해질 때 진행할 수 있다.
 - **Phase 1 — 완료:** `feat/phase-1-three-scene` 브랜치에서 Client Component 경계, React가 소유하는 Canvas, Three.js Scene, PerspectiveCamera, WebGLRenderer, GridHelper, 창 resize 처리, `requestAnimationFrame` 렌더 루프와 전체 cleanup을 구현하고 검증했다.
-- **Phase 2 — 진행 중:** 가상 포인트 100개의 구성 원리를 확인하고 `Vector3` 객체 배열이 `Float32BufferAttribute`로 변환되는 구조와 한계를 살펴봤다. 이 원리를 확인한 뒤 직접 `Float32Array`를 구성한다.
+- **Phase 2 — 진행 중:** 가상 포인트 100개의 구성과 `Vector3` 객체 배열의 한계를 이해하고, `Float32Array`의 고정 길이와 좌표 인덱싱을 확인했다. 이 원리를 확인한 뒤 배열을 `BufferAttribute`에 직접 연결한다.
 
 ---
 
@@ -63,11 +63,11 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 
 ## Phase 2: 포인트클라우드 기초
 
-상태: **진행 중 — `Vector3` 객체 배열 구조·한계 확인, 원리 이해 확인 대기**
+상태: **진행 중 — `Float32Array` 구조 확인, 원리 이해 확인 대기**
 
 1. [x] 가상 위치 데이터로 포인트 100개를 렌더링한다.
 2. [x] 객체별 `Vector3` 배열 방식의 구조와 한계를 확인한다.
-3. 연속 메모리 형태인 `Float32Array`를 학습한다.
+3. [x] 연속 메모리 형태인 `Float32Array`를 학습한다.
 4. `BufferGeometry`와 `BufferAttribute`로 위치 데이터를 연결한다.
 5. 같은 구조를 포인트 10,000개로 확장한다.
 6. `PointsMaterial`의 포인트 크기와 색상을 조정한다.

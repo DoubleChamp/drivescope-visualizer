@@ -4,10 +4,10 @@
 
 ## 현재 위치
 
-- 현재 Phase: Phase 2 — 두 번째 항목 완료, 원리 이해 확인 대기
-- 현재 작업: `Vector3` 객체 100개가 `setFromPoints()`에서 `Float32BufferAttribute`로 변환되는 구조와 대규모·반복 처리에서의 한계를 확인했다.
-- 다음 한 단계: 사용자가 객체 배열과 최종 위치 Buffer의 관계를 설명한 뒤 직접 `Float32Array`를 구성하는 항목으로 넘어간다.
-- 아직 구현하지 않은 것: 직접 작성하는 `Float32Array`·`BufferAttribute` 연결, 포인트 10,000개, FPS 표시와 Phase 3 이후 기능
+- 현재 Phase: Phase 2 — 세 번째 항목 완료, 원리 이해 확인 대기
+- 현재 작업: `Float32Array`의 고정 길이, 요소 크기와 포인트별 `x`, `y`, `z` 인덱싱을 런타임에서 확인했다.
+- 다음 한 단계: 사용자가 연속 좌표 배열의 인덱싱을 설명한 뒤 `Float32Array`를 `BufferAttribute`에 직접 연결한다.
+- 아직 구현하지 않은 것: 직접 작성한 `Float32Array`와 `BufferAttribute` 연결, 포인트 10,000개, FPS 표시와 Phase 3 이후 기능
 
 ## 완료한 작업
 
@@ -21,6 +21,10 @@
 - 설치된 Three.js 소스에서 `setFromPoints()`가 `Vector3[]`의 좌표를 중간 JavaScript 배열에 모은 뒤 새 `Float32Array` 기반 `Float32BufferAttribute`로 복사하는 흐름을 확인했다.
 - 런타임 검사에서 100개 좌표가 `itemSize` 3, `count` 100, 숫자 300개인 위치 Attribute가 되며 원본 `Vector3` 수정은 변환된 Attribute에 자동 반영되지 않음을 확인했다.
 - 현재처럼 100개를 마운트 시 한 번 만드는 비용은 작지만, 큰 포인트클라우드를 Frame마다 객체 배열로 만들면 객체 할당과 변환 복사가 늘어나는 한계를 확인했다.
+- 사용자가 원본 `Vector3`와 변환된 Geometry의 위치 데이터가 별개인 이유와, 큰 객체 배열에서 추가 할당과 반복 변환이 부담이 될 수 있음을 설명했다.
+- 한 점의 위치 변경은 Geometry 전체 재생성을 요구하지 않으며, 기존 위치 배열의 세 요소와 GPU Buffer의 해당 범위만 갱신할 수 있음을 설치된 Three.js 소스로 확인했다.
+- rAF의 `render()`는 모든 점을 다시 그리지만 기존 좌표를 JavaScript에서 다시 계산하는 과정은 아니며, 현재 Geometry와 GPU Buffer를 재사용함을 확인했다.
+- `Float32Array(300)`에 포인트 100개의 좌표를 연속 배치하고, 점 `i`가 `i * 3`부터 세 슬롯을 사용함을 런타임에서 확인했다.
 - 빈 `main` 브랜치와 GitHub `origin` 연결 상태를 확인했다.
 - 원격 저장소에 아직 브랜치가 없어 pull할 변경이 없음을 확인했다.
 - GitHub Desktop 내장 Git으로 저장소를 관리하기로 결정했으며 Git for Windows CLI는 별도로 설치하지 않았다.
@@ -64,6 +68,16 @@
 - 이후 승인된 단계는 검증과 문서 갱신 후 Codex가 현재 브랜치에 commit까지만 하고, `origin` push는 사용자가 GitHub Desktop에서 직접 수행하도록 작업 규칙을 변경했다.
 
 ## 검증 결과
+
+### Phase 2: `Float32Array` 좌표 구조 (2026-09-13)
+
+- 작업 시작 시 `main`은 직전 문서 커밋으로 `origin/main`보다 1커밋 앞서 있었고 미커밋 변경은 없었다.
+- Node 런타임에서 `Float32Array(100 * 3)`의 길이 300, 요소당 4바이트, 전체 좌표 데이터 1,200바이트를 확인했다.
+- 37번 포인트의 좌표가 111, 112, 113번 슬롯에 놓이며 해당 세 슬롯만 변경했을 때 인접 포인트가 바뀌지 않음을 확인했다.
+- 설치된 Three.js `0.185.1` 소스에서 한 점의 세 요소만 수정하고 `addUpdateRange()`로 GPU 부분 갱신 범위를 지정할 수 있음을 확인했다.
+- 현재 rAF는 `renderer.render()`만 호출하며 `setFromPoints()`나 Geometry 생성은 반복하지 않음을 애플리케이션 코드에서 확인했다.
+- 애플리케이션 코드는 변경하지 않았다. 이번 항목은 연속 좌표 배열의 구조를 런타임으로 확인하고 문서화하는 범위다.
+- `git diff --check`: 공백 오류 없음. 문서 외 애플리케이션 파일 변경 없음.
 
 ### Phase 2: `Vector3` 객체 배열 구조와 한계 (2026-09-13)
 
@@ -130,7 +144,7 @@
 - 현재 작업 브랜치는 `main`이다. 앞으로 별도 작업 브랜치를 만들지 않고 `main`에서만 작업한다.
 - `feat/phase-1-three-scene`의 `c612206`까지 `main`에 포함되어 있으며 별도 커밋은 남아 있지 않다. 현재는 같은 이름의 로컬 브랜치와 원격 브랜치 참조가 모두 남아 있다.
 - 병합 직후 `main`의 파일이 기존 Phase 1 브랜치와 동일함을 확인했다. 애플리케이션 코드는 변경하지 않았으며 직전 환경 복원에서 빌드와 HTTP 검증을 통과했다.
-- 이번 단계 시작 시 로컬 `main`과 원격 `main`은 `bbd7d4d`로 일치했다. 이번 단계의 commit도 `origin` push는 사용자가 GitHub Desktop에서 직접 수행한다.
+- `Vector3` 학습 기록을 `66d88cc`로 로컬 `main`에 commit했고, 이번 `Float32Array` 항목은 `main`이 `origin/main`보다 1커밋 앞선 상태에서 시작했다. 각 단계의 `origin` push는 사용자가 GitHub Desktop에서 직접 수행한다.
 - Phase 1 코드와 공유 문서는 `feat/phase-1-three-scene`의 `6048ba1`에 commit하고 `origin`에 push했다.
 - `AGENTS.md`, `CLAUDE.md`, `docs/`는 Git에서 추적해 다른 컴퓨터에서도 같은 작업 기준을 사용한다.
 - 루트 HTML의 한국어 언어 태그는 올바른 BCP 47 코드인 `ko`를 사용한다.
@@ -139,9 +153,9 @@
 
 ## 다음 구현 진입 조건
 
-1. 사용자가 `Vector3[]`와 최종 `Float32BufferAttribute`가 별도 데이터인 이유를 설명한다.
-2. 사용자가 원본 `Vector3` 수정이 화면에 자동 반영되지 않는 이유와 큰 포인트클라우드에서 객체 배열이 불리한 점을 설명한다.
-3. 다음 항목인 직접 구성하는 `Float32Array`와 `BufferAttribute`의 범위를 설명하고 사용자 승인을 받는다.
+1. 사용자가 포인트 `i`의 `x`, `y`, `z`가 `Float32Array`의 어느 슬롯에 놓이는지 설명한다.
+2. 사용자가 한 점의 좌표 데이터 갱신과 전체 `Points`를 다시 그리는 과정이 어떻게 다른지 설명한다.
+3. 다음 항목인 `Float32Array`와 `BufferAttribute`의 직접 연결 범위를 설명하고 사용자 승인을 받는다.
 
 ## 추천 커밋 메시지
 
