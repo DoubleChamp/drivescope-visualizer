@@ -1,16 +1,20 @@
 # DriveScope 진행 상황
 
-마지막 갱신: 2026-09-13
+마지막 갱신: 2026-09-14
 
 ## 현재 위치
 
-- 현재 Phase: Phase 2 — 네 번째 항목 구현, 원리 이해 확인 대기
-- 현재 작업: `Float32Array(300)`에 만든 포인트 100개의 좌표를 `BufferAttribute`로 `BufferGeometry.position`에 직접 연결했다.
-- 다음 한 단계: 사용자가 Attribute의 `itemSize`, `count`, `version`과 draw call의 관계를 설명한 뒤 같은 구조를 포인트 10,000개로 확장한다.
-- 아직 구현하지 않은 것: 포인트 10,000개, `PointsMaterial` 조정, 포인트 수·FPS 표시와 Phase 3 이후 기능
+- 현재 Phase: Phase 2 — 다섯 번째 항목 구현, 원리 이해 확인 대기
+- 현재 작업: 100×100 포인트의 좌표를 `Float32Array(30_000)` 하나와 `BufferAttribute` 하나에 담아 총 10,000개로 확장했다.
+- 다음 한 단계: 사용자가 포인트 수, 좌표 슬롯 수, 메모리 크기와 하나의 `Points`가 그리는 구조를 설명한 뒤 `PointsMaterial`의 포인트 크기와 색상을 조정한다.
+- 아직 구현하지 않은 것: `PointsMaterial` 조정, 포인트 수·FPS 표시와 Phase 3 이후 기능
 
 ## 완료한 작업
 
+- 같은 `Float32Array`·`BufferAttribute`·`Points` 구조를 유지한 채 가상 포인트를 10×10에서 100×100, 총 10,000개로 확장했다.
+- 숫자 30,000개가 120,000바이트를 차지하고 `itemSize: 3`인 Attribute의 `count`가 10,000임을 Three.js 런타임에서 확인했다.
+- 점 사이 간격을 0.1로 두고 XZ 좌표를 `-4.95~4.95`에 배치해 `GridHelper(10, 10)` 범위 안을 채웠다.
+- Viewer의 정적 안내 문구도 실제 포인트 수인 10,000개로 맞췄다.
 - 사용자가 rAF 취소는 다음 콜백의 실행을 막으며, 살아 있는 콜백의 closure가 객체를 참조하면 GC가 회수하지 못함을 설명했다.
 - 사용자가 `scene.clear()`의 자식 연결 해제와 `dispose()`의 그래픽 리소스 정리를 구분했다. Grid는 Geometry와 Material 모두 정리하며 현재 Renderer는 WebGL 기반임을 보완 설명했다.
 - 기존 `ViewerCanvas` effect에서 `Vector3` 100개를 만들고 `BufferGeometry.setFromPoints()`, `PointsMaterial`, `Points`로 한 묶음의 점을 추가했다.
@@ -73,6 +77,16 @@
 - 이후 승인된 단계는 검증과 문서 갱신 후 Codex가 현재 브랜치에 commit까지만 하고, `origin` push는 사용자가 GitHub Desktop에서 직접 수행하도록 작업 규칙을 변경했다.
 
 ## 검증 결과
+
+### Phase 2: 가상 포인트 10,000개 확장 (2026-09-14)
+
+- 작업 시작 전 GitHub Desktop 내장 Git으로 `fetch origin`을 실행했고 로컬 `main`과 `origin/main`이 일치하며 worktree가 깨끗함을 확인했다.
+- TypeScript Compiler를 `--noEmit --incremental false`로 실행해 오류 없이 통과했다.
+- 실행 중인 개발 서버의 `/viewer`가 HTTP 200으로 응답하고 Canvas, `DriveScope 3D` 레이블 및 가상 포인트 10,000개 안내를 포함함을 확인했다.
+- Three.js 런타임 검사에서 위치 배열의 `length: 30000`, `byteLength: 120000`, Attribute의 `itemSize: 3`, `count: 10000`과 입력 배열을 같은 참조로 보관함을 확인했다.
+- 첫 점은 Float32 정밀도에서 약 `(-4.95, 0.25, -4.95)`, 마지막 점은 약 `(4.95, 0.25, 4.95)`였다.
+- 브라우저 연결이 제공되지 않아 이번 변경의 WebGL 픽셀과 실제 draw call은 자동 검사하지 못했다. 좌표 구조 런타임 검사, TypeScript 검사와 개발 서버 응답으로 구현 범위를 검증했다.
+- `git diff --check`: 공백 오류 없음.
 
 ### Phase 2: `Float32Array`와 `BufferAttribute` 직접 연결 (2026-09-13)
 
@@ -160,7 +174,7 @@
 - 현재 작업 브랜치는 `main`이다. 앞으로 별도 작업 브랜치를 만들지 않고 `main`에서만 작업한다.
 - `feat/phase-1-three-scene`의 `c612206`까지 `main`에 포함되어 있으며 별도 커밋은 남아 있지 않다. 현재는 같은 이름의 로컬 브랜치와 원격 브랜치 참조가 모두 남아 있다.
 - 병합 직후 `main`의 파일이 기존 Phase 1 브랜치와 동일함을 확인했다. 애플리케이션 코드는 변경하지 않았으며 직전 환경 복원에서 빌드와 HTTP 검증을 통과했다.
-- `Vector3`와 `Float32Array` 학습 기록을 각각 `66d88cc`, `d06d105`로 로컬 `main`에 commit했다. 이번 `BufferAttribute` 항목은 `main`이 `origin/main`보다 2커밋 앞선 상태에서 시작했으며 각 단계의 `origin` push는 사용자가 GitHub Desktop에서 직접 수행한다.
+- `Vector3`, `Float32Array`, `BufferAttribute` 단계의 로컬 커밋은 사용자가 `origin/main`에 push했다. 포인트 10,000개 확장은 동기화된 `main`에서 시작했으며 이 단계의 push도 사용자가 GitHub Desktop에서 직접 수행한다.
 - Phase 1 코드와 공유 문서는 `feat/phase-1-three-scene`의 `6048ba1`에 commit하고 `origin`에 push했다.
 - `AGENTS.md`, `CLAUDE.md`, `docs/`는 Git에서 추적해 다른 컴퓨터에서도 같은 작업 기준을 사용한다.
 - 루트 HTML의 한국어 언어 태그는 올바른 BCP 47 코드인 `ko`를 사용한다.
@@ -169,9 +183,9 @@
 
 ## 다음 구현 진입 조건
 
-1. 사용자가 `BufferAttribute`의 `itemSize: 3`과 `count: 100`이 무엇을 뜻하는지 설명한다.
-2. 사용자가 Attribute 배열 변경, `needsUpdate`, 버전 비교, GPU Buffer 재사용과 draw call의 관계를 설명한다.
-3. 다음 항목인 포인트 10,000개 확장 범위를 설명하고 사용자 승인을 받는다.
+1. 사용자가 100×100 포인트가 숫자 30,000개와 120,000바이트가 되는 이유를 설명한다.
+2. 사용자가 포인트 10,000개를 점 객체 10,000개가 아니라 하나의 `BufferAttribute`와 `Points`로 표현하는 구조를 설명한다.
+3. 다음 항목인 `PointsMaterial`의 크기와 색상 조정 범위를 설명하고 사용자 승인을 받는다.
 
 ## 추천 커밋 메시지
 

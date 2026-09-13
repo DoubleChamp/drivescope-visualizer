@@ -31,17 +31,21 @@ export default function ViewerCanvas() {
 
     scene.add(grid);
 
-    const pointPositions = new Float32Array(100 * 3);
+    const pointsPerSide = 100;
+    const pointCount = pointsPerSide * pointsPerSide;
+    const pointSpacing = 0.1;
+    const halfExtent = ((pointsPerSide - 1) * pointSpacing) / 2;
+    const pointPositions = new Float32Array(pointCount * 3);
 
-    // 격자 위에 10행 × 10열의 가상 좌표를 배치한다.
-    for (let row = 0; row < 10; row += 1) {
-      for (let column = 0; column < 10; column += 1) {
-        const pointIndex = row * 10 + column;
+    // 격자 위에 100행 × 100열의 가상 좌표를 배치한다.
+    for (let row = 0; row < pointsPerSide; row += 1) {
+      for (let column = 0; column < pointsPerSide; column += 1) {
+        const pointIndex = row * pointsPerSide + column;
         const offset = pointIndex * 3;
 
-        pointPositions[offset] = (column - 4.5) * 0.5;
+        pointPositions[offset] = column * pointSpacing - halfExtent;
         pointPositions[offset + 1] = 0.25;
-        pointPositions[offset + 2] = (row - 4.5) * 0.5;
+        pointPositions[offset + 2] = row * pointSpacing - halfExtent;
       }
     }
 
