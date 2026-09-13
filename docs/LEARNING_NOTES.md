@@ -39,6 +39,7 @@
 - `app/viewer/page.tsx`는 제목, 설명과 링크를 담당하는 Server Component로 유지했다.
 - `ViewerCanvas`만 `'use client'` 경계로 분리해 앞으로 브라우저 API와 React 생명주기를 다룰 자리를 만들었다.
 - `useRef<HTMLCanvasElement>(null)`은 React가 만든 Canvas DOM 객체를 저장할 참조이며, 컴포넌트 render 중에는 `null`일 수 있다.
+- Canvas의 `id`는 DOM을 찾기 위한 식별자일 뿐 React의 재사용 여부를 정하지 않는다. React는 같은 컴포넌트 타입과 렌더 트리 위치, `key`를 기준으로 기존 Canvas를 재사용하며 컴포넌트가 해제되거나 `key`가 바뀌면 같은 `id`여도 새 Canvas를 만든다.
 - CSS Module은 Canvas에만 적용되는 고유한 클래스 이름을 생성한다. 이번 단계에서는 크기와 배경만 지정했다.
 
 ### Client 경계의 크기
@@ -147,17 +148,25 @@
 - 사용자가 Scene과 자식의 연결 해제, 그래픽 리소스의 명시적 정리를 구분했다.
 - 설명을 보완한 부분: 현재는 WebGLRenderer를 사용하며 `grid.dispose()`는 Geometry뿐 아니라 Material도 정리한다.
 
-### 포인트 100개: 이해 확인 대기
+### 포인트 100개 구성 이해 확인 (2026-09-13)
 
-포인트 표시는 구현했지만 다음 원리는 아직 사용자의 설명을 확인하지 않았다. 학습 완료로 표시하지 않는다.
+- 사용자가 `Vector3` 좌표, Geometry, Material과 Scene에 추가하는 렌더링 객체의 역할을 구분해 설명했다.
+- `Points` 하나가 Geometry의 좌표 100개와 하나의 Material을 묶어 점 100개를 그린다. `Points`는 Mesh와 비슷하게 Geometry와 Material을 결합하는 `Object3D`지만 점 렌더링 전용 객체다.
+- 현재 `PointsMaterial`은 모든 점의 색과 크기를 정한다. Texture는 선택적인 `map`을 지정할 때만 사용한다.
+- Geometry와 Material은 effect setup에서 한 번 만들고 렌더 루프에서 재사용하며, 컴포넌트가 해제될 때 각각 `dispose()`한다.
 
-1. 좌표를 담는 Geometry와 색·크기를 정하는 Material을 `Points`가 어떻게 함께 사용하는가?
-2. 점 100개를 나타내는 좌표 배열과 Scene에 추가한 `Points` 객체의 수는 어떻게 다른가?
-3. 포인트 Geometry와 Material은 언제 생성하고 언제 정리하는가?
+### `Vector3` 객체 배열 구조와 한계 확인 (2026-09-13)
+
+- 현재 좌표 데이터는 배열 1개와 `x`, `y`, `z` 프로퍼티를 가진 `Vector3` 객체 100개로 시작한다.
+- 설치된 Three.js `0.185.1`의 `setFromPoints()`는 각 객체의 세 좌표를 중간 JavaScript 배열에 복사하고, 다시 `Float32Array` 기반의 `Float32BufferAttribute`로 변환한다.
+- 런타임 검사에서 포인트 100개가 `itemSize: 3`, `count: 100`, 숫자 300개인 `Float32BufferAttribute`로 만들어짐을 확인했다.
+- Geometry는 입력한 `Vector3[]`를 계속 참조하지 않는다. 변환 뒤 원본 `Vector3`의 값을 바꿔도 Geometry의 위치 값은 함께 바뀌지 않는 것을 런타임에서 확인했다.
+- 포인트 100개를 마운트할 때 한 번 만드는 현재 코드에서는 객체 생성과 복사 비용이 작고 `Vector3`의 계산 API가 편리하다. 포인트 수가 크거나 매 Frame 반복하면 점마다 객체를 만들고 다시 연속 배열로 복사하는 과정이 할당량과 GC 부담을 늘릴 수 있다.
+- 다음 단계로 넘어가기 전에 객체 배열과 최종 위치 Buffer가 별개라는 점, 원본 객체 수정이 화면에 자동 반영되지 않는 이유를 사용자가 설명할 수 있는지 확인한다.
 
 ## 다음 단계에서 배울 내용
 
 아래 항목은 Phase 2의 예정 내용이며 아직 학습 완료를 확인하지 않았다.
 
-- 가상 포인트 100개의 좌표와 `Points` 구성 원리
-- `Vector3` 객체 배열의 구조와 한계, 이후 `Float32Array`와 `BufferAttribute` 연결
+- 직접 구성한 `Float32Array`와 `BufferAttribute`의 연결
+- 객체 배열과 연속 메모리 데이터 구조의 차이

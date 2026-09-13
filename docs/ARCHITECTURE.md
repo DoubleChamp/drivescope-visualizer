@@ -6,6 +6,8 @@ Next.js App Router와 TypeScript가 동작하며 Three.js는 설치되어 있다
 
 Phase 2의 첫 단계로 같은 effect에서 `Vector3` 좌표 100개를 생성한다. XZ 방향으로 간격 0.5인 10×10 배열을 원점 중심에 놓고 높이는 `y = 0.25`로 고정한다. `BufferGeometry.setFromPoints()`로 위치를 연결하고 `PointsMaterial`과 하나의 `Points`로 표시한다. 좌표와 Geometry는 마운트할 때 생성하고 기존 렌더 루프에서 재사용한다. cleanup에서는 예약과 이벤트를 차단한 뒤 포인트의 Geometry와 Material도 각각 `dispose()`한다.
 
+현재 Three.js의 `setFromPoints()`는 각 `Vector3`의 `x`, `y`, `z`를 중간 JavaScript 배열에 복사한 뒤 `Float32BufferAttribute`와 그 내부의 `Float32Array`를 만든다. Geometry는 원본 `Vector3` 객체를 참조하지 않으므로 생성 뒤 원본 좌표를 바꿔도 Geometry의 위치는 자동으로 바뀌지 않는다. 포인트 100개를 마운트할 때 한 번 만드는 현재 장면에서는 이 비용이 작지만, 큰 포인트클라우드를 프레임마다 처리하면 객체 생성과 복사가 할당량과 GC 부담을 늘릴 수 있다.
+
 이 문서에서 **계획**으로 표시한 내용은 설계 방향일 뿐 아직 구현된 기능이 아니다.
 
 ## 계층별 책임

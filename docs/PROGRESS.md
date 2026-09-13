@@ -1,12 +1,12 @@
 # DriveScope 진행 상황
 
-마지막 갱신: 2026-09-08
+마지막 갱신: 2026-09-13
 
 ## 현재 위치
 
-- 현재 Phase: Phase 2 — 첫 항목 구현, 원리 이해 확인 대기
-- 현재 작업: 사용자 승인 후 기존 Grid 위에 가상 포인트 100개와 해당 Geometry·Material cleanup을 구현했다.
-- 다음 한 단계: 사용자가 좌표 배열, Geometry, Material과 Points의 역할을 설명한 뒤 `Vector3` 객체 배열의 구조와 한계를 살펴본다.
+- 현재 Phase: Phase 2 — 두 번째 항목 완료, 원리 이해 확인 대기
+- 현재 작업: `Vector3` 객체 100개가 `setFromPoints()`에서 `Float32BufferAttribute`로 변환되는 구조와 대규모·반복 처리에서의 한계를 확인했다.
+- 다음 한 단계: 사용자가 객체 배열과 최종 위치 Buffer의 관계를 설명한 뒤 직접 `Float32Array`를 구성하는 항목으로 넘어간다.
 - 아직 구현하지 않은 것: 직접 작성하는 `Float32Array`·`BufferAttribute` 연결, 포인트 10,000개, FPS 표시와 Phase 3 이후 기능
 
 ## 완료한 작업
@@ -16,7 +16,11 @@
 - 기존 `ViewerCanvas` effect에서 `Vector3` 100개를 만들고 `BufferGeometry.setFromPoints()`, `PointsMaterial`, `Points`로 한 묶음의 점을 추가했다.
 - 점은 10×10 배열, XZ 간격 0.5, 높이 0.25로 배치하고 노란색과 크기 0.1을 적용했다. 좌표와 리소스는 매 프레임 새로 생성하지 않는다.
 - 기존 cleanup에 포인트 Geometry와 Material의 `dispose()`를 추가하고 Viewer의 안내 문구를 현재 화면에 맞췄다.
-- 포인트 단계의 원리 이해는 아직 확인하지 않았으므로 학습 완료로 기록하지 않았다.
+- 사용자가 좌표, Geometry, Material과 하나의 `Points`가 맡는 역할 및 Geometry·Material의 정리 시점을 설명해 포인트 100개 구성의 이해를 확인했다.
+- Canvas의 동일성은 `id`가 아니라 React가 비교하는 컴포넌트 타입, 렌더 트리 위치와 `key`에 따라 결정됨을 확인했다.
+- 설치된 Three.js 소스에서 `setFromPoints()`가 `Vector3[]`의 좌표를 중간 JavaScript 배열에 모은 뒤 새 `Float32Array` 기반 `Float32BufferAttribute`로 복사하는 흐름을 확인했다.
+- 런타임 검사에서 100개 좌표가 `itemSize` 3, `count` 100, 숫자 300개인 위치 Attribute가 되며 원본 `Vector3` 수정은 변환된 Attribute에 자동 반영되지 않음을 확인했다.
+- 현재처럼 100개를 마운트 시 한 번 만드는 비용은 작지만, 큰 포인트클라우드를 Frame마다 객체 배열로 만들면 객체 할당과 변환 복사가 늘어나는 한계를 확인했다.
 - 빈 `main` 브랜치와 GitHub `origin` 연결 상태를 확인했다.
 - 원격 저장소에 아직 브랜치가 없어 pull할 변경이 없음을 확인했다.
 - GitHub Desktop 내장 Git으로 저장소를 관리하기로 결정했으며 Git for Windows CLI는 별도로 설치하지 않았다.
@@ -60,6 +64,15 @@
 - 이후 승인된 단계는 검증과 문서 갱신 후 Codex가 현재 브랜치에 commit까지만 하고, `origin` push는 사용자가 GitHub Desktop에서 직접 수행하도록 작업 규칙을 변경했다.
 
 ## 검증 결과
+
+### Phase 2: `Vector3` 객체 배열 구조와 한계 (2026-09-13)
+
+- 작업 시작 전 GitHub Desktop에서 `Fetch origin`을 실행했다. 로컬 `main`과 `origin/main`은 `bbd7d4d`로 일치했고 미커밋 변경이 없었다.
+- 설치된 Three.js `0.185.1`의 `Vector3`, `BufferGeometry.setFromPoints()`와 `Float32BufferAttribute` 구현을 직접 읽어 객체 좌표가 연속 메모리 배열로 복사되는 흐름을 확인했다.
+- Node 런타임 검사 결과: `Vector3` 100개 → `Float32BufferAttribute`, 내부 배열 `Float32Array`, `itemSize: 3`, `count: 100`, 배열 길이 300.
+- 변환 뒤 첫 번째 `Vector3.x`를 수정해도 Attribute의 첫 번째 값이 바뀌지 않아 원본 객체와 최종 위치 Buffer가 별도 데이터임을 확인했다.
+- 애플리케이션 코드는 변경하지 않았다. 이 항목은 현재 데이터 구조를 분석하고 문서에 결과를 기록하는 범위다.
+- `git diff --check`: 공백 오류 없음. 문서 외 애플리케이션 파일 변경 없음.
 
 ### Phase 2: 가상 포인트 100개 (2026-09-08)
 
@@ -115,9 +128,9 @@
 
 - 첫 커밋 `8d7c3f2 초기 환경 구성`은 이 프로젝트의 시작 커밋이다.
 - 현재 작업 브랜치는 `main`이다. 앞으로 별도 작업 브랜치를 만들지 않고 `main`에서만 작업한다.
-- 사용자 요청에 따라 `feat/phase-1-three-scene`의 `c612206`까지 로컬 `main`에 fast-forward 병합하고, 병합된 로컬 작업 브랜치를 `git branch -d`로 삭제했다.
+- `feat/phase-1-three-scene`의 `c612206`까지 `main`에 포함되어 있으며 별도 커밋은 남아 있지 않다. 현재는 같은 이름의 로컬 브랜치와 원격 브랜치 참조가 모두 남아 있다.
 - 병합 직후 `main`의 파일이 기존 Phase 1 브랜치와 동일함을 확인했다. 애플리케이션 코드는 변경하지 않았으며 직전 환경 복원에서 빌드와 HTTP 검증을 통과했다.
-- 이번 단계 시작 시 로컬 `main`과 원격 `main`은 `9cfb85a`로 일치했다. 이번 단계의 commit도 `origin` push는 사용자가 GitHub Desktop에서 직접 수행한다.
+- 이번 단계 시작 시 로컬 `main`과 원격 `main`은 `bbd7d4d`로 일치했다. 이번 단계의 commit도 `origin` push는 사용자가 GitHub Desktop에서 직접 수행한다.
 - Phase 1 코드와 공유 문서는 `feat/phase-1-three-scene`의 `6048ba1`에 commit하고 `origin`에 push했다.
 - `AGENTS.md`, `CLAUDE.md`, `docs/`는 Git에서 추적해 다른 컴퓨터에서도 같은 작업 기준을 사용한다.
 - 루트 HTML의 한국어 언어 태그는 올바른 BCP 47 코드인 `ko`를 사용한다.
@@ -126,9 +139,9 @@
 
 ## 다음 구현 진입 조건
 
-1. `Vector3` 좌표 배열, `BufferGeometry`, `PointsMaterial`과 `Points`의 서로 다른 역할을 사용자가 설명한다.
-2. 포인트 Geometry와 Material을 만들 때와 정리할 때가 언제인지 확인한다.
-3. 다음 항목인 `Vector3` 객체 배열의 구조와 한계를 살펴보는 범위를 설명하고 사용자 승인을 받는다.
+1. 사용자가 `Vector3[]`와 최종 `Float32BufferAttribute`가 별도 데이터인 이유를 설명한다.
+2. 사용자가 원본 `Vector3` 수정이 화면에 자동 반영되지 않는 이유와 큰 포인트클라우드에서 객체 배열이 불리한 점을 설명한다.
+3. 다음 항목인 직접 구성하는 `Float32Array`와 `BufferAttribute`의 범위를 설명하고 사용자 승인을 받는다.
 
 ## 추천 커밋 메시지
 
