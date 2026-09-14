@@ -17,7 +17,8 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 - **Phase 0 — 완료:** 개발 도구 준비, Next.js 초기화, Three.js 설치, 실행 검증과 로컬 프로젝트 문서 구성을 마쳤다.
 - Git 작업은 현재 GitHub Desktop의 내장 Git으로 충분하다. 별도의 Git for Windows 설치와 시스템 PATH 등록은 필요해질 때 진행할 수 있다.
 - **Phase 1 — 완료:** `feat/phase-1-three-scene` 브랜치에서 Client Component 경계, React가 소유하는 Canvas, Three.js Scene, PerspectiveCamera, WebGLRenderer, GridHelper, 창 resize 처리, `requestAnimationFrame` 렌더 루프와 전체 cleanup을 구현하고 검증했다.
-- **Phase 2 — 진행 중:** 가상 포인트 10,000개의 Buffer 구조와 Material 조정을 마치고 포인트 수와 rAF 기반 FPS를 화면에 표시했다. 실제 화면의 FPS 갱신을 확인하고 측정과 React·Three.js 책임 분리를 설명하면 Phase 2를 마친다.
+- **Phase 2 — 완료:** 가상 포인트 10,000개의 Buffer 구조와 Material 조정, 포인트 수와 rAF 기반 FPS 표시를 구현했다. 포인트 100개와 10,000개를 각각 측정하고 FPS 계산과 React·Three.js 책임 분리를 확인했다.
+- **다음 단계:** Phase 3의 첫 항목으로 모든 Frame에 공통으로 사용할 timestamp 단위와 기준 시점을 결정한다.
 
 ---
 
@@ -63,7 +64,7 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 
 ## Phase 2: 포인트클라우드 기초
 
-상태: **진행 중 — 포인트 수·FPS 표시 구현 완료, 원리 이해 확인 대기**
+상태: **완료**
 
 1. [x] 가상 위치 데이터로 포인트 100개를 렌더링한다.
 2. [x] 객체별 `Vector3` 배열 방식의 구조와 한계를 확인한다.
@@ -78,7 +79,7 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 - 포인트 100개와 10,000개가 각각 정상적으로 보인다.
 - 사용자가 JavaScript 위치 배열이 `BufferAttribute`를 거쳐 GPU에 전달되는 과정을 설명할 수 있다.
 - 사용자가 객체 배열과 `Float32Array` 기반 데이터 구조의 차이를 설명할 수 있다.
-- 포인트 수 증가에 따른 FPS 변화를 직접 확인할 수 있다.
+- 포인트 100개와 10,000개에서 FPS를 직접 측정하고 결과를 해석할 수 있다.
 
 ## Phase 3: Frame 데이터 모델
 
