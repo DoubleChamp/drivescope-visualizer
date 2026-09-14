@@ -191,19 +191,31 @@
 - 이전 `setFromPoints()` 결과와 새 배열의 숫자 300개를 비교해 불일치가 0개임을 확인했다. 포인트의 화면 배치 데이터는 이전과 같다.
 - Geometry와 Material의 소유권은 바뀌지 않았으므로 기존 effect cleanup에서 계속 각각 `dispose()`한다.
 
-### 포인트 10,000개 확장 (2026-09-14, 이해 확인 대기)
+### 포인트 10,000개 확장 (2026-09-14)
 
 - 한 변의 점 수를 100으로 두면 `100 * 100`으로 총 10,000개가 된다. 각 점이 `x`, `y`, `z` 세 값을 사용하므로 위치 배열은 `Float32Array(30_000)`이다.
 - `Float32` 한 요소는 4바이트이므로 위치 데이터 자체는 `30,000 * 4 = 120,000`바이트다. 런타임에서 `length: 30000`, `byteLength: 120000`을 확인했다.
 - `pointIndex = row * 100 + column`으로 2차원 행과 열을 하나의 점 인덱스로 바꾸고, `offset = pointIndex * 3`부터 세 좌표를 저장한다.
 - 점 간격 0.1과 중심 보정값 4.95를 사용해 첫 점과 마지막 점을 XZ 방향의 약 `-4.95`와 `4.95`에 놓았다. 100×100 점이 크기 10인 Grid 범위 안을 채운다.
 - 점 수가 100배가 되어도 점 객체 10,000개를 만들지 않는다. 위치 배열 하나, `BufferAttribute` 하나, `BufferGeometry` 하나와 `Points` 하나를 계속 사용하며 Attribute의 `count`만 10,000이 된다.
-- 이번 단계에서는 점 개수 변화만 분리해 확인하기 위해 `PointsMaterial`의 색상과 크기 0.1을 유지했다. 재질 조정은 다음 항목이다.
+- 점 개수 변화만 분리해 확인한 단계에서는 `PointsMaterial`의 색상과 크기 0.1을 유지했고, 다음 항목에서 Material만 별도로 조정했다.
+- 사용자가 10,000개 점마다 `x`, `y`, `z` 세 값이 있고 `Float32` 한 요소가 4바이트이므로 `10,000 * 3 * 4 = 120,000`바이트가 됨을 설명했다. `Float32`는 값이 소수인지와 관계없이 항상 4바이트다.
+- 사용자가 하나의 `Points`가 모든 좌표를 가진 Geometry를 참조하므로 점마다 `Points` 객체를 만들 필요가 없음을 설명했다. 정확히는 `Points → BufferGeometry → position BufferAttribute → Float32Array` 순서로 참조한다.
+- `halfExtent`는 점 개수가 아니라 첫 점과 마지막 점 사이의 간격 수인 `pointsPerSide - 1`에 간격을 곱한 뒤 절반으로 나눈 값이다. 100개 점은 99개 간격이라 전체 폭이 9.9이고, 그 절반인 4.95를 빼면 양 끝이 `-4.95`와 `+4.95`가 된다.
+- 한 축의 점 개수가 짝수면 원점에 점이 놓이지 않고 가운데 두 점 `-0.05`, `+0.05` 사이가 원점이 된다. 원점에도 점을 놓으며 대칭을 유지하려면 101개처럼 홀수를 사용한다.
+
+### `PointsMaterial` 색상과 크기 조정 (2026-09-14, 이해 확인 대기)
+
+- `Points` 하나가 Geometry와 Material 하나를 참조하므로 Material의 `color`와 `size`는 10,000개 점 모두에 공통으로 적용된다. 점마다 다른 색이 필요할 때는 별도의 color Attribute와 `vertexColors` 설정이 필요하다.
+- 색상을 기존 노란색 `0xffc857`에서 어두운 배경과 회색 Grid에 구분되는 밝은 청록색 `0x38bdf8`로 바꿨다. `PointsMaterial`은 조명 계산 없이 이 색상을 출력한다.
+- 크기를 기존 `0.1`에서 `0.06`으로 줄였다. 이는 0.1 간격의 조밀한 점이 면처럼 뭉치지 않게 하기 위한 시작값이며 실제 화면 픽셀 크기는 카메라 거리와 drawing buffer 크기의 영향도 받는다.
+- `sizeAttenuation`은 기본값이 `true`다. PerspectiveCamera에서는 vertex shader가 카메라 공간의 깊이를 사용하므로 가까운 점이 더 크게, 먼 점이 더 작게 보인다.
+- Material만 바꿨으므로 위치 배열과 `BufferAttribute`를 다시 만들지 않았고 점 개수도 10,000개로 유지된다. cleanup에서는 같은 `pointsMaterial.dispose()`가 GPU 관련 Material 리소스 정리를 맡는다.
+- 런타임 검사에서 `color: 0x38bdf8`, `size: 0.06`, `sizeAttenuation: true`, `vertexColors: false`, `map: null`을 확인했다.
 
 ## 다음 단계에서 배울 내용
 
 아래 항목은 Phase 2의 예정 내용이며 아직 학습 완료를 확인하지 않았다.
 
-- 포인트 10,000개의 데이터 크기와 하나의 `Points`로 그리는 구조 설명
-- `PointsMaterial`의 포인트 크기와 색상 조정
+- `PointsMaterial`의 공유 색상, 크기와 거리 감쇠 원리 설명
 - 포인트 수와 FPS 표시

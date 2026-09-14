@@ -54,7 +54,7 @@ export default function ViewerCanvas() {
       "position",
       new BufferAttribute(pointPositions, 3),
     );
-    const pointsMaterial = new PointsMaterial({ color: 0xffc857, size: 0.1 });
+    const pointsMaterial = new PointsMaterial({ color: 0x38bdf8, size: 0.06 });
     const points = new Points(pointsGeometry, pointsMaterial);
 
     scene.add(points);
