@@ -10,6 +10,8 @@ Phase 2에서는 같은 effect에서 포인트 10,000개의 좌표를 숫자 30,
 
 Scene 순회는 Attribute 배열 전체를 비교하거나 GPU Buffer를 읽어 변경 여부를 찾지 않는다. 애플리케이션이 Attribute의 `needsUpdate`를 `true`로 설정하면 `version`이 증가하고, Renderer가 캐시한 이전 버전보다 클 때만 CPU 배열을 GPU Buffer에 다시 전송한다. 현재 좌표는 생성 뒤 바뀌지 않아 GPU Buffer를 재사용하지만, `renderer.render()`가 실행될 때는 기존 Buffer를 사용한 draw call이 다시 발생한다.
 
+포인트 생성과 화면 표시는 모듈 상수 `POINT_COUNT`를 함께 사용해 실제 Buffer 크기와 표시값이 어긋나지 않게 한다. Three.js rAF 콜백은 지역 변수에 렌더 횟수와 샘플 시작 시각을 보관하고, rAF timestamp의 실제 경과 시간이 1초 이상일 때 `렌더 횟수 × 1000 / 경과 밀리초`로 평균 FPS를 계산한다. React는 포인트 수와 FPS 통계 UI 및 약 1초마다 바뀌는 표시용 FPS state만 소유한다. 이 state로 Client Component가 다시 렌더링돼도 Canvas의 타입과 트리 위치가 같고 effect 의존성 배열이 비어 있어 기존 Canvas, Renderer와 rAF는 유지된다. 별도 interval이 없으므로 컴포넌트 해제 시 기존 `cancelAnimationFrame()`이 렌더링과 측정을 함께 중지한다. 이 값은 rAF 콜백에서 수행한 `renderer.render()` 호출 빈도이며 GPU 명령 하나의 실행 시간을 직접 측정하는 값은 아니다.
+
 이 문서에서 **계획**으로 표시한 내용은 설계 방향일 뿐 아직 구현된 기능이 아니다.
 
 ## 계층별 책임

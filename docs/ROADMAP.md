@@ -17,7 +17,7 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 - **Phase 0 — 완료:** 개발 도구 준비, Next.js 초기화, Three.js 설치, 실행 검증과 로컬 프로젝트 문서 구성을 마쳤다.
 - Git 작업은 현재 GitHub Desktop의 내장 Git으로 충분하다. 별도의 Git for Windows 설치와 시스템 PATH 등록은 필요해질 때 진행할 수 있다.
 - **Phase 1 — 완료:** `feat/phase-1-three-scene` 브랜치에서 Client Component 경계, React가 소유하는 Canvas, Three.js Scene, PerspectiveCamera, WebGLRenderer, GridHelper, 창 resize 처리, `requestAnimationFrame` 렌더 루프와 전체 cleanup을 구현하고 검증했다.
-- **Phase 2 — 진행 중:** 가상 포인트 10,000개의 좌표를 `Float32Array`와 `BufferAttribute`로 연결하고 공유 `PointsMaterial`의 색상과 크기를 조정했다. 재질 속성의 역할을 확인한 뒤 화면에 포인트 수와 FPS를 표시한다.
+- **Phase 2 — 진행 중:** 가상 포인트 10,000개의 Buffer 구조와 Material 조정을 마치고 포인트 수와 rAF 기반 FPS를 화면에 표시했다. 실제 화면의 FPS 갱신을 확인하고 측정과 React·Three.js 책임 분리를 설명하면 Phase 2를 마친다.
 
 ---
 
@@ -63,7 +63,7 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 
 ## Phase 2: 포인트클라우드 기초
 
-상태: **진행 중 — `PointsMaterial` 조정 완료, 원리 이해 확인 대기**
+상태: **진행 중 — 포인트 수·FPS 표시 구현 완료, 원리 이해 확인 대기**
 
 1. [x] 가상 위치 데이터로 포인트 100개를 렌더링한다.
 2. [x] 객체별 `Vector3` 배열 방식의 구조와 한계를 확인한다.
@@ -71,7 +71,7 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 4. [x] `BufferGeometry`와 `BufferAttribute`로 위치 데이터를 연결한다.
 5. [x] 같은 구조를 포인트 10,000개로 확장한다.
 6. [x] `PointsMaterial`의 포인트 크기와 색상을 조정한다.
-7. 화면에 포인트 수와 FPS를 표시한다.
+7. [x] 화면에 포인트 수와 FPS를 표시한다.
 
 완료 조건:
 

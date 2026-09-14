@@ -204,7 +204,7 @@
 - `halfExtent`는 점 개수가 아니라 첫 점과 마지막 점 사이의 간격 수인 `pointsPerSide - 1`에 간격을 곱한 뒤 절반으로 나눈 값이다. 100개 점은 99개 간격이라 전체 폭이 9.9이고, 그 절반인 4.95를 빼면 양 끝이 `-4.95`와 `+4.95`가 된다.
 - 한 축의 점 개수가 짝수면 원점에 점이 놓이지 않고 가운데 두 점 `-0.05`, `+0.05` 사이가 원점이 된다. 원점에도 점을 놓으며 대칭을 유지하려면 101개처럼 홀수를 사용한다.
 
-### `PointsMaterial` 색상과 크기 조정 (2026-09-14, 이해 확인 대기)
+### `PointsMaterial` 색상과 크기 조정 (2026-09-14)
 
 - `Points` 하나가 Geometry와 Material 하나를 참조하므로 Material의 `color`와 `size`는 10,000개 점 모두에 공통으로 적용된다. 점마다 다른 색이 필요할 때는 별도의 color Attribute와 `vertexColors` 설정이 필요하다.
 - 색상을 기존 노란색 `0xffc857`에서 어두운 배경과 회색 Grid에 구분되는 밝은 청록색 `0x38bdf8`로 바꿨다. `PointsMaterial`은 조명 계산 없이 이 색상을 출력한다.
@@ -212,10 +212,25 @@
 - `sizeAttenuation`은 기본값이 `true`다. PerspectiveCamera에서는 vertex shader가 카메라 공간의 깊이를 사용하므로 가까운 점이 더 크게, 먼 점이 더 작게 보인다.
 - Material만 바꿨으므로 위치 배열과 `BufferAttribute`를 다시 만들지 않았고 점 개수도 10,000개로 유지된다. cleanup에서는 같은 `pointsMaterial.dispose()`가 GPU 관련 Material 리소스 정리를 맡는다.
 - 런타임 검사에서 `color: 0x38bdf8`, `size: 0.06`, `sizeAttenuation: true`, `vertexColors: false`, `map: null`을 확인했다.
+- 사용자가 `Points`는 Mesh와 비슷하게 Geometry와 Material을 묶는 하나의 렌더링 객체지만 삼각형이 아닌 점 primitive를 사용한다는 원리를 설명했다.
+- 위치는 vertex shader 실행마다 Buffer에서 다르게 읽는 Attribute이고 현재 Material의 색상과 크기는 모든 실행이 공유하는 uniform이므로 10,000개 점에 함께 적용된다.
+- 사용자가 거리 감쇠는 WebGL draw call 뒤 GPU vertex shader가 각 점의 카메라 공간 깊이로 `gl_PointSize`를 계산하는 과정이며, 점 사이 값을 섞는 보간이 아님을 설명했다.
+
+### 포인트 수와 FPS 표시 (2026-09-14, 이해 확인 대기)
+
+- 포인트 배열 생성과 UI가 모듈 상수 `POINT_COUNT`를 함께 사용한다. 포인트 수를 바꿀 때 Buffer 크기와 화면 숫자를 따로 수정해 어긋나는 일을 막는다.
+- 기존 rAF 콜백이 `renderer.render()`를 호출한 횟수를 세고, rAF timestamp로 측정한 실제 경과 시간이 1초 이상이면 `렌더 횟수 * 1,000 / 경과 밀리초`를 반올림해 FPS를 구한다. 정확히 1초에 콜백이 오지 않아도 실제 경과 시간으로 보정한다.
+- 첫 rAF timestamp는 샘플 시작 시각으로만 저장한다. 이후 60Hz timestamp 60개가 1초에 걸쳐 들어오면 60 FPS, 30Hz timestamp 30개면 30 FPS가 되는 것을 계산 검사로 확인했다.
+- 렌더 횟수와 시간은 effect의 지역 변수라 매 프레임 React 렌더링을 일으키지 않는다. 계산된 표시값만 약 1초에 한 번 `framesPerSecond` state에 넣는다.
+- FPS state가 바뀌면 Client Component의 통계 글자는 다시 렌더링되지만 Canvas는 같은 타입과 트리 위치에 있어 재사용된다. effect의 의존성 배열도 비어 있으므로 Scene, Renderer와 rAF를 다시 만들지 않는다.
+- 별도 `setInterval`을 사용하지 않아 timer cleanup은 추가되지 않는다. 컴포넌트 해제 시 기존 최신 rAF 요청을 취소하면 다음 렌더와 측정도 함께 멈춘다.
+- 표시되는 값은 rAF에서 실행한 렌더 호출 빈도의 1초 평균이다. 모니터 주사율, 브라우저 스케줄링, 비활성 탭, CPU와 GPU 부하의 영향을 받으며 GPU 명령 하나의 실행 시간을 직접 나타내지는 않는다.
+- 통계 UI는 첫 샘플 전 `측정 중`을 보여 주고 이후 숫자를 표시한다. 매초 스크린리더 알림이 반복되지 않도록 live region은 사용하지 않는다.
 
 ## 다음 단계에서 배울 내용
 
 아래 항목은 Phase 2의 예정 내용이며 아직 학습 완료를 확인하지 않았다.
 
-- `PointsMaterial`의 공유 색상, 크기와 거리 감쇠 원리 설명
-- 포인트 수와 FPS 표시
+- rAF 렌더 횟수 기반 FPS 계산과 React 표시 state의 갱신 주기 설명
+- 실제 화면의 FPS 숫자 갱신 확인과 포인트 100개·10,000개 비교
+- Phase 3에서 사용할 timestamp 단위와 기준 시점 결정

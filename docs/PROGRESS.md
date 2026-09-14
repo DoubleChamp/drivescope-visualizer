@@ -4,13 +4,19 @@
 
 ## 현재 위치
 
-- 현재 Phase: Phase 2 — 여섯 번째 항목 구현, 원리 이해 확인 대기
-- 현재 작업: 10,000개 점이 공유하는 `PointsMaterial`의 색상을 `0x38bdf8`, 크기를 `0.06`으로 조정했다.
-- 다음 한 단계: 사용자가 공유 Material의 `color`, `size`, `sizeAttenuation` 역할과 위치 Buffer가 그대로인 이유를 설명한 뒤 화면에 포인트 수와 FPS를 표시한다.
-- 아직 구현하지 않은 것: 포인트 수·FPS 표시와 Phase 3 이후 기능
+- 현재 Phase: Phase 2 — 일곱 번째 항목 구현, 원리 이해 확인 대기
+- 현재 작업: 같은 상수에서 가져온 포인트 수 10,000과 rAF 렌더 횟수의 1초 평균 FPS를 Canvas 위 통계 UI에 표시한다.
+- 다음 한 단계: 사용자가 실제 화면의 `측정 중 → 숫자 FPS` 전환을 확인하고 FPS 계산, 1초 단위 React state 갱신과 Three.js rAF 유지 원리를 설명하면 포인트 수에 따른 FPS를 비교해 Phase 2 완료 여부를 확인한다.
+- 아직 구현하지 않은 것: Phase 3 이후 Frame 데이터 모델, 재생·동기화와 분석 기능
 
 ## 완료한 작업
 
+- 포인트 생성과 통계 표시가 같은 `POINT_COUNT` 상수를 사용하게 해 실제 포인트 수와 UI 값이 함께 바뀌도록 했다.
+- 기존 rAF에서 렌더 횟수를 세고 실제 경과 시간이 1초 이상일 때 평균 FPS를 계산하며, React의 표시용 state는 약 1초에 한 번만 갱신한다.
+- Canvas 위에 포인트 수 10,000과 FPS를 보여 주는 통계 UI를 추가했다. 첫 샘플 전에는 `측정 중`을 표시하고 숫자는 고정 폭으로 정렬한다.
+- FPS 측정용 timer를 따로 만들지 않아 기존 `cancelAnimationFrame()`이 렌더 루프와 측정을 함께 중지한다.
+- 사용자가 `Points`는 Mesh와 비슷한 하나의 렌더링 객체지만 점 primitive를 사용하고, 위치는 점마다 다른 Attribute이며 Material의 색상과 크기는 한 draw call의 모든 점이 공유함을 설명했다.
+- 사용자가 `sizeAttenuation`은 GPU vertex shader가 각 점의 카메라 공간 깊이를 사용해 먼 점의 크기를 줄이는 계산이며 점 사이의 보간이 아님을 설명했다.
 - 하나의 `PointsMaterial`에서 모든 점에 공통 적용되는 색상을 밝은 청록색 `0x38bdf8`, 크기를 `0.06`으로 조정했다.
 - Material 변경은 위치 `Float32Array`, `BufferAttribute`, Geometry와 `Points` 개수를 바꾸지 않으며 기존 cleanup의 `pointsMaterial.dispose()`를 그대로 사용한다.
 - 설치된 Three.js에서 `sizeAttenuation`의 기본값이 `true`이고 PerspectiveCamera의 깊이에 따라 점의 화면 크기를 조절함을 소스와 런타임으로 확인했다.
@@ -82,6 +88,16 @@
 - 이후 승인된 단계는 검증과 문서 갱신 후 Codex가 현재 브랜치에 commit까지만 하고, `origin` push는 사용자가 GitHub Desktop에서 직접 수행하도록 작업 규칙을 변경했다.
 
 ## 검증 결과
+
+### Phase 2: 포인트 수와 FPS 표시 (2026-09-14)
+
+- 작업 시작 전 GitHub Desktop 내장 Git으로 `fetch origin`을 실행했다. 원격의 새 커밋은 없었고 로컬 `main`은 직전 두 커밋으로 `origin/main`보다 2커밋 앞선 깨끗한 상태였다.
+- 설치된 Next.js의 Server and Client Components 및 `use client` 가이드를 확인하고 기존 `ViewerCanvas` Client Component 안에서 표시용 state를 추가했다.
+- TypeScript Compiler를 `--noEmit --incremental false`로 실행해 오류 없이 통과했다.
+- 실행 중인 개발 서버의 `/viewer`가 HTTP 200으로 응답하고 Canvas, `뷰어 통계`, 포인트 수 `10,000`, `FPS`와 초기값 `측정 중`을 포함함을 확인했다.
+- 1초 구간의 rAF timestamp를 모사한 계산 검사에서 60Hz 입력은 60 FPS, 30Hz 입력은 30 FPS가 됨을 확인했다.
+- 브라우저 연결이 제공되지 않아 약 1초 뒤 실제 FPS 숫자로 바뀌는 동작, 통계 오버레이 배치와 Canvas 재사용은 자동 검사하지 못했다. 계산 검사, TypeScript 검사와 초기 HTML 응답으로 확인 가능한 범위를 검증했다.
+- `git diff --check`: 공백 오류 없음.
 
 ### Phase 2: `PointsMaterial` 색상과 크기 조정 (2026-09-14)
 
@@ -189,7 +205,7 @@
 - 현재 작업 브랜치는 `main`이다. 앞으로 별도 작업 브랜치를 만들지 않고 `main`에서만 작업한다.
 - `feat/phase-1-three-scene`의 `c612206`까지 `main`에 포함되어 있으며 별도 커밋은 남아 있지 않다. 현재는 같은 이름의 로컬 브랜치와 원격 브랜치 참조가 모두 남아 있다.
 - 병합 직후 `main`의 파일이 기존 Phase 1 브랜치와 동일함을 확인했다. 애플리케이션 코드는 변경하지 않았으며 직전 환경 복원에서 빌드와 HTTP 검증을 통과했다.
-- `Vector3`, `Float32Array`, `BufferAttribute` 단계의 로컬 커밋은 사용자가 `origin/main`에 push했다. 포인트 10,000개 확장 커밋 `1e5f357`은 아직 로컬에 있으며, 이번 Material 단계까지 사용자가 GitHub Desktop에서 직접 push한다.
+- `Vector3`, `Float32Array`, `BufferAttribute` 단계의 로컬 커밋은 사용자가 `origin/main`에 push했다. 포인트 10,000개 확장 `1e5f357`과 Material 조정 `1c3a44a`는 아직 로컬에 있으며, 이번 통계 표시 단계까지 사용자가 GitHub Desktop에서 직접 push한다.
 - Phase 1 코드와 공유 문서는 `feat/phase-1-three-scene`의 `6048ba1`에 commit하고 `origin`에 push했다.
 - `AGENTS.md`, `CLAUDE.md`, `docs/`는 Git에서 추적해 다른 컴퓨터에서도 같은 작업 기준을 사용한다.
 - 루트 HTML의 한국어 언어 태그는 올바른 BCP 47 코드인 `ko`를 사용한다.
@@ -198,9 +214,10 @@
 
 ## 다음 구현 진입 조건
 
-1. 사용자가 `PointsMaterial.color`와 `size`가 하나의 Material을 공유하는 모든 점에 적용되는 이유를 설명한다.
-2. 사용자가 `sizeAttenuation`이 PerspectiveCamera에서 점의 화면 크기에 어떤 영향을 주는지 설명한다.
-3. 다음 항목인 포인트 수와 FPS 표시 범위를 설명하고 사용자 승인을 받는다.
+1. 사용자가 `렌더 횟수 × 1000 / 실제 경과 밀리초`가 평균 FPS가 되는 이유를 설명한다.
+2. 사용자가 매 프레임 React state를 바꾸지 않고 약 1초마다 표시값만 갱신하는 이유와 Canvas가 재사용되는 원리를 설명한다.
+3. 사용자가 실제 화면의 `측정 중 → 숫자 FPS` 전환을 확인하고, 포인트 100개와 10,000개의 FPS 비교 결과를 확인한다.
+4. Phase 2 완료를 확인한 뒤 Phase 3 첫 항목인 timestamp 단위와 기준 시점의 범위를 설명하고 사용자 승인을 받는다.
 
 ## 추천 커밋 메시지
 

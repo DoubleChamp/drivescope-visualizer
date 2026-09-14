@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   BufferAttribute,
   BufferGeometry,
@@ -13,8 +13,14 @@ import {
 } from "three";
 import styles from "./viewer-canvas.module.css";
 
+const POINTS_PER_SIDE = 100;
+const POINT_COUNT = POINTS_PER_SIDE * POINTS_PER_SIDE;
+const POINT_SPACING = 0.1;
+const FPS_SAMPLE_INTERVAL_MS = 1_000;
+
 export default function ViewerCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [framesPerSecond, setFramesPerSecond] = useState<number | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -31,21 +37,18 @@ export default function ViewerCanvas() {
 
     scene.add(grid);
 
-    const pointsPerSide = 100;
-    const pointCount = pointsPerSide * pointsPerSide;
-    const pointSpacing = 0.1;
-    const halfExtent = ((pointsPerSide - 1) * pointSpacing) / 2;
-    const pointPositions = new Float32Array(pointCount * 3);
+    const halfExtent = ((POINTS_PER_SIDE - 1) * POINT_SPACING) / 2;
+    const pointPositions = new Float32Array(POINT_COUNT * 3);
 
     // 격자 위에 100행 × 100열의 가상 좌표를 배치한다.
-    for (let row = 0; row < pointsPerSide; row += 1) {
-      for (let column = 0; column < pointsPerSide; column += 1) {
-        const pointIndex = row * pointsPerSide + column;
+    for (let row = 0; row < POINTS_PER_SIDE; row += 1) {
+      for (let column = 0; column < POINTS_PER_SIDE; column += 1) {
+        const pointIndex = row * POINTS_PER_SIDE + column;
         const offset = pointIndex * 3;
 
-        pointPositions[offset] = column * pointSpacing - halfExtent;
+        pointPositions[offset] = column * POINT_SPACING - halfExtent;
         pointPositions[offset + 1] = 0.25;
-        pointPositions[offset + 2] = row * pointSpacing - halfExtent;
+        pointPositions[offset + 2] = row * POINT_SPACING - halfExtent;
       }
     }
 
@@ -72,8 +75,29 @@ export default function ViewerCanvas() {
       renderer.setSize(nextWidth, nextHeight, false);
     };
     let animationFrameId: number;
-    const renderFrame = () => {
+    let sampleStartedAt: number | null = null;
+    let renderedFrameCount = 0;
+    const renderFrame = (timestamp: number) => {
       renderer.render(scene, camera);
+
+      if (sampleStartedAt === null) {
+        sampleStartedAt = timestamp;
+      } else {
+        renderedFrameCount += 1;
+
+        const elapsedMilliseconds = timestamp - sampleStartedAt;
+
+        if (elapsedMilliseconds >= FPS_SAMPLE_INTERVAL_MS) {
+          const nextFramesPerSecond = Math.round(
+            (renderedFrameCount * 1_000) / elapsedMilliseconds,
+          );
+
+          setFramesPerSecond(nextFramesPerSecond);
+          renderedFrameCount = 0;
+          sampleStartedAt = timestamp;
+        }
+      }
+
       animationFrameId = window.requestAnimationFrame(renderFrame);
     };
 
@@ -93,10 +117,22 @@ export default function ViewerCanvas() {
   }, []);
 
   return (
-    <canvas
-      ref={canvasRef}
-      className={styles.canvas}
-      aria-label="DriveScope 3D 뷰어"
-    />
+    <div className={styles.viewer}>
+      <dl className={styles.metrics} aria-label="뷰어 통계">
+        <div className={styles.metric}>
+          <dt>포인트 수</dt>
+          <dd>{POINT_COUNT.toLocaleString("ko-KR")}</dd>
+        </div>
+        <div className={styles.metric}>
+          <dt>FPS</dt>
+          <dd>{framesPerSecond ?? "측정 중"}</dd>
+        </div>
+      </dl>
+      <canvas
+        ref={canvasRef}
+        className={styles.canvas}
+        aria-label="DriveScope 3D 뷰어"
+      />
+    </div>
   );
 }
