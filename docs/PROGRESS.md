@@ -5,12 +5,15 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 3 — 진행 중
-- 현재 작업: 공통 timestamp 기준과 LiDAR·Camera·Object Detection·Trajectory Frame 타입 정의를 마쳤다.
-- 다음 한 단계: Phase 3 여섯 번째 항목인 Vehicle State 타입을 정의한다.
-- 아직 구현하지 않은 것: Vehicle State 이후 타입, 가상 시나리오 데이터, 재생·동기화와 분석 기능
+- 현재 작업: 공통 timestamp 기준과 LiDAR·Camera·Object Detection·Trajectory·Vehicle State Frame 타입 정의를 마쳤다.
+- 다음 한 단계: Phase 3 일곱 번째 항목인 Event 타입을 정의한다.
+- 아직 구현하지 않은 것: Event 타입, 가상 시나리오 데이터, 재생·동기화와 분석 기능
 
 ## 완료한 작업
 
+- 실제 차량 상태의 측정 시각, 위치·방향, 속도와 가속도를 나타내는 `VehicleStateFrame`을 정의했다.
+- 급제동 사건은 Vehicle State의 boolean으로 중복 저장하지 않고 독립 Event로 분리하기로 했다.
+- Trajectory 점의 예상 시각과 같거나 가장 가까운 Vehicle State의 실제 위치를 공통 시간축에서 비교하기로 했다.
 - 한 시점에 Planning이 생성한 미래 예상 경로를 나타내는 `TrajectoryFrame`과 개별 `TrajectoryPoint`를 정의했다.
 - 각 경로 점에 생성 시점으로부터의 `offsetMs`와 예상 `position`을 두고 절대 예상 시각을 두 값의 합으로 계산하기로 했다.
 - 과거 로그 안의 Trajectory는 당시 관점의 미래 예측이며 이후 실제 Vehicle State와 구분해 비교하기로 했다.
@@ -107,6 +110,16 @@
 - 이후 승인된 단계는 검증과 문서 갱신 후 Codex가 현재 브랜치에 commit까지만 하고, `origin` push는 사용자가 GitHub Desktop에서 직접 수행하도록 작업 규칙을 변경했다.
 
 ## 검증 결과
+
+### Phase 3: Vehicle State 타입 (2026-09-15)
+
+- `VehicleStateFrame`에 실제 측정 시점 `timestampMs`, `position`, `yawRadians`, `speedMetersPerSecond`와 `accelerationMetersPerSecondSquared`를 정의했다.
+- 가속도는 진행 방향 기준의 부호 있는 값으로 두어 감속을 음수로 표현한다.
+- 급제동 여부를 상태 boolean으로 중복 저장하지 않고 다음 단계의 독립 Event로 표현하기로 했다.
+- 사용자가 사건은 Event 타입에서 관리하고, Trajectory 예상 시각과 Vehicle State 측정 시각을 공통 시간축에서 비교해야 한다고 설명했다.
+- 여기서 공통 기준은 Unix 절대 시각이 아니라 시나리오 시작 `0ms` 기준이며 예상 시각은 `TrajectoryFrame.timestampMs + TrajectoryPoint.offsetMs`임을 보완했다.
+- `pnpm.cmd exec tsc --noEmit --incremental false`: TypeScript 오류 없이 통과했다.
+- `git diff --check`: 공백 오류 없음.
 
 ### Phase 3: Trajectory 타입 (2026-09-15)
 
@@ -279,7 +292,7 @@
 
 ## 다음 구현 진입 조건
 
-1. Vehicle State 타입이 표현해야 할 실제 차량 상태와 Trajectory 예측값의 차이를 설명하고 사용자 승인을 받는다.
+1. Event 타입이 상태 Frame과 구분되는 이유와 첫 데모에 필요한 Event 종류를 설명하고 사용자 승인을 받는다.
 
 ## 추천 커밋 메시지
 

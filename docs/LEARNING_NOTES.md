@@ -282,8 +282,18 @@
 - Planning이 경로를 다시 계산하면 새 `TrajectoryFrame`이 생기므로 급제동 전후에 예상 경로가 어떻게 바뀌었는지 시간축에서 비교할 수 있다.
 - 사용자가 과거 데이터를 재생하면서도 당시 AI가 판단을 위해 예측한 미래 경로를 보존하려고 `offsetMs`와 예상 위치를 둔다고 설명했다.
 
+### Vehicle State 타입 (2026-09-15)
+
+- `VehicleStateFrame`은 실제 상태가 측정된 `timestampMs`, 차량의 `position`, `yawRadians`, `speedMetersPerSecond`와 `accelerationMetersPerSecondSquared`를 가진다.
+- 가속도는 차량 진행 방향 기준의 부호 있는 값이다. 양수는 가속, 0은 속도 유지, 음수는 감속으로 해석한다.
+- Trajectory는 과거 당시의 미래 예측이고 Vehicle State는 해당 시각에 실제로 관측된 값이므로 서로 다른 데이터다.
+- Trajectory 점의 예상 시각은 `TrajectoryFrame.timestampMs + TrajectoryPoint.offsetMs`다. 이 시각과 같거나 가장 가까운 `VehicleStateFrame.timestampMs`의 실제 위치를 비교한다.
+- 여기서 공통 시간축은 Unix epoch가 아니라 시나리오 시작을 `0ms`로 둔 상대 시간축이다.
+- 급제동 여부는 실제 속도·가속도와 성격이 다른 사건이다. 상태에 boolean으로 중복 저장하지 않고 다음 단계의 Event 타입에서 발생 시각과 함께 표현한다.
+- 사용자가 사건은 Event 타입에서 독립 관리하고 Trajectory 예상 시각과 Vehicle State 측정 시각을 공통 시간축에서 비교해야 한다고 설명했다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 3의 공통 timestamp 기준과 LiDAR·Camera·Object Detection·Trajectory Frame 타입의 구현·원리 이해 확인을 마쳤다. 다음 항목도 Phase 3에서 진행한다.
+Phase 3의 공통 timestamp 기준과 LiDAR·Camera·Object Detection·Trajectory·Vehicle State Frame 타입의 구현·원리 이해 확인을 마쳤다. 다음 항목도 Phase 3에서 진행한다.
 
-- Vehicle State 타입이 표현해야 할 실제 차량 상태와 Trajectory 예측값의 차이
+- Event 타입이 상태 Frame과 구분되는 이유와 첫 데모에 필요한 Event 종류
