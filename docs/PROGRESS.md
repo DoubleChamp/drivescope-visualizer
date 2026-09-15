@@ -5,12 +5,15 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 3 — 진행 중
-- 현재 작업: 공통 timestamp 기준과 LiDAR·Camera·Object Detection Frame 타입 정의를 마쳤다.
-- 다음 한 단계: Phase 3 다섯 번째 항목인 Trajectory 타입을 정의한다.
-- 아직 구현하지 않은 것: Trajectory 이후 타입, 가상 시나리오 데이터, 재생·동기화와 분석 기능
+- 현재 작업: 공통 timestamp 기준과 LiDAR·Camera·Object Detection·Trajectory Frame 타입 정의를 마쳤다.
+- 다음 한 단계: Phase 3 여섯 번째 항목인 Vehicle State 타입을 정의한다.
+- 아직 구현하지 않은 것: Vehicle State 이후 타입, 가상 시나리오 데이터, 재생·동기화와 분석 기능
 
 ## 완료한 작업
 
+- 한 시점에 Planning이 생성한 미래 예상 경로를 나타내는 `TrajectoryFrame`과 개별 `TrajectoryPoint`를 정의했다.
+- 각 경로 점에 생성 시점으로부터의 `offsetMs`와 예상 `position`을 두고 절대 예상 시각을 두 값의 합으로 계산하기로 했다.
+- 과거 로그 안의 Trajectory는 당시 관점의 미래 예측이며 이후 실제 Vehicle State와 구분해 비교하기로 했다.
 - 한 시점의 인식 결과를 나타내는 `ObjectDetectionFrame`과 개별 인식 객체 `ObjectDetection`을 정의했다.
 - 객체에 프레임 사이에서 유지할 `id`, 차량·보행자 분류, 신뢰도와 3D 박스 중심·크기·yaw를 포함했다.
 - 객체 배열의 인덱스가 아니라 안정적인 `id`로 같은 실제 객체를 선택하고 추적하기로 했다.
@@ -104,6 +107,15 @@
 - 이후 승인된 단계는 검증과 문서 갱신 후 Codex가 현재 브랜치에 commit까지만 하고, `origin` push는 사용자가 GitHub Desktop에서 직접 수행하도록 작업 규칙을 변경했다.
 
 ## 검증 결과
+
+### Phase 3: Trajectory 타입 (2026-09-15)
+
+- `TrajectoryPoint`에 예측 생성 시점으로부터의 `offsetMs`와 예상 3D `position`을 정의했다.
+- `TrajectoryFrame`이 Planning의 생성 시점 `timestampMs`와 순서가 있는 `TrajectoryPoint[]`를 묶도록 했다.
+- 한 점의 예상 시각은 Frame의 `timestampMs + offsetMs`로 계산하며, 동일 시각의 실제 차량 위치와는 구분한다.
+- 사용자가 현재는 과거 데이터를 재생하지만 Trajectory에는 당시 AI가 판단을 위해 예측한 미래 경로를 담는 구조라고 설명했다.
+- `pnpm.cmd exec tsc --noEmit --incremental false`: TypeScript 오류 없이 통과했다.
+- `git diff --check`: 공백 오류 없음.
 
 ### Phase 3: Object Detection 타입 (2026-09-15)
 
@@ -267,7 +279,7 @@
 
 ## 다음 구현 진입 조건
 
-1. Trajectory 타입이 표현해야 할 예측 시점과 경로 점의 최소 구조를 설명하고 사용자 승인을 받는다.
+1. Vehicle State 타입이 표현해야 할 실제 차량 상태와 Trajectory 예측값의 차이를 설명하고 사용자 승인을 받는다.
 
 ## 추천 커밋 메시지
 

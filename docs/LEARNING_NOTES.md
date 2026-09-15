@@ -272,8 +272,18 @@
 - 데이터 타입에는 Three.js Box Geometry나 Object3D를 넣지 않는다. Three.js 런타임이 숫자 데이터를 받아 렌더링 객체를 생성하고 이후 재사용·정리한다.
 - 사용자가 `ObjectDetectionFrame`은 한 Frame의 여러 객체를 묶고, 같은 실제 차량은 이전·현재 Frame에서 같은 ID를 가져야 한다고 설명했다.
 
+### Trajectory 타입 (2026-09-15)
+
+- `TrajectoryFrame.timestampMs`는 Planning이 해당 예상 경로를 생성한 시점이다.
+- `TrajectoryPoint.offsetMs`는 경로 생성 시점에서 얼마나 미래인지 나타내고, `position`은 그 미래 시점에 예상한 차량 위치다.
+- 경로 점의 예상 시각은 `TrajectoryFrame.timestampMs + TrajectoryPoint.offsetMs`로 구한다. 같은 Frame 안에서는 `offsetMs`가 작은 점부터 시간순으로 둔다.
+- 현재 시점에서 과거 로그를 재생하더라도 각 Trajectory는 당시 Planning이 바라본 미래 예측 스냅샷이다.
+- 예측 `position`은 실제 차량 위치가 아니다. 이후 같은 시각의 `VehicleState`와 비교하면 예측과 실제 움직임의 차이를 분석할 수 있다.
+- Planning이 경로를 다시 계산하면 새 `TrajectoryFrame`이 생기므로 급제동 전후에 예상 경로가 어떻게 바뀌었는지 시간축에서 비교할 수 있다.
+- 사용자가 과거 데이터를 재생하면서도 당시 AI가 판단을 위해 예측한 미래 경로를 보존하려고 `offsetMs`와 예상 위치를 둔다고 설명했다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 3의 공통 timestamp 기준과 LiDAR·Camera·Object Detection Frame 타입의 구현·원리 이해 확인을 마쳤다. 다음 항목도 Phase 3에서 진행한다.
+Phase 3의 공통 timestamp 기준과 LiDAR·Camera·Object Detection·Trajectory Frame 타입의 구현·원리 이해 확인을 마쳤다. 다음 항목도 Phase 3에서 진행한다.
 
-- Trajectory 타입이 표현해야 할 예측 시점과 경로 점의 최소 구조
+- Vehicle State 타입이 표현해야 할 실제 차량 상태와 Trajectory 예측값의 차이

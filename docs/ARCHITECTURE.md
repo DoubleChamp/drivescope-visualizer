@@ -59,6 +59,10 @@ React Three Fiber는 사용하지 않는다. Three.js 객체의 생성, 변경, 
 
 배열 인덱스는 프레임마다 객체 수와 정렬 순서가 달라질 수 있으므로 객체 정체성을 나타내지 않는다. 같은 실제 객체의 `id`는 tracker나 변환 데이터가 프레임 사이에서 유지해 객체 선택과 시간에 따른 추적에 사용한다. 데이터 타입은 숫자와 문자열만 보관하고 Three.js의 Box Geometry나 Object3D는 렌더링 시 Three.js 런타임이 생성·재사용한다.
 
+현재 `TrajectoryFrame`은 Planning이 예측 경로를 생성한 시점인 `timestampMs`와 순서가 있는 `TrajectoryPoint[]`를 보관한다. 각 점의 `offsetMs`는 생성 시점으로부터의 미래 시간 차이이고 `position`은 그 미래 시점에 예상한 차량 위치다. 따라서 한 점의 예상 시각은 `TrajectoryFrame.timestampMs + TrajectoryPoint.offsetMs`다.
+
+DriveScope가 과거 로그를 재생하는 현재 시점에서는 Trajectory 전체가 과거 데이터지만, 각 Frame은 당시 Planning이 바라본 미래 예측의 스냅샷이다. 예측 위치는 같은 시각의 실제 차량 위치가 아니며 이후 `VehicleState`와 비교할 수 있다. Planning이 다시 계산할 때마다 새 `TrajectoryFrame`이 생기므로 급제동 전후 경로 변화를 보존한다.
+
 ## 소유권과 생명주기
 
 | 대상 | 소유 계층 | 생성 시점 | 정리 시점 |

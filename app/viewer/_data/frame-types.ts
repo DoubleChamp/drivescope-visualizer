@@ -21,3 +21,13 @@ export type ObjectDetectionFrame = {
   timestampMs: number;
   objects: ObjectDetection[];
 };
+
+export type TrajectoryPoint = {
+  offsetMs: number;
+  position: [x: number, y: number, z: number];
+};
+
+export type TrajectoryFrame = {
+  timestampMs: number;
+  points: TrajectoryPoint[];
+};
