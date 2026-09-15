@@ -39,3 +39,9 @@ export type VehicleStateFrame = {
   speedMetersPerSecond: number;
   accelerationMetersPerSecondSquared: number;
 };
+
+export type ScenarioEvent = {
+  id: string;
+  timestampMs: number;
+  type: "emergency-braking";
+};

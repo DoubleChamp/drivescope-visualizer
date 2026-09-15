@@ -5,12 +5,15 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 3 — 진행 중
-- 현재 작업: 공통 timestamp 기준과 LiDAR·Camera·Object Detection·Trajectory·Vehicle State Frame 타입 정의를 마쳤다.
-- 다음 한 단계: Phase 3 일곱 번째 항목인 Event 타입을 정의한다.
-- 아직 구현하지 않은 것: Event 타입, 가상 시나리오 데이터, 재생·동기화와 분석 기능
+- 현재 작업: 공통 timestamp 기준과 LiDAR·Camera·Object Detection·Trajectory·Vehicle State Frame, Event 타입 정의를 마쳤다.
+- 다음 한 단계: Phase 3 마지막 항목인 가상 급제동 문제 장면 데이터를 만든다.
+- 아직 구현하지 않은 것: 가상 시나리오 데이터, 재생·동기화와 분석 기능
 
 ## 완료한 작업
 
+- 특정 시각에 발생한 사건을 나타내는 `ScenarioEvent`를 정의했다.
+- Event에 고유 `id`, 공통 시간축의 `timestampMs`, 현재 첫 데모에서 허용하는 `"emergency-braking"` 타입을 포함했다.
+- Event를 Vehicle State와 분리된 스트림으로 관리해 사건 목록과 타임라인 마커를 독립적으로 조회하기로 했다.
 - 실제 차량 상태의 측정 시각, 위치·방향, 속도와 가속도를 나타내는 `VehicleStateFrame`을 정의했다.
 - 급제동 사건은 Vehicle State의 boolean으로 중복 저장하지 않고 독립 Event로 분리하기로 했다.
 - Trajectory 점의 예상 시각과 같거나 가장 가까운 Vehicle State의 실제 위치를 공통 시간축에서 비교하기로 했다.
@@ -110,6 +113,14 @@
 - 이후 승인된 단계는 검증과 문서 갱신 후 Codex가 현재 브랜치에 commit까지만 하고, `origin` push는 사용자가 GitHub Desktop에서 직접 수행하도록 작업 규칙을 변경했다.
 
 ## 검증 결과
+
+### Phase 3: Event 타입 (2026-09-15)
+
+- `ScenarioEvent`에 사건을 구별하는 `id`, 발생 시각 `timestampMs`, 사건 종류 `type`을 정의했다.
+- 현재 `type`은 첫 데모에 필요한 `"emergency-braking"`만 허용하고 실제로 다른 사건이 필요할 때 문자열 유니온을 확장하기로 했다.
+- 사용자가 Event를 독립 스트림으로 관리하면 상태 배열을 하나씩 검색하거나 중복 여부를 검사하지 않고 사건 목록과 타임라인 마커를 독립적으로 처리하기 쉽다고 설명했다.
+- `pnpm.cmd exec tsc --noEmit --incremental false`: TypeScript 오류 없이 통과했다.
+- `git diff --check`: 공백 오류 없음.
 
 ### Phase 3: Vehicle State 타입 (2026-09-15)
 
@@ -292,7 +303,7 @@
 
 ## 다음 구현 진입 조건
 
-1. Event 타입이 상태 Frame과 구분되는 이유와 첫 데모에 필요한 Event 종류를 설명하고 사용자 승인을 받는다.
+1. 0초부터 급제동 이후까지의 가상 문제 장면에 필요한 시간 구간과 각 데이터 스트림의 최소 샘플을 설계하고 사용자 승인을 받는다.
 
 ## 추천 커밋 메시지
 

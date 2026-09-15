@@ -292,8 +292,17 @@
 - 급제동 여부는 실제 속도·가속도와 성격이 다른 사건이다. 상태에 boolean으로 중복 저장하지 않고 다음 단계의 Event 타입에서 발생 시각과 함께 표현한다.
 - 사용자가 사건은 Event 타입에서 독립 관리하고 Trajectory 예상 시각과 Vehicle State 측정 시각을 공통 시간축에서 비교해야 한다고 설명했다.
 
+### Event 타입 (2026-09-15)
+
+- `ScenarioEvent`는 사건을 구별하는 `id`, 공통 시간축의 발생 시각 `timestampMs`, 사건 종류 `type`을 가진다.
+- 현재 `type`은 첫 데모에 필요한 `"emergency-braking"`만 허용한다. 다른 사건이 실제로 필요해질 때 문자열 유니온에 종류를 추가한다.
+- Event는 일정한 주기로 쌓이는 상태 Frame이 아니라 특정 순간에 발생하는 이산 데이터다.
+- Vehicle State마다 사건 boolean을 반복 저장하지 않고 독립 Event 스트림으로 관리하면 전체 상태 배열을 하나씩 검색하거나 중복 여부를 확인하지 않고도 사건 목록과 타임라인 마커를 처리할 수 있다.
+- 사용자가 독립 Event 스트림은 사건 조회와 중복 관리가 쉽고 마커도 독립적으로 확인하기 좋다고 설명했다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 3의 공통 timestamp 기준과 LiDAR·Camera·Object Detection·Trajectory·Vehicle State Frame 타입의 구현·원리 이해 확인을 마쳤다. 다음 항목도 Phase 3에서 진행한다.
+Phase 3의 공통 timestamp 기준과 LiDAR·Camera·Object Detection·Trajectory·Vehicle State Frame, Event 타입의 구현·원리 이해 확인을 마쳤다. 다음 항목도 Phase 3에서 진행한다.
 
-- Event 타입이 상태 Frame과 구분되는 이유와 첫 데모에 필요한 Event 종류
+- 여러 Frame과 Event 배열을 하나의 타입 안전한 가상 시나리오로 묶는 방법
+- 0초부터 급제동 이후까지 각 데이터 스트림의 timestamp와 내용을 구성하는 방법

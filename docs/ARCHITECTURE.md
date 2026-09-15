@@ -67,6 +67,10 @@ DriveScope가 과거 로그를 재생하는 현재 시점에서는 Trajectory �
 
 Trajectory의 예상 위치와 실제 위치를 비교할 때는 `TrajectoryFrame.timestampMs + TrajectoryPoint.offsetMs`로 예상 시각을 구하고, 시나리오 공통 시간축에서 같거나 가장 가까운 `VehicleStateFrame.timestampMs`를 선택한다. 급제동 발생 여부는 물리 상태에 boolean으로 중복 저장하지 않고 별도의 Event로 표현한다.
 
+현재 `ScenarioEvent`는 개별 사건을 구별하는 `id`, 공통 시간축의 발생 시각 `timestampMs`, 사건 종류 `type`을 보관한다. 첫 데모의 `type`은 문자열 유니온인 `"emergency-braking"`만 허용하며 다른 사건이 실제로 필요해질 때 유니온을 확장한다.
+
+Event는 주기적으로 샘플링되는 Vehicle State와 달리 특정 순간에 발생하는 이산 데이터다. 각 상태 Frame에 boolean을 반복 저장하지 않고 독립 Event 스트림으로 관리하면 전체 상태 배열을 검색하거나 중복 여부를 검사하지 않고도 사건 목록, 타임라인 마커와 사건 시점 이동을 처리할 수 있다.
+
 ## 소유권과 생명주기
 
 | 대상 | 소유 계층 | 생성 시점 | 정리 시점 |
