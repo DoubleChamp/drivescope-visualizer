@@ -45,3 +45,14 @@ export type ScenarioEvent = {
   timestampMs: number;
   type: "emergency-braking";
 };
+
+export type ScenarioData = {
+  id: string;
+  durationMs: number;
+  lidarFrames: LidarFrame[];
+  cameraFrames: CameraFrame[];
+  objectDetectionFrames: ObjectDetectionFrame[];
+  trajectoryFrames: TrajectoryFrame[];
+  vehicleStateFrames: VehicleStateFrame[];
+  events: ScenarioEvent[];
+};

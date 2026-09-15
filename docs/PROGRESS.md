@@ -4,13 +4,17 @@
 
 ## 현재 위치
 
-- 현재 Phase: Phase 3 — 진행 중
-- 현재 작업: 공통 timestamp 기준과 LiDAR·Camera·Object Detection·Trajectory·Vehicle State Frame, Event 타입 정의를 마쳤다.
-- 다음 한 단계: Phase 3 마지막 항목인 가상 급제동 문제 장면 데이터를 만든다.
-- 아직 구현하지 않은 것: 가상 시나리오 데이터, 재생·동기화와 분석 기능
+- 현재 Phase: Phase 3 — 완료
+- 현재 작업: 모든 Frame·Event 타입과 0~15초의 가상 급제동 시나리오 데이터 정의를 마쳤다.
+- 다음 한 단계: Phase 4 첫 번째 항목인 현재 재생 시간 상태를 만든다.
+- 아직 구현하지 않은 것: 가상 카메라 이미지 파일, 재생·동기화와 분석 기능
 
 ## 완료한 작업
 
+- 모든 데이터 스트림을 묶는 `ScenarioData`와 0~15초의 `mockScenario`를 정의했다.
+- Camera는 1,000ms, LiDAR는 500ms 간격으로 생성해 서로 다른 수집 주기를 데이터로 표현했다.
+- 10초 보행자 등장, 11초 객체 인식, 12초 충돌 예상, 12.4초 급제동과 13.4초 정지를 서로 독립된 데이터 스트림에 표현했다.
+- 12초 Trajectory의 2,000ms 뒤 예상 위치가 보행자 중심과 겹치고, 실제 차량은 급제동 후 그 전에 정지하도록 구성했다.
 - 특정 시각에 발생한 사건을 나타내는 `ScenarioEvent`를 정의했다.
 - Event에 고유 `id`, 공통 시간축의 `timestampMs`, 현재 첫 데모에서 허용하는 `"emergency-braking"` 타입을 포함했다.
 - Event를 Vehicle State와 분리된 스트림으로 관리해 사건 목록과 타임라인 마커를 독립적으로 조회하기로 했다.
@@ -113,6 +117,18 @@
 - 이후 승인된 단계는 검증과 문서 갱신 후 Codex가 현재 브랜치에 commit까지만 하고, `origin` push는 사용자가 GitHub Desktop에서 직접 수행하도록 작업 규칙을 변경했다.
 
 ## 검증 결과
+
+### Phase 3: 가상 급제동 시나리오 데이터 (2026-09-15)
+
+- `ScenarioData`가 시나리오 식별자·길이와 여섯 종류의 Frame·Event 배열을 하나로 묶도록 정의했다.
+- 15,000ms 시나리오에 Camera 16개, LiDAR 31개, Object Detection 16개, Trajectory 5개, Vehicle State 18개와 Event 1개가 생성됨을 Node 런타임에서 확인했다.
+- 모든 스트림이 `timestampMs` 오름차순이며 첫 보행자 인식은 11,000ms, 급제동 Event는 12,400ms임을 확인했다.
+- 12,400ms Vehicle State의 가속도는 `-4m/s²`, 13,400ms의 속도는 `0m/s`임을 확인했다.
+- 사용자가 Camera와 LiDAR는 같은 배열이 아니므로 같은 인덱스를 사용하지 않고 재생 시각과 각 스트림의 timestamp를 비교해 Frame을 각각 선택해야 한다고 설명했다.
+- 가상 카메라 URL이 가리키는 SVG 파일과 Viewer 연결은 이번 데이터 모델 범위에 포함하지 않았다.
+- `pnpm.cmd exec tsc --noEmit --incremental false`: TypeScript 오류 없이 통과했다.
+- `pnpm.cmd build`: Next.js 16.3.3 production build와 `/viewer` 정적 페이지 생성이 통과했다.
+- `git diff --check`: 공백 오류 없음.
 
 ### Phase 3: Event 타입 (2026-09-15)
 
@@ -303,7 +319,7 @@
 
 ## 다음 구현 진입 조건
 
-1. 0초부터 급제동 이후까지의 가상 문제 장면에 필요한 시간 구간과 각 데이터 스트림의 최소 샘플을 설계하고 사용자 승인을 받는다.
+1. 현재 재생 시간 상태의 소유 계층, 단위와 초기값을 설명하고 사용자 승인을 받는다.
 
 ## 추천 커밋 메시지
 

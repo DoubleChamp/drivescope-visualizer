@@ -300,9 +300,19 @@
 - Vehicle State마다 사건 boolean을 반복 저장하지 않고 독립 Event 스트림으로 관리하면 전체 상태 배열을 하나씩 검색하거나 중복 여부를 확인하지 않고도 사건 목록과 타임라인 마커를 처리할 수 있다.
 - 사용자가 독립 Event 스트림은 사건 조회와 중복 관리가 쉽고 마커도 독립적으로 확인하기 좋다고 설명했다.
 
+### 가상 급제동 시나리오 데이터 (2026-09-15)
+
+- `ScenarioData`는 시나리오 `id`, `durationMs`와 Camera·LiDAR·Object Detection·Trajectory·Vehicle State Frame 및 Event 배열을 하나로 묶는다.
+- `mockScenario`는 0~15초를 표현한다. Camera는 1,000ms 간격으로 16개, LiDAR는 500ms 간격으로 31개라서 두 배열의 같은 인덱스가 같은 시각을 나타내지 않는다.
+- 가상 좌표는 미터 단위이며 X는 좌우, Y는 높이, 양의 Z는 차량 진행 방향이다. 서로 비교할 위치는 모두 같은 시나리오 좌표계를 사용한다.
+- 10초에 원본 카메라·LiDAR 데이터에 보행자가 등장하고, 11초부터 Object Detection에 안정적인 `pedestrian-1` ID로 나타난다.
+- 12초에 생성한 Trajectory의 `offsetMs: 2_000`인 점은 예상 시각 14초와 위치 `[0, 0, 20]`을 뜻한다. 이 위치는 보행자 중심과 같아 충돌 예상 상태가 된다.
+- 12.4초에 급제동 Event와 `-4m/s²` 감속이 시작되고 실제 차량은 13.4초에 Z 15.6m에서 정지한다. 급제동 후 Trajectory도 정지 위치를 넘지 않는다.
+- 사용자가 재생 시각 12,400ms에서 Camera와 LiDAR의 같은 배열 인덱스를 사용하지 않고, 각 스트림의 `timestampMs`를 재생 시각과 비교해 Frame을 따로 선택해야 한다고 설명했다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 3의 공통 timestamp 기준과 LiDAR·Camera·Object Detection·Trajectory·Vehicle State Frame, Event 타입의 구현·원리 이해 확인을 마쳤다. 다음 항목도 Phase 3에서 진행한다.
+Phase 3의 공통 timestamp 기준, 모든 Frame·Event 타입과 가상 급제동 시나리오 데이터의 구현·원리 이해 확인을 마쳤다. 다음은 Phase 4에서 진행한다.
 
-- 여러 Frame과 Event 배열을 하나의 타입 안전한 가상 시나리오로 묶는 방법
-- 0초부터 급제동 이후까지 각 데이터 스트림의 timestamp와 내용을 구성하는 방법
+- 현재 재생 시간을 React state가 소유해야 하는 이유
+- 재생 시간의 단위와 초기값을 데이터의 `timestampMs` 규격에 맞추는 방법

@@ -71,6 +71,12 @@ Trajectory의 예상 위치와 실제 위치를 비교할 때는 `TrajectoryFram
 
 Event는 주기적으로 샘플링되는 Vehicle State와 달리 특정 순간에 발생하는 이산 데이터다. 각 상태 Frame에 boolean을 반복 저장하지 않고 독립 Event 스트림으로 관리하면 전체 상태 배열을 검색하거나 중복 여부를 검사하지 않고도 사건 목록, 타임라인 마커와 사건 시점 이동을 처리할 수 있다.
 
+`ScenarioData`는 시나리오 `id`와 `durationMs`, Camera·LiDAR·Object Detection·Trajectory·Vehicle State Frame 배열 및 Event 배열을 하나의 데이터 단위로 묶는다. `mockScenario`는 0~15초의 보행자 급제동 장면을 이 타입으로 구현하며 UI나 Three.js 객체를 포함하지 않는다. 가상 카메라 URL은 이후 이미지 패널 단계에서 만들 파일의 경로만 나타낸다.
+
+가상 공간의 단위는 미터이며 X는 좌우, Y는 높이, 양의 Z는 차량 진행 방향으로 사용한다. 모든 가상 위치는 같은 시나리오 좌표계에 있어 Object Detection의 보행자 중심, Trajectory와 Vehicle State를 직접 비교할 수 있다. 실제 nuScenes 데이터는 로딩 경계에서 이 좌표계로 변환한다.
+
+Camera Frame은 1,000ms 간격으로 16개, LiDAR Frame은 500ms 간격으로 31개를 생성해 서로 다른 센서 주기를 표현한다. 10초에 카메라 URL과 LiDAR 포인트에 보행자가 등장하고, Object Detection은 11초부터 같은 `pedestrian-1`을 제공한다. 12초 Trajectory의 2,000ms 뒤 예상 위치 `[0, 0, 20]`은 보행자 중심과 겹친다. 12.4초 급제동 Event와 `-4m/s²` 감속 이후 차량은 13.4초에 Z 15.6m에서 정지하며 이후 Trajectory도 그 위치를 넘지 않는다.
+
 ## 소유권과 생명주기
 
 | 대상 | 소유 계층 | 생성 시점 | 정리 시점 |
