@@ -72,6 +72,18 @@ JavaScript GC는 도달할 수 없게 된 JS 객체의 힙 메모리를 나중�
 - `renderer.dispose()`는 Renderer 내부 WebGL 캐시와 Canvas context 이벤트를 정리하지만 Canvas DOM이나 사용자 Geometry, Material과 Texture를 자동으로 제거하지 않는다.
 - 명시적 cleanup 뒤 남은 JS 객체는 다른 참조가 없어지면 GC 대상이 된다.
 
+## 공통 시간 기준
+
+- 모든 Frame과 Event의 시간 필드 이름은 `timestampMs`로 통일한다.
+- 단위는 정수 밀리초이며 가상 시나리오가 시작하는 순간을 `0ms`로 본다.
+- 예를 들어 보행자 등장 `10초`는 `10_000ms`, 급제동 `12.4초`는 `12_400ms`로 저장한다.
+- 화면에 초 단위로 표시할 때만 `timestampMs / 1_000`으로 변환한다.
+- 실제 데이터가 절대 시각이나 더 작은 단위를 사용하면 데이터 로딩 경계에서 시나리오 상대 밀리초로 정규화한다.
+
+`requestAnimationFrame`이 콜백에 전달하는 `timestamp`도 밀리초 단위지만 센서 데이터의 시각은 아니다. 이 값은 브라우저 실행 시계이므로 프레임 사이의 경과 시간을 계산하는 데 사용하고, 그 차이만큼 별도의 시나리오 재생 시간을 전진시킨다.
+
+센서마다 수집 주기가 다르므로 Camera, LiDAR와 Object Detection의 같은 배열 인덱스를 같은 시각으로 간주하지 않는다. 이후 각 센서의 `timestampMs`와 재생 시각의 차이를 비교해 사용할 Frame을 고른다. 원본 Camera·LiDAR Frame은 우선 가장 가까운 Frame을 선택하고, 연속값이 필요한 데이터의 보간 여부는 해당 타입과 동기화 규칙을 정할 때 별도로 판단한다.
+
 ## 계획: 시간 동기화 흐름
 
 1. React가 현재 재생 시간을 관리한다.
