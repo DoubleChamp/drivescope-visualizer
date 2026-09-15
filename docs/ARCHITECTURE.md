@@ -51,6 +51,10 @@ React Three Fiber는 사용하지 않는다. Three.js 객체의 생성, 변경, 
 
 `LidarFrame`에는 Three.js의 `BufferAttribute`, `BufferGeometry`나 `Points`를 넣지 않는다. 데이터 계층은 CPU의 순수 좌표를 제공하고, Three.js 런타임이 좌표 해석과 GPU 전송 상태를 관리할 `BufferAttribute`를 소유한다. CPU 배열을 바꾼 뒤에는 Attribute의 `needsUpdate`를 설정해야 다음 `renderer.render()`에서 변경 데이터가 GPU로 전송되고 새 화면에 사용된다.
 
+현재 `CameraFrame`은 촬영 시점인 `timestampMs`와 이미지 위치를 나타내는 문자열 `imageUrl`만 보관한다. 전방 카메라 하나만 다루는 현재 범위에서는 `cameraId`, 이미지 크기와 브라우저 객체를 미리 추가하지 않는다.
+
+`CameraFrame`에는 `HTMLImageElement`, `ImageBitmap`이나 Three.js `Texture`를 넣지 않는다. 직렬화 가능한 URL은 Server Component에서 Client Component로 전달할 수 있으며, React가 카메라 패널의 `<img>` UI를 구성하면 브라우저가 실제 파일을 요청하고 디코딩한다. 향후 3D Texture로 사용할 때만 Three.js 런타임이 Texture 로딩과 `dispose()`를 책임진다.
+
 ## 소유권과 생명주기
 
 | 대상 | 소유 계층 | 생성 시점 | 정리 시점 |

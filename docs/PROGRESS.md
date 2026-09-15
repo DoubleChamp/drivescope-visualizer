@@ -5,12 +5,14 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 3 — 진행 중
-- 현재 작업: 공통 timestamp 기준과 최소 LiDAR Frame 타입 정의를 마쳤다.
-- 다음 한 단계: Phase 3 세 번째 항목인 Camera Frame 타입을 정의한다.
-- 아직 구현하지 않은 것: Camera 이후 Frame 타입, 가상 시나리오 데이터, 재생·동기화와 분석 기능
+- 현재 작업: 공통 timestamp 기준과 최소 LiDAR·Camera Frame 타입 정의를 마쳤다.
+- 다음 한 단계: Phase 3 네 번째 항목인 Object Detection 타입을 정의한다.
+- 아직 구현하지 않은 것: Object Detection 이후 타입, 가상 시나리오 데이터, 재생·동기화와 분석 기능
 
 ## 완료한 작업
 
+- `CameraFrame`에 촬영 시점 `timestampMs`와 직렬화 가능한 이미지 위치 `imageUrl`을 정의했다.
+- Camera 데이터에는 브라우저 이미지 객체나 Three.js Texture를 넣지 않고 실제 로딩 책임을 UI·렌더링 계층에 남겼다.
 - `LidarFrame`에 측정 시점 `timestampMs`와 연속 좌표 `Float32Array`인 `positions`를 정의했다.
 - 포인트 수는 `positions.length / 3`으로 계산하고 중복 필드로 저장하지 않기로 했다.
 - 순수 센서 데이터가 Three.js에 종속되지 않도록 `BufferAttribute`와 `BufferGeometry`는 Frame 타입에 넣지 않았다.
@@ -99,6 +101,15 @@
 - 이후 승인된 단계는 검증과 문서 갱신 후 Codex가 현재 브랜치에 commit까지만 하고, `origin` push는 사용자가 GitHub Desktop에서 직접 수행하도록 작업 규칙을 변경했다.
 
 ## 검증 결과
+
+### Phase 3: Camera Frame 타입 (2026-09-15)
+
+- 기존 `_data/frame-types.ts`에 `CameraFrame` 타입을 추가했다.
+- 타입은 정수 밀리초 기준의 `timestampMs`와 이미지 위치 문자열 `imageUrl`만 가진다.
+- `pnpm.cmd exec tsc --noEmit --incremental false`: TypeScript 오류 없이 통과했다.
+- 사용자가 문자열 URL은 Server Component에서 Client Component로 단방향 전달할 수 있고 실제 이미지는 이후 렌더링 계층에서 로딩한다고 설명했다.
+- 현재 MVP의 전방 카메라 패널에서는 React가 `<img>` UI를 구성하고 브라우저가 파일 요청과 디코딩을 담당한다는 점을 보완했다.
+- `git diff --check`: 공백 오류 없음.
 
 ### Phase 3: LiDAR Frame 타입 (2026-09-15)
 
@@ -244,7 +255,7 @@
 
 ## 다음 구현 진입 조건
 
-1. Camera Frame 타입이 표현해야 할 최소 데이터와 브라우저에서 이미지 소스를 다루는 경계를 설명하고 사용자 승인을 받는다.
+1. Object Detection 타입이 표현해야 할 객체 식별자, 분류와 3D 박스 데이터의 최소 구조를 설명하고 사용자 승인을 받는다.
 
 ## 추천 커밋 메시지
 

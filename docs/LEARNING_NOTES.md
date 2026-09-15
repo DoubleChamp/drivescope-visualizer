@@ -252,8 +252,17 @@
 - GPU Buffer가 갱신돼도 새 픽셀을 보려면 `renderer.render()`가 다시 실행돼야 한다. 현재는 rAF가 다음 렌더를 예약하므로 별도 호출이 필요 없지만 정적 1회 렌더 방식에서는 직접 다시 호출해야 한다.
 - 사용자가 CPU 배열의 변경을 GPU가 알 수 없으므로 `needsUpdate`가 필요하며 이후 렌더도 실행돼야 한다고 설명했다.
 
+### Camera Frame 타입 (2026-09-15)
+
+- `CameraFrame`은 촬영 시점인 `timestampMs`와 이미지 위치 문자열 `imageUrl`을 가진다.
+- URL 문자열은 직렬화할 수 있으므로 Server Component에서 Client Component로 props를 통해 전달할 수 있다.
+- Frame 데이터에는 `HTMLImageElement`, `ImageBitmap`이나 Three.js `Texture`처럼 특정 실행·렌더링 환경에 속한 객체를 넣지 않는다.
+- 현재 MVP의 전방 카메라 패널은 React가 `<img>` UI를 구성하고 브라우저가 URL의 실제 파일 요청과 디코딩을 담당한다.
+- 향후 같은 이미지를 3D Texture로 사용한다면 Three.js 런타임이 Texture를 만들고 교체·해제 시 `dispose()`한다. 이 경우에도 `CameraFrame`은 URL만 제공한다.
+- 사용자가 URL 문자열을 Server Component에서 Client Component로 단방향 전달할 수 있고 실제 이미지는 렌더링 계층에서 로딩한다고 설명했다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 3의 공통 timestamp 기준과 LiDAR Frame 타입의 구현·원리 이해 확인을 마쳤다. 다음 항목도 Phase 3에서 진행한다.
+Phase 3의 공통 timestamp 기준과 LiDAR·Camera Frame 타입의 구현·원리 이해 확인을 마쳤다. 다음 항목도 Phase 3에서 진행한다.
 
-- Camera Frame 타입이 표현해야 할 최소 데이터와 브라우저에서 이미지 소스를 다루는 경계
+- Object Detection 타입이 표현해야 할 객체 식별자, 분류와 3D 박스 데이터의 최소 구조
