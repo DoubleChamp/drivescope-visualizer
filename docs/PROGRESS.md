@@ -5,12 +5,15 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 3 — 진행 중
-- 현재 작업: 모든 Frame의 공통 시간을 시나리오 시작 `0ms` 기준의 정수 밀리초 `timestampMs`로 결정했다.
-- 다음 한 단계: Phase 3 두 번째 항목인 LiDAR Frame 타입을 정의한다.
-- 아직 구현하지 않은 것: 구체적인 Frame 타입, 가상 시나리오 데이터, 재생·동기화와 분석 기능
+- 현재 작업: 공통 timestamp 기준과 최소 LiDAR Frame 타입 정의를 마쳤다.
+- 다음 한 단계: Phase 3 세 번째 항목인 Camera Frame 타입을 정의한다.
+- 아직 구현하지 않은 것: Camera 이후 Frame 타입, 가상 시나리오 데이터, 재생·동기화와 분석 기능
 
 ## 완료한 작업
 
+- `LidarFrame`에 측정 시점 `timestampMs`와 연속 좌표 `Float32Array`인 `positions`를 정의했다.
+- 포인트 수는 `positions.length / 3`으로 계산하고 중복 필드로 저장하지 않기로 했다.
+- 순수 센서 데이터가 Three.js에 종속되지 않도록 `BufferAttribute`와 `BufferGeometry`는 Frame 타입에 넣지 않았다.
 - 모든 Frame과 Event의 시간 필드를 `timestampMs`로 통일하고 가상 시나리오 시작을 `0ms`로 정했다.
 - 시나리오 내부 시간은 정수 밀리초로 저장하고 화면에 표시할 때만 초 단위로 변환하기로 했다.
 - rAF의 timestamp는 브라우저 실행 시계이며 센서 시각이 아니므로 프레임 간 경과 시간 계산에만 사용하기로 했다.
@@ -96,6 +99,15 @@
 - 이후 승인된 단계는 검증과 문서 갱신 후 Codex가 현재 브랜치에 commit까지만 하고, `origin` push는 사용자가 GitHub Desktop에서 직접 수행하도록 작업 규칙을 변경했다.
 
 ## 검증 결과
+
+### Phase 3: LiDAR Frame 타입 (2026-09-15)
+
+- Next.js의 `/viewer` 라우트와 함께 둘 수 있는 내부 `_data/frame-types.ts`에 `LidarFrame` 타입을 추가했다.
+- 타입은 정수 밀리초 기준의 `timestampMs`와 `[x, y, z, ...]` 좌표를 담는 `Float32Array`인 `positions`만 가진다.
+- `pnpm.cmd exec tsc --noEmit --incremental false`: TypeScript 오류 없이 통과했다.
+- 사용자가 CPU의 `Float32Array` 변경을 GPU가 자동 감지하지 않으며 `needsUpdate`와 이후 렌더가 필요함을 설명했다.
+- 현재 rAF 루프에서는 다음 `renderer.render()`가 자동으로 실행되지만 정적 1회 렌더 구조라면 변경 후 직접 다시 렌더해야 함을 확인했다.
+- `git diff --check`: 공백 오류 없음.
 
 ### Phase 3: 공통 timestamp 단위와 기준 시점 (2026-09-15)
 
@@ -232,7 +244,7 @@
 
 ## 다음 구현 진입 조건
 
-1. LiDAR Frame 타입이 표현해야 할 최소 데이터와 각 필드의 역할을 설명하고 사용자 승인을 받는다.
+1. Camera Frame 타입이 표현해야 할 최소 데이터와 브라우저에서 이미지 소스를 다루는 경계를 설명하고 사용자 승인을 받는다.
 
 ## 추천 커밋 메시지
 

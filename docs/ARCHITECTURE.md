@@ -47,6 +47,10 @@ React Three Fiber는 사용하지 않는다. Three.js 객체의 생성, 변경, 
 
 데이터 계층은 UI 표현이나 Three.js 객체를 직접 소유하지 않는다.
 
+현재 `LidarFrame`은 측정 시점인 `timestampMs`와 `[x, y, z, ...]` 순서의 `Float32Array`인 `positions`만 보관한다. 포인트 수는 중복 필드로 저장하지 않고 `positions.length / 3`으로 계산한다. intensity처럼 아직 사용하지 않는 값은 미리 추가하지 않는다.
+
+`LidarFrame`에는 Three.js의 `BufferAttribute`, `BufferGeometry`나 `Points`를 넣지 않는다. 데이터 계층은 CPU의 순수 좌표를 제공하고, Three.js 런타임이 좌표 해석과 GPU 전송 상태를 관리할 `BufferAttribute`를 소유한다. CPU 배열을 바꾼 뒤에는 Attribute의 `needsUpdate`를 설정해야 다음 `renderer.render()`에서 변경 데이터가 GPU로 전송되고 새 화면에 사용된다.
+
 ## 소유권과 생명주기
 
 | 대상 | 소유 계층 | 생성 시점 | 정리 시점 |

@@ -241,8 +241,19 @@
 - 원본 이미지와 포인트클라우드는 항상 보간할 필요가 없다. 우선 가장 가까운 Frame을 선택하고, 차량 상태처럼 연속값이 필요한 데이터만 별도의 보간 규칙을 검토한다.
 - 사용자가 데이터 규격을 맞추면 사용하기 편해지고, 센서별 주기가 달라 배열 인덱스로 시계열을 동기화할 수 없음을 설명했다.
 
+### LiDAR Frame 타입 (2026-09-15)
+
+- `LidarFrame`은 측정 시점인 `timestampMs`와 포인트 좌표인 `positions`를 가진다.
+- `positions`는 `[x, y, z, x, y, z, ...]` 순서의 `Float32Array`다. 포인트 수는 `positions.length / 3`으로 구하므로 별도 필드를 중복 저장하지 않는다.
+- `Float32Array`는 Geometry 자체가 아니라 Geometry에 연결할 CPU 쪽 연속 좌표 데이터다.
+- 데이터 계층에는 Three.js의 `BufferAttribute`를 넣지 않는다. 같은 LiDAR 데이터를 파싱, 캐시하거나 Worker로 전달하는 과정이 렌더링 라이브러리에 종속되지 않게 하기 위해서다.
+- Three.js 런타임은 Frame의 좌표를 `itemSize: 3`인 `BufferAttribute`로 해석하고 Geometry에 연결한다.
+- CPU의 `Float32Array` 값을 바꿔도 GPU는 변경을 자동 감지하지 않는다. Attribute의 `needsUpdate = true`로 버전을 올려야 다음 렌더 때 Renderer가 새 데이터를 GPU로 전송한다.
+- GPU Buffer가 갱신돼도 새 픽셀을 보려면 `renderer.render()`가 다시 실행돼야 한다. 현재는 rAF가 다음 렌더를 예약하므로 별도 호출이 필요 없지만 정적 1회 렌더 방식에서는 직접 다시 호출해야 한다.
+- 사용자가 CPU 배열의 변경을 GPU가 알 수 없으므로 `needsUpdate`가 필요하며 이후 렌더도 실행돼야 한다고 설명했다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 3의 공통 timestamp 기준 결정과 원리 이해 확인을 마쳤다. 다음 항목도 Phase 3에서 진행한다.
+Phase 3의 공통 timestamp 기준과 LiDAR Frame 타입의 구현·원리 이해 확인을 마쳤다. 다음 항목도 Phase 3에서 진행한다.
 
-- LiDAR Frame 타입이 표현해야 할 최소 데이터와 각 필드의 역할
+- Camera Frame 타입이 표현해야 할 최소 데이터와 브라우저에서 이미지 소스를 다루는 경계

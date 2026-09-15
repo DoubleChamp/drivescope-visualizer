@@ -18,8 +18,8 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 - Git 작업은 현재 GitHub Desktop의 내장 Git으로 충분하다. 별도의 Git for Windows 설치와 시스템 PATH 등록은 필요해질 때 진행할 수 있다.
 - **Phase 1 — 완료:** `feat/phase-1-three-scene` 브랜치에서 Client Component 경계, React가 소유하는 Canvas, Three.js Scene, PerspectiveCamera, WebGLRenderer, GridHelper, 창 resize 처리, `requestAnimationFrame` 렌더 루프와 전체 cleanup을 구현하고 검증했다.
 - **Phase 2 — 완료:** 가상 포인트 10,000개의 Buffer 구조와 Material 조정, 포인트 수와 rAF 기반 FPS 표시를 구현했다. 포인트 100개와 10,000개를 각각 측정하고 FPS 계산과 React·Three.js 책임 분리를 확인했다.
-- **Phase 3 — 진행 중:** 모든 Frame의 공통 시간을 시나리오 시작 `0ms` 기준의 정수 밀리초 `timestampMs`로 정했다.
-- **다음 단계:** Phase 3의 두 번째 항목으로 LiDAR Frame 타입을 정의한다.
+- **Phase 3 — 진행 중:** 공통 timestamp 기준을 정하고 LiDAR Frame 타입을 정의했다.
+- **다음 단계:** Phase 3의 세 번째 항목으로 Camera Frame 타입을 정의한다.
 
 ---
 
@@ -87,7 +87,7 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 상태: **진행 중**
 
 1. [x] 모든 데이터에 공통으로 사용할 timestamp 단위와 기준 시점을 결정한다.
-2. LiDAR Frame 타입을 정의한다.
+2. [x] LiDAR Frame 타입을 정의한다.
 3. Camera Frame 타입을 정의한다.
 4. Object Detection 타입을 정의한다.
 5. Trajectory 타입을 정의한다.
