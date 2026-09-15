@@ -55,6 +55,10 @@ React Three Fiber는 사용하지 않는다. Three.js 객체의 생성, 변경, 
 
 `CameraFrame`에는 `HTMLImageElement`, `ImageBitmap`이나 Three.js `Texture`를 넣지 않는다. 직렬화 가능한 URL은 Server Component에서 Client Component로 전달할 수 있으며, React가 카메라 패널의 `<img>` UI를 구성하면 브라우저가 실제 파일을 요청하고 디코딩한다. 향후 3D Texture로 사용할 때만 Three.js 런타임이 Texture 로딩과 `dispose()`를 책임진다.
 
+현재 `ObjectDetectionFrame`은 인식 결과의 `timestampMs`와 같은 시점에 인식된 `ObjectDetection[]`를 보관한다. 각 객체는 프레임 사이에서 같은 대상을 식별할 `id`, 현재 MVP가 다루는 `vehicle | pedestrian` 분류, `confidence`, 3D 박스 중심과 `width, length, height` 크기, 수직축 회전 `yawRadians`를 가진다.
+
+배열 인덱스는 프레임마다 객체 수와 정렬 순서가 달라질 수 있으므로 객체 정체성을 나타내지 않는다. 같은 실제 객체의 `id`는 tracker나 변환 데이터가 프레임 사이에서 유지해 객체 선택과 시간에 따른 추적에 사용한다. 데이터 타입은 숫자와 문자열만 보관하고 Three.js의 Box Geometry나 Object3D는 렌더링 시 Three.js 런타임이 생성·재사용한다.
+
 ## 소유권과 생명주기
 
 | 대상 | 소유 계층 | 생성 시점 | 정리 시점 |

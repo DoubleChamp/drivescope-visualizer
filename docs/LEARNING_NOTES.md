@@ -261,8 +261,19 @@
 - 향후 같은 이미지를 3D Texture로 사용한다면 Three.js 런타임이 Texture를 만들고 교체·해제 시 `dispose()`한다. 이 경우에도 `CameraFrame`은 URL만 제공한다.
 - 사용자가 URL 문자열을 Server Component에서 Client Component로 단방향 전달할 수 있고 실제 이미지는 렌더링 계층에서 로딩한다고 설명했다.
 
+### Object Detection 타입 (2026-09-15)
+
+- `ObjectDetectionFrame`은 인식 결과가 생성된 `timestampMs`와 같은 시점에 인식된 `ObjectDetection[]`를 묶는다. 한 시점에 객체가 없거나 여러 개일 수 있다.
+- 개별 `ObjectDetection`은 `id`, `vehicle | pedestrian` 분류, `confidence`, 3D 박스 중심 `center`, `width, length, height` 크기와 수직축 회전 `yawRadians`를 가진다.
+- `center`와 `size`는 각 숫자의 순서를 타입 편집기에 표시하는 named tuple이다. 실행 시에는 일반 숫자 배열이며 TypeScript가 순서의 의미를 알려 준다.
+- `confidence`는 숫자 타입만으로 `0~1` 범위를 강제하지 못한다. 실제 외부 데이터를 연결할 때 파싱 경계의 런타임 검증이 별도로 필요하다.
+- 프레임마다 객체 수와 배열 정렬 순서는 달라질 수 있으므로 배열 인덱스를 객체 식별자로 사용할 수 없다.
+- 같은 실제 객체의 `id`는 tracker나 데이터셋 instance ID가 프레임 사이에서 유지해야 객체 선택과 시간에 따른 추적에 사용할 수 있다.
+- 데이터 타입에는 Three.js Box Geometry나 Object3D를 넣지 않는다. Three.js 런타임이 숫자 데이터를 받아 렌더링 객체를 생성하고 이후 재사용·정리한다.
+- 사용자가 `ObjectDetectionFrame`은 한 Frame의 여러 객체를 묶고, 같은 실제 차량은 이전·현재 Frame에서 같은 ID를 가져야 한다고 설명했다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 3의 공통 timestamp 기준과 LiDAR·Camera Frame 타입의 구현·원리 이해 확인을 마쳤다. 다음 항목도 Phase 3에서 진행한다.
+Phase 3의 공통 timestamp 기준과 LiDAR·Camera·Object Detection Frame 타입의 구현·원리 이해 확인을 마쳤다. 다음 항목도 Phase 3에서 진행한다.
 
-- Object Detection 타입이 표현해야 할 객체 식별자, 분류와 3D 박스 데이터의 최소 구조
+- Trajectory 타입이 표현해야 할 예측 시점과 경로 점의 최소 구조

@@ -5,12 +5,15 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 3 — 진행 중
-- 현재 작업: 공통 timestamp 기준과 최소 LiDAR·Camera Frame 타입 정의를 마쳤다.
-- 다음 한 단계: Phase 3 네 번째 항목인 Object Detection 타입을 정의한다.
-- 아직 구현하지 않은 것: Object Detection 이후 타입, 가상 시나리오 데이터, 재생·동기화와 분석 기능
+- 현재 작업: 공통 timestamp 기준과 LiDAR·Camera·Object Detection Frame 타입 정의를 마쳤다.
+- 다음 한 단계: Phase 3 다섯 번째 항목인 Trajectory 타입을 정의한다.
+- 아직 구현하지 않은 것: Trajectory 이후 타입, 가상 시나리오 데이터, 재생·동기화와 분석 기능
 
 ## 완료한 작업
 
+- 한 시점의 인식 결과를 나타내는 `ObjectDetectionFrame`과 개별 인식 객체 `ObjectDetection`을 정의했다.
+- 객체에 프레임 사이에서 유지할 `id`, 차량·보행자 분류, 신뢰도와 3D 박스 중심·크기·yaw를 포함했다.
+- 객체 배열의 인덱스가 아니라 안정적인 `id`로 같은 실제 객체를 선택하고 추적하기로 했다.
 - `CameraFrame`에 촬영 시점 `timestampMs`와 직렬화 가능한 이미지 위치 `imageUrl`을 정의했다.
 - Camera 데이터에는 브라우저 이미지 객체나 Three.js Texture를 넣지 않고 실제 로딩 책임을 UI·렌더링 계층에 남겼다.
 - `LidarFrame`에 측정 시점 `timestampMs`와 연속 좌표 `Float32Array`인 `positions`를 정의했다.
@@ -101,6 +104,15 @@
 - 이후 승인된 단계는 검증과 문서 갱신 후 Codex가 현재 브랜치에 commit까지만 하고, `origin` push는 사용자가 GitHub Desktop에서 직접 수행하도록 작업 규칙을 변경했다.
 
 ## 검증 결과
+
+### Phase 3: Object Detection 타입 (2026-09-15)
+
+- `ObjectDetection`에 `id`, `vehicle | pedestrian` 분류, `confidence`, 3D 박스의 `center`, `width, length, height` 크기와 `yawRadians`를 정의했다.
+- `ObjectDetectionFrame`이 하나의 `timestampMs`와 같은 시점에 인식된 `ObjectDetection[]`를 묶도록 했다.
+- `pnpm.cmd exec tsc --noEmit --incremental false`: TypeScript 오류 없이 통과했다.
+- 사용자가 한 Frame에 여러 객체가 인식될 수 있어 Frame과 개별 객체를 분리하며, 같은 실제 객체는 이전·현재 Frame에서 같은 ID를 가져야 한다고 설명했다.
+- 순수 detector의 출력만으로 동일 ID가 생기는 것은 아니며 tracker나 데이터 변환 단계가 안정적인 ID를 제공해야 한다는 점을 보완했다.
+- `git diff --check`: 공백 오류 없음.
 
 ### Phase 3: Camera Frame 타입 (2026-09-15)
 
@@ -255,7 +267,7 @@
 
 ## 다음 구현 진입 조건
 
-1. Object Detection 타입이 표현해야 할 객체 식별자, 분류와 3D 박스 데이터의 최소 구조를 설명하고 사용자 승인을 받는다.
+1. Trajectory 타입이 표현해야 할 예측 시점과 경로 점의 최소 구조를 설명하고 사용자 승인을 받는다.
 
 ## 추천 커밋 메시지
 
