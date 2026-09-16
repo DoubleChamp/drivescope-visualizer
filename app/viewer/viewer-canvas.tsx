@@ -11,6 +11,7 @@ import {
   Scene,
   WebGLRenderer,
 } from "three";
+import { findLatestFrameAtOrBefore } from "./_data/find-latest-frame-at-or-before";
 import { mockScenario } from "./_data/mock-scenario";
 import styles from "./viewer-canvas.module.css";
 
@@ -21,6 +22,9 @@ const FPS_SAMPLE_INTERVAL_MS = 1_000;
 const INITIAL_PLAYBACK_TIME_MS = 0;
 const PLAYBACK_UPDATE_INTERVAL_MS = 100;
 
+const formatTimestampDifference = (differenceMs: number) =>
+  `${differenceMs > 0 ? "+" : ""}${differenceMs.toLocaleString("ko-KR")}ms`;
+
 export default function ViewerCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const playbackStartedAtRef = useRef(0);
@@ -30,6 +34,30 @@ export default function ViewerCanvas() {
     INITIAL_PLAYBACK_TIME_MS,
   );
   const [isPlaying, setIsPlaying] = useState(false);
+  // TODO: 실제 데이터에서 이 계산이 병목으로 측정되면 currentTimeMs 기준 useMemo를 검토한다.
+  const synchronizedFrames = [
+    {
+      label: "Camera",
+      frame: findLatestFrameAtOrBefore(
+        mockScenario.cameraFrames,
+        currentTimeMs,
+      ),
+    },
+    {
+      label: "LiDAR",
+      frame: findLatestFrameAtOrBefore(
+        mockScenario.lidarFrames,
+        currentTimeMs,
+      ),
+    },
+    {
+      label: "Object Detection",
+      frame: findLatestFrameAtOrBefore(
+        mockScenario.objectDetectionFrames,
+        currentTimeMs,
+      ),
+    },
+  ];
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -196,6 +224,27 @@ export default function ViewerCanvas() {
         className={styles.canvas}
         aria-label="DriveScope 3D 뷰어"
       />
+      <dl className={styles.synchronizedFrames} aria-label="동기화된 Frame">
+        {synchronizedFrames.map(({ label, frame }) => (
+          <div key={label} className={styles.synchronizedFrame}>
+            <dt>{label}</dt>
+            <dd>
+              {frame === null ? (
+                "Frame 없음"
+              ) : (
+                <>
+                  {(frame.timestampMs / 1_000).toFixed(1)}초
+                  <span className={styles.timestampDifference}>
+                    {formatTimestampDifference(
+                      frame.timestampMs - currentTimeMs,
+                    )}
+                  </span>
+                </>
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
       <div className={styles.controls}>
         <button
           type="button"

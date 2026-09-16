@@ -5,12 +5,15 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 4 — 진행 중
-- 현재 작업: 재생 시각과 `timestampMs` 차이로 가장 가까운 Frame을 선택하는 순수 함수를 추가했다.
-- 다음 한 단계: Phase 4 다섯 번째 항목인 서로 다른 주기의 센서 Frame 동기화를 구현한다.
-- 아직 구현하지 않은 것: 가상 카메라 이미지 파일, 선택 함수와 Viewer 연결, 센서 장면 갱신과 분석 기능
+- 현재 작업: 하나의 재생 시각으로 Camera·LiDAR·Object Detection의 인과적인 최신 Frame을 독립 선택하고 시각 차이를 표시했다.
+- 다음 한 단계: Phase 4 여섯 번째 항목인 급제동 이벤트 타임라인 마커를 표시한다.
+- 아직 구현하지 않은 것: 가상 카메라 이미지 파일, 선택된 센서 데이터의 Three.js 장면 반영과 분석 기능
 
 ## 완료한 작업
 
+- `findLatestFrameAtOrBefore`로 현재 재생 시각 이하의 가장 최신 Frame만 선택해 미래 센서 데이터를 미리 표시하지 않도록 했다.
+- 같은 `currentTimeMs`에서 Camera·LiDAR·Object Detection을 각각 선택하고 Frame 시각과 재생 시각의 차이를 Viewer에 표시했다.
+- 선택 결과를 별도 state로 복제하지 않고 `currentTimeMs`에서 파생하며, `useMemo`와 이진 탐색은 실제 병목이 측정될 때 검토하도록 `TODO`로 남겼다.
 - `timestampMs`가 있는 어떤 Frame에도 재사용할 수 있는 제네릭 `findNearestFrame` 함수를 추가했다.
 - 목표 재생 시각과 각 Frame의 절대 시간 차이를 비교하고, 동률이면 이전 Frame을 선택하며, 빈 배열이면 `null`을 반환하도록 했다.
 - 작은 가상 데이터에서는 이해하기 쉬운 선형 탐색을 사용하고 실제 병목을 측정하기 전에는 이진 탐색을 도입하지 않기로 했다.
@@ -130,6 +133,16 @@
 - 이후 승인된 단계는 검증과 문서 갱신 후 Codex가 현재 브랜치에 commit까지만 하고, `origin` push는 사용자가 GitHub Desktop에서 직접 수행하도록 작업 규칙을 변경했다.
 
 ## 검증 결과
+
+### Phase 4: 서로 다른 주기의 센서 Frame 동기화 (2026-09-16)
+
+- `12_400ms`에서 Camera·LiDAR·Object Detection 모두 미래 Frame을 선택하지 않고 각 배열의 최신 과거 Frame인 `12_000ms`를 선택함을 확인했다.
+- 빈 배열과 첫 Frame보다 이른 목표 시각에서 `findLatestFrameAtOrBefore`가 `null`을 반환함을 확인했다.
+- Viewer 초기 화면에서 세 센서의 `0.0초` Frame과 재생 시각 차이 `0ms`가 표시됨을 확인했다.
+- `pnpm exec tsc --noEmit`: TypeScript 오류 없이 통과했다.
+- `pnpm build`: Next.js 16.3.3 production build와 `/viewer` 정적 페이지 생성이 통과했다.
+- 실행 중인 `/viewer`가 HTTP 200으로 응답하고 동기화된 Camera·LiDAR·Object Detection 항목을 포함함을 확인했다.
+- `git diff --check`: 공백 오류 없음.
 
 ### Phase 4: 최근접 Frame 선택 함수 (2026-09-16)
 

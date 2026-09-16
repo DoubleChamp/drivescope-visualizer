@@ -126,11 +126,15 @@ range의 실제 값은 밀리초지만 `aria-valuetext`는 이를 `12.4초`처�
 
 `requestAnimationFrame`이 콜백에 전달하는 `timestamp`도 밀리초 단위지만 센서 데이터의 시각은 아니다. 이 값은 브라우저 실행 시계이므로 프레임 사이의 경과 시간을 계산하는 데 사용하고, 그 차이만큼 별도의 시나리오 재생 시간을 전진시킨다.
 
-센서마다 수집 주기가 다르므로 Camera, LiDAR와 Object Detection의 같은 배열 인덱스를 같은 시각으로 간주하지 않는다. 이후 각 센서의 `timestampMs`와 재생 시각의 차이를 비교해 사용할 Frame을 고른다. 원본 Camera·LiDAR Frame은 우선 가장 가까운 Frame을 선택하고, 연속값이 필요한 데이터의 보간 여부는 해당 타입과 동기화 규칙을 정할 때 별도로 판단한다.
+센서마다 수집 주기가 다르므로 Camera, LiDAR와 Object Detection의 같은 배열 인덱스를 같은 시각으로 간주하지 않는다. 각 배열에 동일한 `currentTimeMs`를 적용하고 센서별 `timestampMs`를 비교해 사용할 Frame을 독립적으로 고른다. 선택된 Frame 시각이 서로 같아야 동기화된 것이 아니라, 하나의 공통 목표 시각과 명시적인 선택 규칙을 함께 사용하는 것이 동기화다.
 
 `findNearestFrame`은 `timestampMs`가 있는 Frame 배열과 목표 재생 시각을 받아 시간 차이의 절댓값이 가장 작은 원본 Frame을 반환한다. 배열이 비어 있으면 `null`을 반환하며, 이전 Frame과 다음 Frame의 거리가 같으면 미래 데이터를 먼저 선택하지 않도록 더 이른 Frame을 고른다. 현재 가상 데이터는 작으므로 모든 Frame을 한 번 확인하는 `O(n)` 선형 탐색으로 원리를 우선 확인한다. 실제 데이터의 Frame 수와 탐색 비용을 측정해 병목이 확인될 때 정렬된 배열의 이진 탐색을 검토한다.
 
-최근접 선택은 원본 센서 화면을 재생하는 첫 규칙이다. 당시까지 생성된 Planning 결과만 사용해야 하는 인과성 분석에는 미래의 Trajectory Frame을 고르지 않는 별도의 `현재 시각 이하 중 최신 Frame` 규칙이 필요할 수 있으며, 센서 동기화 단계에서 데이터 성격별 정책을 구분한다.
+기본 센서 재생에는 `findLatestFrameAtOrBefore`를 사용해 `timestampMs <= currentTimeMs`인 Frame 중 가장 최신 값을 고른다. 따라서 해당 시점에 아직 획득하지 않은 미래 센서 Frame을 미리 보여 주지 않는다. 선택된 Frame과 재생 시각의 차이인 `frame.timestampMs - currentTimeMs`는 0 또는 음수이며, 음수의 절댓값이 클수록 화면에 표시된 센서 데이터가 오래된 상태임을 뜻한다. 배열이 비었거나 목표 시각 이전의 Frame이 없으면 `null`을 반환한다.
+
+`findNearestFrame`은 그대로 유지한다. Trajectory가 예상한 미래 시각과 이후 실제 Vehicle State처럼 과거와 미래 양쪽 후보 중 시간상 가장 가까운 관측값을 비교할 때 사용할 수 있다. 즉 기본 재생의 인과적 선택과 예측 평가의 최근접 선택은 목적이 다른 정책이다.
+
+Viewer는 Camera, LiDAR와 Object Detection의 선택 결과를 별도 React state에 복제하지 않고 `currentTimeMs`에서 파생한다. 현재 배열은 작으므로 렌더링 중 선형 탐색을 수행한다. 실제 데이터에서 비용이 병목으로 측정될 때만 `currentTimeMs` 기준 `useMemo`와 정렬된 배열의 이진 탐색을 검토하도록 코드에 `TODO`를 남겼다.
 
 ## 계획: 시간 동기화 흐름
 
@@ -139,7 +143,7 @@ range의 실제 값은 밀리초지만 `aria-valuetext`는 이를 `12.4초`처�
 3. 선택된 프레임 데이터로 Three.js 런타임의 기존 객체와 Buffer를 갱신한다.
 4. Three.js 렌더 루프가 갱신된 장면을 그린다.
 
-센서별 주기가 다르므로 Camera, LiDAR, Annotation을 하나의 배열 인덱스로 맞추지 않는다. 가장 가까운 Frame은 `findNearestFrame`으로 선택하고, 센서별 허용 시간 차이와 Frame이 없을 때 화면을 유지할지 비울지는 동기화 단계에서 정한다.
+센서별 주기가 다르므로 Camera, LiDAR, Annotation을 하나의 배열 인덱스로 맞추지 않는다. 기본 재생 Frame은 `findLatestFrameAtOrBefore`로 선택하고, 예측과 실제값 비교처럼 양쪽 후보가 필요한 분석에는 `findNearestFrame`을 사용한다. 센서별 허용 시간 차이를 넘었을 때 화면을 유지할지 비울지는 실제 데이터 연결 단계에서 정한다.
 
 ## 계획: Buffer와 캐시
 

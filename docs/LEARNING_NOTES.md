@@ -350,9 +350,21 @@
 - 현재 가상 배열은 작아서 모든 원소를 한 번 확인하는 `O(n)` 선형 탐색을 사용한다. 이진 탐색은 실제 Frame 수와 탐색 비용이 병목임을 측정한 뒤 도입한다.
 - 사용자가 최근접 선택은 이전과 이후 Frame을 찾아 비교하는 원리라고 설명하고 탐색 방식이 이진 탐색인지 질문했다.
 
+### 인과적인 센서 Frame 동기화 (2026-09-16)
+
+- 동기화는 Camera, LiDAR와 Object Detection의 Frame timestamp를 억지로 같게 만드는 작업이 아니다. 하나의 `currentTimeMs`와 동일한 선택 규칙을 각 센서 배열에 적용하는 작업이다.
+- 기본 재생은 `findLatestFrameAtOrBefore`로 현재 시각 이하의 최신 Frame을 선택한다. `12_400ms`에 아직 획득하지 않은 `12_500ms` LiDAR Frame을 미리 보여 주지 않고 `12_000ms` Frame을 사용한다.
+- `frame.timestampMs - currentTimeMs`가 음수면 Frame이 재생 시각보다 그만큼 오래됐다는 뜻이다. 센서 주기가 다르므로 선택된 Frame 시각과 오차도 센서마다 다를 수 있다.
+- 최근접 선택은 양쪽 시각을 허용하는 오프라인 비교에 적합하고, 현재 시각 이하의 최신값 선택은 그 시각까지 시스템이 알고 있던 내용을 재현하는 인과적 재생에 적합하다.
+- Trajectory 예측은 미래 시각의 실제 Vehicle State와 명시적으로 비교할 수 있지만, 그 목적 때문에 기본 센서 재생이 미래 Frame을 미리 선택해서는 안 된다.
+- `synchronizedFrames`는 `currentTimeMs`가 바뀔 때 다시 렌더링되며 계산되는 파생값이다. 별도 state로 복제하지 않아 재생 시각과 선택 결과가 어긋나는 상태를 만들지 않는다.
+- `useMemo`를 쓰면 FPS만 바뀌는 렌더링에서는 재계산을 피할 수 있지만, 재생 중에는 `currentTimeMs`가 100ms마다 바뀌어 대부분 다시 계산된다. 현재 총 63개 Frame의 선형 탐색은 작으므로 최적화하지 않는다.
+- 실제 데이터에서 병목이 측정되면 `useMemo`와 이진 탐색을 검토하도록 코드에 `TODO`를 남겼다. `useMemo`는 정확성을 위한 장치가 아니라 성능 최적화 선택이다.
+- 사용자가 서로 다른 timestamp라도 같은 관찰 시각을 기준으로 Frame을 골랐기 때문에 동기화된 것이며, 미래 Frame을 고를지 과거 Frame을 유지할지는 분석 목적에 따른 선택 문제라고 설명했다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 4의 현재 시간 state, 재생·정지, 타임라인 탐색과 최근접 Frame 선택 원리 이해 확인을 마쳤다. 다음 항목도 Phase 4에서 진행한다.
+Phase 4의 현재 시간 state, 재생·정지, 타임라인 탐색과 센서 Frame 동기화 원리 이해 확인을 마쳤다. 다음 항목도 Phase 4에서 진행한다.
 
-- 같은 `currentTimeMs`로 Camera, LiDAR와 Object Detection 각각의 최근접 Frame을 독립적으로 선택하는 방법
-- 선택된 Frame들의 timestamp 차이를 동기화 오차로 확인하고 허용 범위를 판단하는 방법
+- 급제동 Event의 `timestampMs`를 타임라인 전체 길이에 대한 위치 비율로 바꾸는 방법
+- range input과 별도의 이벤트 마커를 같은 시간축 위에 겹쳐 표시하는 방법
