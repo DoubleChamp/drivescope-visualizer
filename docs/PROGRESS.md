@@ -5,12 +5,15 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 4 — 진행 중
-- 현재 작업: 0~15초 범위의 타임라인으로 원하는 재생 시각에 이동하는 기능을 추가했다.
-- 다음 한 단계: Phase 4 네 번째 항목인 현재 시간에서 사용할 Frame 선택 함수를 만든다.
-- 아직 구현하지 않은 것: 가상 카메라 이미지 파일, Frame 선택·동기화와 분석 기능
+- 현재 작업: 재생 시각과 `timestampMs` 차이로 가장 가까운 Frame을 선택하는 순수 함수를 추가했다.
+- 다음 한 단계: Phase 4 다섯 번째 항목인 서로 다른 주기의 센서 Frame 동기화를 구현한다.
+- 아직 구현하지 않은 것: 가상 카메라 이미지 파일, 선택 함수와 Viewer 연결, 센서 장면 갱신과 분석 기능
 
 ## 완료한 작업
 
+- `timestampMs`가 있는 어떤 Frame에도 재사용할 수 있는 제네릭 `findNearestFrame` 함수를 추가했다.
+- 목표 재생 시각과 각 Frame의 절대 시간 차이를 비교하고, 동률이면 이전 Frame을 선택하며, 빈 배열이면 `null`을 반환하도록 했다.
+- 작은 가상 데이터에서는 이해하기 쉬운 선형 탐색을 사용하고 실제 병목을 측정하기 전에는 이진 탐색을 도입하지 않기로 했다.
 - `currentTimeMs`를 값으로 사용하는 0~15,000ms range 타임라인을 추가했다.
 - 타임라인을 100ms 단위로 이동하고 조작 시 재생을 정지해 seek 결과를 유지하도록 했다.
 - range의 밀리초 값을 `aria-valuetext`에서 초 단위 문자열로 제공했다.
@@ -127,6 +130,14 @@
 - 이후 승인된 단계는 검증과 문서 갱신 후 Codex가 현재 브랜치에 commit까지만 하고, `origin` push는 사용자가 GitHub Desktop에서 직접 수행하도록 작업 규칙을 변경했다.
 
 ## 검증 결과
+
+### Phase 4: 최근접 Frame 선택 함수 (2026-09-16)
+
+- `12_400ms`에서 Camera `12_000ms`, LiDAR `12_500ms`, Object Detection `12_000ms`, Trajectory와 Vehicle State `12_400ms`가 선택됨을 실제 `mockScenario`로 확인했다.
+- `0ms`와 `1_000ms` 사이의 `500ms` 동률에서 이전 `0ms`가 선택되고 빈 배열에서는 `null`이 반환됨을 확인했다.
+- `pnpm exec tsc --noEmit`: TypeScript 오류 없이 통과했다.
+- `pnpm build`: Next.js 16.3.3 production build와 `/viewer` 정적 페이지 생성이 통과했다.
+- `git diff --check`: 공백 오류 없음.
 
 ### Phase 4: 타임라인 드래그 (2026-09-16)
 

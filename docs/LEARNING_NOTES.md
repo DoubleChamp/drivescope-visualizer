@@ -341,9 +341,18 @@
 - `<label>`의 `타임라인`은 컨트롤 이름을 제공하고 `aria-valuetext`는 현재 값의 의미를 제공한다.
 - 사용자가 재생을 멈추지 않으면 드래그 입력과 기존 interval이 같은 state를 갱신해 값이 오갈 수 있다고 설명했다.
 
+### 최근접 Frame 선택 (2026-09-16)
+
+- `findNearestFrame`은 목표 재생 시각과 각 Frame의 `timestampMs` 차이의 절댓값을 비교해 가장 가까운 Frame을 반환한다.
+- 개념적으로 목표 시각의 이전 Frame과 다음 Frame 중 더 가까운 후보를 고른다. 정확히 같은 거리라면 미래 데이터를 먼저 선택하지 않도록 이전 Frame을 선택한다.
+- 배열이 비어 있으면 선택할 Frame이 없으므로 `null`을 반환한다. 목표 시각이 전체 범위보다 앞이나 뒤라면 자연스럽게 첫 Frame이나 마지막 Frame이 선택된다.
+- 함수는 구체적인 센서 타입 대신 `timestampMs` 조건만 요구하는 제네릭으로 만들어 Camera, LiDAR와 Object Detection 등에 재사용할 수 있다.
+- 현재 가상 배열은 작아서 모든 원소를 한 번 확인하는 `O(n)` 선형 탐색을 사용한다. 이진 탐색은 실제 Frame 수와 탐색 비용이 병목임을 측정한 뒤 도입한다.
+- 사용자가 최근접 선택은 이전과 이후 Frame을 찾아 비교하는 원리라고 설명하고 탐색 방식이 이진 탐색인지 질문했다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 4의 현재 시간 state, 재생·정지와 타임라인 탐색 원리 이해 확인을 마쳤다. 다음 항목도 Phase 4에서 진행한다.
+Phase 4의 현재 시간 state, 재생·정지, 타임라인 탐색과 최근접 Frame 선택 원리 이해 확인을 마쳤다. 다음 항목도 Phase 4에서 진행한다.
 
-- 재생 시각과 각 Frame의 `timestampMs` 차이로 가장 가까운 Frame을 찾는 방법
-- 두 Frame이 같은 거리일 때 이전 Frame과 다음 Frame 중 무엇을 선택할지 정하는 방법
+- 같은 `currentTimeMs`로 Camera, LiDAR와 Object Detection 각각의 최근접 Frame을 독립적으로 선택하는 방법
+- 선택된 Frame들의 timestamp 차이를 동기화 오차로 확인하고 허용 범위를 판단하는 방법
