@@ -77,7 +77,7 @@
 
 .controls {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 1rem;
   margin-top: 0.75rem;
 }
@@ -102,19 +102,102 @@
   outline-offset: 2px;
 }
 
-.timelineLabel {
+.timelineControl {
   display: flex;
   flex: 1;
   align-items: center;
   gap: 0.75rem;
+  min-width: 0;
+}
+
+.timelineLabel {
   font-size: 0.875rem;
   font-weight: 700;
 }
 
-.timeline {
+.timelineTrack {
+  --timeline-thumb-size: 1rem;
+
+  position: relative;
   flex: 1;
   min-width: 0;
+  padding-bottom: 1.5rem;
+}
+
+.timeline {
+  display: block;
+  width: 100%;
+  height: var(--timeline-thumb-size);
+  margin: 0;
+  appearance: none;
+  background: transparent;
   cursor: pointer;
+}
+
+.timeline::-webkit-slider-runnable-track {
+  height: 0.375rem;
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.timeline::-webkit-slider-thumb {
+  width: var(--timeline-thumb-size);
+  height: var(--timeline-thumb-size);
+  margin-top: -0.3125rem;
+  appearance: none;
+  background: #0284c7;
+  border: 2px solid #f8fafc;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #0369a1;
+}
+
+.timeline::-moz-range-track {
+  height: 0.375rem;
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.timeline::-moz-range-thumb {
+  width: var(--timeline-thumb-size);
+  height: var(--timeline-thumb-size);
+  background: #0284c7;
+  border: 2px solid #f8fafc;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #0369a1;
+}
+
+.timeline:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+}
+
+.timelineEvents {
+  position: absolute;
+  right: calc(var(--timeline-thumb-size) / 2);
+  bottom: 0;
+  left: calc(var(--timeline-thumb-size) / 2);
+  height: 1.25rem;
+  pointer-events: none;
+}
+
+.timelineEvent {
+  position: absolute;
+  top: 0;
+  color: #b91c1c;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.timelineEvent::before {
+  display: block;
+  width: 0.125rem;
+  height: 0.5rem;
+  margin: 0 auto 0.125rem;
+  background: #dc2626;
+  border-radius: 9999px;
+  content: "";
 }
 
 @media (max-width: 640px) {

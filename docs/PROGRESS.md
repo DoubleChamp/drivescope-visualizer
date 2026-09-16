@@ -5,12 +5,15 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 4 — 진행 중
-- 현재 작업: 하나의 재생 시각으로 Camera·LiDAR·Object Detection의 인과적인 최신 Frame을 독립 선택하고 시각 차이를 표시했다.
-- 다음 한 단계: Phase 4 여섯 번째 항목인 급제동 이벤트 타임라인 마커를 표시한다.
-- 아직 구현하지 않은 것: 가상 카메라 이미지 파일, 선택된 센서 데이터의 Three.js 장면 반영과 분석 기능
+- 현재 작업: 급제동 Event timestamp를 전체 재생 길이의 비율로 변환해 타임라인에 고정 마커로 표시했다.
+- 다음 한 단계: Phase 4 일곱 번째 항목인 seek 직후 모든 센서 장면 갱신을 구현한다.
+- 아직 구현하지 않은 것: 가상 카메라 이미지 파일, 선택된 센서 데이터의 실제 UI·Three.js 장면 반영과 분석 기능
 
 ## 완료한 작업
 
+- `mockScenario.events`를 순회하고 `timestampMs / durationMs * 100`으로 각 이벤트의 타임라인 위치를 계산했다.
+- `12.4초` 급제동 이벤트를 `82.666…%` 위치의 빨간 마커와 접근성 이름으로 표시했다.
+- range 손잡이의 이동 구간과 마커 기준 구간을 맞추고 마커가 타임라인 드래그 입력을 막지 않게 했다.
 - `findLatestFrameAtOrBefore`로 현재 재생 시각 이하의 가장 최신 Frame만 선택해 미래 센서 데이터를 미리 표시하지 않도록 했다.
 - 같은 `currentTimeMs`에서 Camera·LiDAR·Object Detection을 각각 선택하고 Frame 시각과 재생 시각의 차이를 Viewer에 표시했다.
 - 선택 결과를 별도 state로 복제하지 않고 `currentTimeMs`에서 파생하며, `useMemo`와 이진 탐색은 실제 병목이 측정될 때 검토하도록 `TODO`로 남겼다.
@@ -133,6 +136,16 @@
 - 이후 승인된 단계는 검증과 문서 갱신 후 Codex가 현재 브랜치에 commit까지만 하고, `origin` push는 사용자가 GitHub Desktop에서 직접 수행하도록 작업 규칙을 변경했다.
 
 ## 검증 결과
+
+### Phase 4: 급제동 이벤트 타임라인 마커 (2026-09-16)
+
+- `12_400 / 15_000 * 100`의 결과인 `82.66666666666667%`가 급제동 마커의 인라인 위치로 렌더링됨을 확인했다.
+- `/viewer` 초기 HTML에 `급제동 12.4초` 문구와 `viewer-timeline`의 label·input 연결이 포함됨을 확인했다.
+- 1280×900 headless Chrome 화면에서 타임라인 오른쪽의 해당 비율 위치에 빨간 급제동 마커와 문구가 표시됨을 확인했다.
+- `pnpm exec tsc --noEmit`: TypeScript 오류 없이 통과했다.
+- `pnpm build`: Next.js 16.3.3 production build와 `/viewer` 정적 페이지 생성이 통과했다.
+- 실행 중인 `/viewer`가 HTTP 200으로 응답했다.
+- `git diff --check`: 공백 오류 없음.
 
 ### Phase 4: 서로 다른 주기의 센서 Frame 동기화 (2026-09-16)
 
@@ -387,7 +400,7 @@
 
 ## 다음 구현 진입 조건
 
-1. 재생 시각과 Frame timestamp의 차이를 비교하는 선택 규칙과 두 Frame의 거리가 같을 때의 처리 방법을 설명하고 사용자 승인을 받는다.
+1. 선택된 Camera·LiDAR·Object Detection Frame을 React UI와 Three.js 장면에 각각 어떻게 반영할지 책임을 나누어 설명하고 사용자 승인을 받는다.
 
 ## 추천 커밋 메시지
 

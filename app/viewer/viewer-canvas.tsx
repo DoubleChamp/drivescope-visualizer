@@ -12,6 +12,7 @@ import {
   WebGLRenderer,
 } from "three";
 import { findLatestFrameAtOrBefore } from "./_data/find-latest-frame-at-or-before";
+import type { ScenarioEvent } from "./_data/frame-types";
 import { mockScenario } from "./_data/mock-scenario";
 import styles from "./viewer-canvas.module.css";
 
@@ -21,6 +22,9 @@ const POINT_SPACING = 0.1;
 const FPS_SAMPLE_INTERVAL_MS = 1_000;
 const INITIAL_PLAYBACK_TIME_MS = 0;
 const PLAYBACK_UPDATE_INTERVAL_MS = 100;
+const EVENT_TYPE_LABELS: Record<ScenarioEvent["type"], string> = {
+  "emergency-braking": "급제동",
+};
 
 const formatTimestampDifference = (differenceMs: number) =>
   `${differenceMs > 0 ? "+" : ""}${differenceMs.toLocaleString("ko-KR")}ms`;
@@ -254,21 +258,50 @@ export default function ViewerCanvas() {
         >
           {isPlaying ? "정지" : "재생"}
         </button>
-        <label className={styles.timelineLabel}>
-          <span>타임라인</span>
-          <input
-            type="range"
-            className={styles.timeline}
-            min={INITIAL_PLAYBACK_TIME_MS}
-            max={mockScenario.durationMs}
-            step={PLAYBACK_UPDATE_INTERVAL_MS}
-            value={currentTimeMs}
-            aria-valuetext={`${(currentTimeMs / 1_000).toFixed(1)}초`}
-            onChange={(event) =>
-              handleTimelineChange(event.currentTarget.valueAsNumber)
-            }
-          />
-        </label>
+        <div className={styles.timelineControl}>
+          <label htmlFor="viewer-timeline" className={styles.timelineLabel}>
+            타임라인
+          </label>
+          <div className={styles.timelineTrack}>
+            <input
+              id="viewer-timeline"
+              type="range"
+              className={styles.timeline}
+              min={INITIAL_PLAYBACK_TIME_MS}
+              max={mockScenario.durationMs}
+              step={PLAYBACK_UPDATE_INTERVAL_MS}
+              value={currentTimeMs}
+              aria-valuetext={`${(currentTimeMs / 1_000).toFixed(1)}초`}
+              onChange={(event) =>
+                handleTimelineChange(event.currentTarget.valueAsNumber)
+              }
+            />
+            <div className={styles.timelineEvents}>
+              {mockScenario.events.map((event) => {
+                const eventLabel = EVENT_TYPE_LABELS[event.type];
+                const eventTimeInSeconds = (event.timestampMs / 1_000).toFixed(
+                  1,
+                );
+                const positionPercent =
+                  (event.timestampMs / mockScenario.durationMs) * 100;
+                const accessibleLabel = `${eventLabel} ${eventTimeInSeconds}초`;
+
+                return (
+                  <span
+                    key={event.id}
+                    role="img"
+                    className={styles.timelineEvent}
+                    style={{ left: `${positionPercent}%` }}
+                    aria-label={accessibleLabel}
+                    title={accessibleLabel}
+                  >
+                    <span aria-hidden="true">{accessibleLabel}</span>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
