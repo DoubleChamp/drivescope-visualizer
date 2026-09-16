@@ -19,8 +19,8 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 - **Phase 1 — 완료:** `feat/phase-1-three-scene` 브랜치에서 Client Component 경계, React가 소유하는 Canvas, Three.js Scene, PerspectiveCamera, WebGLRenderer, GridHelper, 창 resize 처리, `requestAnimationFrame` 렌더 루프와 전체 cleanup을 구현하고 검증했다.
 - **Phase 2 — 완료:** 가상 포인트 10,000개의 Buffer 구조와 Material 조정, 포인트 수와 rAF 기반 FPS 표시를 구현했다. 포인트 100개와 10,000개를 각각 측정하고 FPS 계산과 React·Three.js 책임 분리를 확인했다.
 - **Phase 3 — 완료:** 공통 timestamp 기준, 모든 Frame·Event 타입과 0~15초의 가상 급제동 시나리오 데이터를 정의하고 검증했다.
-- **Phase 4 — 진행 중:** 현재 재생 시간 state, 재생·정지, 타임라인 드래그, Frame 선택·센서 동기화와 급제동 이벤트 마커를 추가했다.
-- **다음 단계:** Phase 4의 일곱 번째 항목으로 seek 직후 모든 센서 장면을 같은 시간 기준으로 갱신한다.
+- **Phase 4 — 완료:** 현재 재생 시간 state, 재생·정지, 타임라인 드래그, Frame 선택·센서 동기화와 급제동 이벤트 마커를 추가하고 선택된 Camera·LiDAR·Object Detection Frame을 화면에 반영했다.
+- **다음 단계:** Phase 5의 첫 번째 항목으로 선택된 보행자 인식 결과를 Three.js 3D 바운딩 박스로 표시한다.
 
 ---
 
@@ -105,7 +105,7 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 
 ## Phase 4: 재생과 시간 동기화
 
-상태: **진행 중**
+상태: **완료**
 
 1. [x] 현재 재생 시간을 나타내는 상태를 만든다.
 2. [x] 재생과 정지 동작을 추가한다.
@@ -113,14 +113,14 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 4. [x] 현재 시간에서 가장 가까운 Frame을 찾는 함수를 만든다.
 5. [x] 서로 다른 주기의 센서 Frame을 timestamp 기준으로 동기화한다.
 6. [x] 타임라인에 급제동 이벤트 마커를 표시한다.
-7. seek 직후 모든 센서 장면이 같은 시간 기준으로 갱신되게 한다.
+7. [x] seek 직후 모든 센서 장면이 같은 시간 기준으로 갱신되게 한다.
 
 완료 조건:
 
 - 재생, 정지와 타임라인 이동이 예측 가능한 하나의 재생 시간 상태를 사용한다.
 - 타임라인을 이동한 뒤 카메라, LiDAR와 Annotation이 올바른 Frame으로 갱신된다.
 - 급제동 이벤트 위치가 시나리오의 timestamp와 일치한다.
-- 사용자가 센서별 최근접 Frame 선택 규칙과 동기화 오차의 의미를 설명할 수 있다.
+- 사용자가 센서별 인과적 Frame 선택 규칙과 동기화 오차의 의미를 설명할 수 있다.
 
 ## Phase 5: 분석 장면 구현
 

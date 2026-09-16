@@ -373,9 +373,21 @@
 - 마커는 `pointer-events: none`으로 드래그를 가로막지 않으며 이벤트 종류와 시각을 화면 문구, `title`과 접근성 이름으로 제공한다.
 - 사용자가 이벤트 발생 시각을 전체 프로그램 길이에 대한 백분율로 바꿔 위치를 표시하며, 고정된 계산값이므로 별도 state가 필요 없다고 설명했다.
 
+### 선택된 센서 Frame의 실제 화면 반영 (2026-09-16)
+
+- LiDAR Frame마다 `BufferGeometry`를 새로 만들지 않고, 최대 Frame인 숫자 63개·포인트 21개 크기의 `Float32Array`와 `BufferAttribute`를 마운트 시 한 번 생성한다.
+- 선택된 Frame이 바뀔 때 `positions`를 기존 배열 앞부분에 복사하고 `needsUpdate = true`로 다음 렌더의 GPU Buffer 갱신을 요청한다.
+- `drawRange`는 Buffer의 최대 용량과 이번 Frame에서 실제로 그릴 포인트 수를 분리한다. 15개 Frame 뒤에 남는 6개 포인트의 초기값이나 이전값을 그리지 않고 앞의 15개만 draw call에 사용하게 한다.
+- 사용자가 최대 크기의 배열에서 실제 데이터가 15개뿐이면 뒤쪽 값이 남을 수 있으므로 그리지 않을 범위를 알려 주는 것이 `drawRange`라고 설명했다.
+- 선택된 LiDAR Frame 객체는 500ms마다 바뀌므로 좌표 갱신 effect도 재생 시간 state의 100ms 변경마다 실행되지 않고 선택 결과가 바뀔 때만 실행된다.
+- `computeBoundingSphere()`는 GPU에 구를 전송하는 함수가 아니다. JavaScript/CPU에서 `position` Attribute를 순회해 경계 구를 다시 계산하고, Three.js가 Camera frustum과 비교해 객체 전체를 draw call에 넣을지 먼저 판정할 때 사용한다.
+- bounding sphere 계산은 `drawRange`가 아닌 전체 Attribute 수를 기준으로 하므로 남은 좌표 때문에 실제 표시 범위보다 큰 구가 될 수 있다. 이는 불필요하게 그릴 가능성은 늘려도 보여야 할 점을 잘못 제거하지 않는 보수적 판정이다.
+- Camera는 선택된 `imageUrl` 문자열만 정보 카드에 표시하고 실제 이미지는 아직 요청하지 않는다. Object Detection도 객체 수와 `pedestrian-1` ID만 표시하며 3D 박스는 Phase 5에서 만든다.
+- 실제 타임라인 입력을 `0ms`에서 `11_000ms`로 이동해 Camera URL, LiDAR 포인트 수, 객체 ID가 함께 갱신되고 WebGL 포인트 draw count가 15개에서 21개로 바뀌는 것을 확인했다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 4의 현재 시간 state, 재생·정지, 타임라인 탐색, 센서 Frame 동기화와 Event 마커 원리 이해 확인을 마쳤다. 다음 항목도 Phase 4에서 진행한다.
+Phase 4의 현재 시간 state, 재생·정지, 타임라인 탐색, 센서 Frame 동기화, Event 마커와 선택 Frame의 실제 화면 반영을 마쳤다. 다음 항목은 Phase 5에서 진행한다.
 
-- 선택된 LiDAR Frame의 좌표로 기존 Three.js Buffer를 갱신하는 방법
-- Camera와 Object Detection 선택 결과를 React UI와 Three.js 장면의 책임에 맞게 반영하는 방법
+- Object Detection의 중심, 크기와 회전을 Three.js 3D 바운딩 박스로 표현하는 방법
+- Frame이 바뀌어도 박스 Geometry와 Material을 재사용하고 안전하게 정리하는 방법

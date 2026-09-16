@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   BufferAttribute,
   BufferGeometry,
+  DynamicDrawUsage,
   GridHelper,
   PerspectiveCamera,
   Points,
@@ -16,12 +17,13 @@ import type { ScenarioEvent } from "./_data/frame-types";
 import { mockScenario } from "./_data/mock-scenario";
 import styles from "./viewer-canvas.module.css";
 
-const POINTS_PER_SIDE = 100;
-const POINT_COUNT = POINTS_PER_SIDE * POINTS_PER_SIDE;
-const POINT_SPACING = 0.1;
 const FPS_SAMPLE_INTERVAL_MS = 1_000;
 const INITIAL_PLAYBACK_TIME_MS = 0;
 const PLAYBACK_UPDATE_INTERVAL_MS = 100;
+const LIDAR_POSITION_BUFFER_LENGTH = Math.max(
+  0,
+  ...mockScenario.lidarFrames.map((frame) => frame.positions.length),
+);
 const EVENT_TYPE_LABELS: Record<ScenarioEvent["type"], string> = {
   "emergency-braking": "급제동",
 };
@@ -31,6 +33,8 @@ const formatTimestampDifference = (differenceMs: number) =>
 
 export default function ViewerCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const lidarGeometryRef = useRef<BufferGeometry | null>(null);
+  const lidarPositionAttributeRef = useRef<BufferAttribute | null>(null);
   const playbackStartedAtRef = useRef(0);
   const playbackTimeAtStartRef = useRef(INITIAL_PLAYBACK_TIME_MS);
   const [framesPerSecond, setFramesPerSecond] = useState<number | null>(null);
@@ -38,28 +42,46 @@ export default function ViewerCanvas() {
     INITIAL_PLAYBACK_TIME_MS,
   );
   const [isPlaying, setIsPlaying] = useState(false);
+  const selectedCameraFrame = findLatestFrameAtOrBefore(
+    mockScenario.cameraFrames,
+    currentTimeMs,
+  );
+  const selectedLidarFrame = findLatestFrameAtOrBefore(
+    mockScenario.lidarFrames,
+    currentTimeMs,
+  );
+  const selectedObjectDetectionFrame = findLatestFrameAtOrBefore(
+    mockScenario.objectDetectionFrames,
+    currentTimeMs,
+  );
+  const selectedLidarPointCount = selectedLidarFrame
+    ? selectedLidarFrame.positions.length / 3
+    : 0;
+  const objectDetectionSummary = selectedObjectDetectionFrame
+    ? selectedObjectDetectionFrame.objects.length === 0
+      ? "객체 없음"
+      : selectedObjectDetectionFrame.objects
+          .map((object) => `${object.id} (${object.category})`)
+          .join(", ")
+    : null;
   // TODO: 실제 데이터에서 이 계산이 병목으로 측정되면 currentTimeMs 기준 useMemo를 검토한다.
   const synchronizedFrames = [
     {
       label: "Camera",
-      frame: findLatestFrameAtOrBefore(
-        mockScenario.cameraFrames,
-        currentTimeMs,
-      ),
+      frame: selectedCameraFrame,
+      detail: selectedCameraFrame?.imageUrl ?? null,
     },
     {
       label: "LiDAR",
-      frame: findLatestFrameAtOrBefore(
-        mockScenario.lidarFrames,
-        currentTimeMs,
-      ),
+      frame: selectedLidarFrame,
+      detail: selectedLidarFrame
+        ? `${selectedLidarPointCount.toLocaleString("ko-KR")}개 포인트`
+        : null,
     },
     {
       label: "Object Detection",
-      frame: findLatestFrameAtOrBefore(
-        mockScenario.objectDetectionFrames,
-        currentTimeMs,
-      ),
+      frame: selectedObjectDetectionFrame,
+      detail: objectDetectionSummary,
     },
   ];
 
@@ -73,38 +95,26 @@ export default function ViewerCanvas() {
     const width = canvas.clientWidth;
     const height = canvas.clientHeight;
     const scene = new Scene();
-    const grid = new GridHelper(10, 10);
+    const grid = new GridHelper(80, 16);
     const camera = new PerspectiveCamera(60, width / height, 0.1, 1000);
 
     scene.add(grid);
 
-    const halfExtent = ((POINTS_PER_SIDE - 1) * POINT_SPACING) / 2;
-    const pointPositions = new Float32Array(POINT_COUNT * 3);
-
-    // 격자 위에 100행 × 100열의 가상 좌표를 배치한다.
-    for (let row = 0; row < POINTS_PER_SIDE; row += 1) {
-      for (let column = 0; column < POINTS_PER_SIDE; column += 1) {
-        const pointIndex = row * POINTS_PER_SIDE + column;
-        const offset = pointIndex * 3;
-
-        pointPositions[offset] = column * POINT_SPACING - halfExtent;
-        pointPositions[offset + 1] = 0.25;
-        pointPositions[offset + 2] = row * POINT_SPACING - halfExtent;
-      }
-    }
-
+    const pointPositions = new Float32Array(LIDAR_POSITION_BUFFER_LENGTH);
+    const positionAttribute = new BufferAttribute(pointPositions, 3);
+    positionAttribute.setUsage(DynamicDrawUsage);
     const pointsGeometry = new BufferGeometry();
-    pointsGeometry.setAttribute(
-      "position",
-      new BufferAttribute(pointPositions, 3),
-    );
-    const pointsMaterial = new PointsMaterial({ color: 0x38bdf8, size: 0.06 });
+    pointsGeometry.setAttribute("position", positionAttribute);
+    pointsGeometry.setDrawRange(0, 0);
+    const pointsMaterial = new PointsMaterial({ color: 0x38bdf8, size: 0.18 });
     const points = new Points(pointsGeometry, pointsMaterial);
 
+    lidarGeometryRef.current = pointsGeometry;
+    lidarPositionAttributeRef.current = positionAttribute;
     scene.add(points);
 
-    camera.position.set(5, 5, 5);
-    camera.lookAt(0, 0, 0);
+    camera.position.set(30, 25, -30);
+    camera.lookAt(0, 0, -10);
 
     const renderer = new WebGLRenderer({ canvas });
     const handleResize = () => {
@@ -149,6 +159,8 @@ export default function ViewerCanvas() {
     return () => {
       window.cancelAnimationFrame(animationFrameId);
       window.removeEventListener("resize", handleResize);
+      lidarGeometryRef.current = null;
+      lidarPositionAttributeRef.current = null;
       pointsGeometry.dispose();
       pointsMaterial.dispose();
       grid.dispose();
@@ -156,6 +168,27 @@ export default function ViewerCanvas() {
       renderer.dispose();
     };
   }, []);
+
+  useEffect(() => {
+    const pointsGeometry = lidarGeometryRef.current;
+    const positionAttribute = lidarPositionAttributeRef.current;
+
+    if (!pointsGeometry || !positionAttribute) {
+      return;
+    }
+
+    if (!selectedLidarFrame) {
+      pointsGeometry.setDrawRange(0, 0);
+      return;
+    }
+
+    const pointPositions = positionAttribute.array as Float32Array;
+
+    pointPositions.set(selectedLidarFrame.positions);
+    positionAttribute.needsUpdate = true;
+    pointsGeometry.setDrawRange(0, selectedLidarPointCount);
+    pointsGeometry.computeBoundingSphere();
+  }, [selectedLidarFrame, selectedLidarPointCount]);
 
   useEffect(() => {
     if (!isPlaying) {
@@ -209,7 +242,7 @@ export default function ViewerCanvas() {
       <dl className={styles.metrics} aria-label="뷰어 통계">
         <div className={styles.metric}>
           <dt>포인트 수</dt>
-          <dd>{POINT_COUNT.toLocaleString("ko-KR")}</dd>
+          <dd>{selectedLidarPointCount.toLocaleString("ko-KR")}</dd>
         </div>
         <div className={styles.metric}>
           <dt>FPS</dt>
@@ -229,7 +262,7 @@ export default function ViewerCanvas() {
         aria-label="DriveScope 3D 뷰어"
       />
       <dl className={styles.synchronizedFrames} aria-label="동기화된 Frame">
-        {synchronizedFrames.map(({ label, frame }) => (
+        {synchronizedFrames.map(({ label, frame, detail }) => (
           <div key={label} className={styles.synchronizedFrame}>
             <dt>{label}</dt>
             <dd>
@@ -237,12 +270,15 @@ export default function ViewerCanvas() {
                 "Frame 없음"
               ) : (
                 <>
-                  {(frame.timestampMs / 1_000).toFixed(1)}초
-                  <span className={styles.timestampDifference}>
-                    {formatTimestampDifference(
-                      frame.timestampMs - currentTimeMs,
-                    )}
+                  <span className={styles.frameTimestamp}>
+                    {(frame.timestampMs / 1_000).toFixed(1)}초
+                    <span className={styles.timestampDifference}>
+                      {formatTimestampDifference(
+                        frame.timestampMs - currentTimeMs,
+                      )}
+                    </span>
                   </span>
+                  <span className={styles.frameDetail}>{detail}</span>
                 </>
               )}
             </dd>

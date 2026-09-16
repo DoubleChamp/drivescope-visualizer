@@ -2,7 +2,7 @@
 
 ## 현재 상태
 
-Next.js App Router와 TypeScript가 동작하며 Three.js는 설치되어 있다. `/viewer` 아래에 React가 소유하는 Canvas와 작은 Client Component 경계를 만들고, 컴포넌트가 마운트될 때 Scene, PerspectiveCamera, WebGLRenderer와 `GridHelper(10, 10)`를 생성한다. 창 크기가 바뀌면 Canvas의 CSS 크기를 다시 읽어 Camera의 종횡비와 투영 행렬, Renderer의 drawing buffer를 갱신한다. `requestAnimationFrame` 콜백은 Scene을 렌더링한 뒤 다음 프레임을 하나씩 다시 예약한다. 컴포넌트 해제 시 최신 animation frame과 resize 리스너를 먼저 취소하고 Grid의 Geometry와 Material, Scene과 Renderer를 정리한다.
+Next.js App Router와 TypeScript가 동작하며 Three.js는 설치되어 있다. `/viewer` 아래에 React가 소유하는 Canvas와 작은 Client Component 경계를 만들고, 컴포넌트가 마운트될 때 Scene, PerspectiveCamera, WebGLRenderer와 `GridHelper(80, 16)`를 생성한다. 창 크기가 바뀌면 Canvas의 CSS 크기를 다시 읽어 Camera의 종횡비와 투영 행렬, Renderer의 drawing buffer를 갱신한다. `requestAnimationFrame` 콜백은 Scene을 렌더링한 뒤 다음 프레임을 하나씩 다시 예약한다. 컴포넌트 해제 시 최신 animation frame과 resize 리스너를 먼저 취소하고 Grid, 포인트 Geometry와 Material, Scene과 Renderer를 정리한다.
 
 Phase 2에서는 같은 effect에서 포인트 10,000개의 좌표를 숫자 30,000개인 `Float32Array`에 생성한다. XZ 방향으로 간격 0.1인 100×100 배열을 원점 중심의 `-4.95~4.95` 범위에 놓고 높이는 `y = 0.25`로 고정한다. 좌표 데이터 크기는 120,000바이트다. `BufferAttribute(pointPositions, 3)`가 연속된 숫자 세 개를 한 점의 `x`, `y`, `z`로 해석하고, 이를 `BufferGeometry`의 `position` 속성으로 직접 연결한다. 하나의 `PointsMaterial`에서 모든 점에 공통으로 적용할 색상을 `0x38bdf8`, 크기를 `0.06`으로 지정한다. 기본값인 `sizeAttenuation: true`가 PerspectiveCamera에서 거리에 따라 화면상의 점 크기를 줄인다. 하나의 `Points`가 Geometry와 Material을 묶으며 좌표 Buffer, Geometry와 Material은 마운트할 때 생성하고 기존 렌더 루프에서 재사용한다. cleanup에서는 예약과 이벤트를 차단한 뒤 포인트의 Geometry와 Material도 각각 `dispose()`한다.
 
@@ -10,7 +10,11 @@ Phase 2에서는 같은 effect에서 포인트 10,000개의 좌표를 숫자 30,
 
 Scene 순회는 Attribute 배열 전체를 비교하거나 GPU Buffer를 읽어 변경 여부를 찾지 않는다. 애플리케이션이 Attribute의 `needsUpdate`를 `true`로 설정하면 `version`이 증가하고, Renderer가 캐시한 이전 버전보다 클 때만 CPU 배열을 GPU Buffer에 다시 전송한다. 현재 좌표는 생성 뒤 바뀌지 않아 GPU Buffer를 재사용하지만, `renderer.render()`가 실행될 때는 기존 Buffer를 사용한 draw call이 다시 발생한다.
 
-포인트 생성과 화면 표시는 모듈 상수 `POINT_COUNT`를 함께 사용해 실제 Buffer 크기와 표시값이 어긋나지 않게 한다. Three.js rAF 콜백은 지역 변수에 렌더 횟수와 샘플 시작 시각을 보관하고, rAF timestamp의 실제 경과 시간이 1초 이상일 때 `렌더 횟수 × 1000 / 경과 밀리초`로 평균 FPS를 계산한다. React는 포인트 수와 FPS 통계 UI 및 약 1초마다 바뀌는 표시용 FPS state만 소유한다. 이 state로 Client Component가 다시 렌더링돼도 Canvas의 타입과 트리 위치가 같고 effect 의존성 배열이 비어 있어 기존 Canvas, Renderer와 rAF는 유지된다. 별도 interval이 없으므로 컴포넌트 해제 시 기존 `cancelAnimationFrame()`이 렌더링과 측정을 함께 중지한다. 이 값은 rAF 콜백에서 수행한 `renderer.render()` 호출 빈도이며 GPU 명령 하나의 실행 시간을 직접 측정하는 값은 아니다.
+현재 LiDAR 런타임은 모든 가상 Frame 중 최대 크기인 숫자 63개, 즉 포인트 21개를 담는 `Float32Array`와 `BufferAttribute`를 마운트 시 한 번만 만든다. 선택된 `LidarFrame`이 바뀌면 그 `positions`를 기존 배열 앞부분에 복사하고 `needsUpdate = true`로 GPU 재전송을 예약한다. `setDrawRange(0, selectedLidarPointCount)`는 최대 Buffer 뒤쪽에 남아 있는 이전 값이나 초기값을 그리지 않게 한다. 이 방식은 Frame마다 Geometry와 GPU Buffer를 새로 만들지 않는다.
+
+좌표를 바꾼 뒤 호출하는 `computeBoundingSphere()`는 GPU 명령이 아니라 브라우저의 JavaScript/CPU에서 `position` Attribute를 읽어 Geometry를 감싸는 구를 다시 계산하는 작업이다. Three.js Renderer는 이 구와 Camera의 frustum을 CPU에서 먼저 비교해 객체 전체가 시야 밖이면 draw call을 생략한다. 통과한 객체의 각 정점 변환과 최종 clipping·rasterization은 그다음 GPU가 담당한다. bounding sphere는 `drawRange`가 아니라 전체 Attribute 용량을 기준으로 계산하므로 뒤쪽 값 때문에 실제 표시 범위보다 커질 수 있지만, 현재 최대 21개인 Buffer에서는 안전한 보수적 판정이고 비용도 작다.
+
+Three.js rAF 콜백은 지역 변수에 렌더 횟수와 샘플 시작 시각을 보관하고, rAF timestamp의 실제 경과 시간이 1초 이상일 때 `렌더 횟수 × 1000 / 경과 밀리초`로 평균 FPS를 계산한다. React는 현재 재생 시간, 재생 여부, 선택된 센서 정보와 약 1초마다 바뀌는 표시용 FPS state를 소유한다. 이 state로 Client Component가 다시 렌더링돼도 Canvas의 타입과 트리 위치가 같고 초기화 effect 의존성 배열이 비어 있어 기존 Canvas, Renderer와 rAF는 유지된다. 별도 interval이 없으므로 컴포넌트 해제 시 기존 `cancelAnimationFrame()`이 렌더링과 측정을 함께 중지한다. 이 값은 rAF 콜백에서 수행한 `renderer.render()` 호출 빈도이며 GPU 명령 하나의 실행 시간을 직접 측정하는 값은 아니다.
 
 이 문서에서 **계획**으로 표시한 내용은 설계 방향일 뿐 아직 구현된 기능이 아니다.
 
@@ -80,6 +84,8 @@ Event는 주기적으로 샘플링되는 Vehicle State와 달리 특정 순간�
 가상 공간의 단위는 미터이며 X는 좌우, Y는 높이, 양의 Z는 차량 진행 방향으로 사용한다. 모든 가상 위치는 같은 시나리오 좌표계에 있어 Object Detection의 보행자 중심, Trajectory와 Vehicle State를 직접 비교할 수 있다. 실제 nuScenes 데이터는 로딩 경계에서 이 좌표계로 변환한다.
 
 Camera Frame은 1,000ms 간격으로 16개, LiDAR Frame은 500ms 간격으로 31개를 생성해 서로 다른 센서 주기를 표현한다. 10초에 카메라 URL과 LiDAR 포인트에 보행자가 등장하고, Object Detection은 11초부터 같은 `pedestrian-1`을 제공한다. 12초 Trajectory의 2,000ms 뒤 예상 위치 `[0, 0, 20]`은 보행자 중심과 겹친다. 12.4초 급제동 Event와 `-4m/s²` 감속 이후 차량은 13.4초에 Z 15.6m에서 정지하며 이후 Trajectory도 그 위치를 넘지 않는다.
+
+현재 Viewer는 `findLatestFrameAtOrBefore`로 선택한 Camera의 `imageUrl`과 Object Detection의 객체 수·ID를 React 정보 카드에 표시한다. 실제 카메라 파일을 내려받아 보여 주는 이미지 패널과 인식 결과의 3D 박스는 아직 만들지 않았으며 Phase 5의 책임이다. 선택된 LiDAR Frame만 Three.js 포인트 장면에 실제 좌표로 반영되어 10초 전에는 도로 포인트 15개, 이후에는 보행자 포인트를 포함한 21개를 그린다.
 
 ## 소유권과 생명주기
 

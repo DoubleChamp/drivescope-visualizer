@@ -4,13 +4,17 @@
 
 ## 현재 위치
 
-- 현재 Phase: Phase 4 — 진행 중
-- 현재 작업: 급제동 Event timestamp를 전체 재생 길이의 비율로 변환해 타임라인에 고정 마커로 표시했다.
-- 다음 한 단계: Phase 4 일곱 번째 항목인 seek 직후 모든 센서 장면 갱신을 구현한다.
-- 아직 구현하지 않은 것: 가상 카메라 이미지 파일, 선택된 센서 데이터의 실제 UI·Three.js 장면 반영과 분석 기능
+- 현재 Phase: Phase 4 — 완료
+- 현재 작업: 선택된 Camera·LiDAR·Object Detection Frame을 같은 재생 시간 기준으로 실제 UI와 Three.js 장면에 반영했다.
+- 다음 한 단계: Phase 5 첫 번째 항목인 보행자 3D 바운딩 박스 표시를 설계하고 승인받는다.
+- 아직 구현하지 않은 것: 실제 카메라 이미지 패널, 객체 3D 박스, 예상 경로·충돌 분석, 선택 UI와 실제 데이터 연결
 
 ## 완료한 작업
 
+- 최대 LiDAR Frame 크기인 21개 포인트용 Buffer를 한 번 생성하고 선택 Frame의 좌표를 같은 Buffer에 복사하도록 변경했다.
+- `DynamicDrawUsage`, `needsUpdate`와 `drawRange`를 사용해 GPU Buffer를 재사용하면서 현재 Frame의 15개 또는 21개 포인트만 그리도록 했다.
+- 선택된 Camera Frame의 `imageUrl`과 Object Detection의 객체 수·ID를 동기화 정보 카드에 표시했다.
+- LiDAR 포인트 수 표시를 고정 10,000개에서 현재 선택된 Frame의 실제 포인트 수로 변경했다.
 - `mockScenario.events`를 순회하고 `timestampMs / durationMs * 100`으로 각 이벤트의 타임라인 위치를 계산했다.
 - `12.4초` 급제동 이벤트를 `82.666…%` 위치의 빨간 마커와 접근성 이름으로 표시했다.
 - range 손잡이의 이동 구간과 마커 기준 구간을 맞추고 마커가 타임라인 드래그 입력을 막지 않게 했다.
@@ -136,6 +140,17 @@
 - 이후 승인된 단계는 검증과 문서 갱신 후 Codex가 현재 브랜치에 commit까지만 하고, `origin` push는 사용자가 GitHub Desktop에서 직접 수행하도록 작업 규칙을 변경했다.
 
 ## 검증 결과
+
+### Phase 4: 선택된 센서 Frame의 실제 화면 반영 (2026-09-16)
+
+- 초기 `0ms`에서 Camera `/mock-camera/road-clear.svg`, LiDAR 15개, Object Detection 객체 없음이 표시됨을 확인했다.
+- 타임라인을 실제 마우스 입력으로 `11_000ms`로 이동한 뒤 Camera `/mock-camera/pedestrian.svg`, LiDAR 21개, Object Detection `pedestrian-1`이 함께 갱신됨을 확인했다.
+- WebGL의 포인트 draw call을 계측해 초기에는 15개, 11초에는 21개 정점만 그려짐을 확인했다.
+- 1280×900 headless Chrome 화면에서 타임라인 seek 직후 LiDAR 포인트와 세 센서 정보 카드가 함께 바뀌는 것을 확인했다.
+- `pnpm exec tsc --noEmit`: TypeScript 오류 없이 통과했다.
+- `pnpm build`: Next.js 16.3.3 production build와 `/viewer` 정적 페이지 생성이 통과했다.
+- 실행 중인 `/viewer`가 HTTP 200으로 응답했다.
+- `git diff --check`: 공백 오류 없음.
 
 ### Phase 4: 급제동 이벤트 타임라인 마커 (2026-09-16)
 
@@ -400,7 +415,7 @@
 
 ## 다음 구현 진입 조건
 
-1. 선택된 Camera·LiDAR·Object Detection Frame을 React UI와 Three.js 장면에 각각 어떻게 반영할지 책임을 나누어 설명하고 사용자 승인을 받는다.
+1. `ObjectDetection.center`, `size`와 `yawRadians`를 Three.js 바운딩 박스의 위치, 크기와 회전으로 바꾸는 원리를 설명하고 사용자 승인을 받는다.
 
 ## 추천 커밋 메시지
 

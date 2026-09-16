@@ -62,11 +62,23 @@
 }
 
 .synchronizedFrame dd {
-  display: flex;
-  gap: 0.5rem;
   margin: 0.25rem 0 0;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+.frameTimestamp {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.frameDetail {
+  display: block;
+  margin-top: 0.25rem;
+  overflow-wrap: anywhere;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .timestampDifference {
