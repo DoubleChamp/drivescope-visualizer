@@ -114,7 +114,11 @@ JavaScript GC는 도달할 수 없게 된 JS 객체의 힙 메모리를 나중�
 - 화면에 초 단위로 표시할 때만 `timestampMs / 1_000`으로 변환한다.
 - 실제 데이터가 절대 시각이나 더 작은 단위를 사용하면 데이터 로딩 경계에서 시나리오 상대 밀리초로 정규화한다.
 
-`ViewerCanvas`는 현재 재생 시각을 `currentTimeMs` React state로 소유한다. 초기값은 시나리오 시작인 `0ms`이고 전체 길이는 `mockScenario.durationMs`인 `15_000ms`다. 화면에만 `0.0 / 15.0초`처럼 초 단위로 변환해 표시한다. 현재 단계에서는 state를 자동으로 증가시키거나 Frame과 Three.js 장면을 갱신하지 않는다.
+`ViewerCanvas`는 현재 재생 시각을 `currentTimeMs` React state로 소유한다. 초기값은 시나리오 시작인 `0ms`이고 전체 길이는 `mockScenario.durationMs`인 `15_000ms`다. 화면에만 `0.0 / 15.0초`처럼 초 단위로 변환해 표시한다. 아직 이 시간에 맞는 Frame 선택과 Three.js 장면 갱신은 연결하지 않았다.
+
+재생 여부는 `isPlaying` React state가 소유하고 버튼은 이 값을 `재생`과 `정지` 사이에서 전환한다. 재생을 시작할 때의 시나리오 시간과 브라우저 시각은 화면 렌더링에 필요하지 않으므로 각각 `playbackTimeAtStartRef`와 `playbackStartedAtRef`에 보관한다. 100ms `setInterval`은 UI 갱신 기회만 제공하고 실제 재생 시간은 `재생 시작 시나리오 시간 + (현재 performance.now() - 재생 시작 performance.now())`로 계산한다. 따라서 callback 지연을 고정 `+100ms`로 누적하지 않는다.
+
+정지하면 `isPlaying` 변화에 따른 effect cleanup이 interval을 제거하고 현재 재생 시간은 유지된다. 15초에 도달하면 정확히 시나리오 길이로 제한하고 자동 정지하며, 끝에서 다시 재생하면 0초로 되돌린다. 이 state 변경은 React UI를 다시 렌더링하지만 의존성 배열이 빈 Three.js 초기화 effect를 다시 실행하지 않으므로 기존 Scene, Renderer와 GPU 리소스는 유지된다. 아직 재생 시간에 맞는 Frame 선택과 Three.js 장면 갱신은 연결하지 않았다.
 
 `requestAnimationFrame`이 콜백에 전달하는 `timestamp`도 밀리초 단위지만 센서 데이터의 시각은 아니다. 이 값은 브라우저 실행 시계이므로 프레임 사이의 경과 시간을 계산하는 데 사용하고, 그 차이만큼 별도의 시나리오 재생 시간을 전진시킨다.
 

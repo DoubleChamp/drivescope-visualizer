@@ -19,11 +19,17 @@ const POINT_COUNT = POINTS_PER_SIDE * POINTS_PER_SIDE;
 const POINT_SPACING = 0.1;
 const FPS_SAMPLE_INTERVAL_MS = 1_000;
 const INITIAL_PLAYBACK_TIME_MS = 0;
+const PLAYBACK_UPDATE_INTERVAL_MS = 100;
 
 export default function ViewerCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const playbackStartedAtRef = useRef(0);
+  const playbackTimeAtStartRef = useRef(INITIAL_PLAYBACK_TIME_MS);
   const [framesPerSecond, setFramesPerSecond] = useState<number | null>(null);
-  const [currentTimeMs] = useState(INITIAL_PLAYBACK_TIME_MS);
+  const [currentTimeMs, setCurrentTimeMs] = useState(
+    INITIAL_PLAYBACK_TIME_MS,
+  );
+  const [isPlaying, setIsPlaying] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -119,6 +125,48 @@ export default function ViewerCanvas() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isPlaying) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      const elapsedMilliseconds =
+        performance.now() - playbackStartedAtRef.current;
+      const nextTimeMs = Math.min(
+        Math.round(playbackTimeAtStartRef.current + elapsedMilliseconds),
+        mockScenario.durationMs,
+      );
+
+      setCurrentTimeMs(nextTimeMs);
+
+      if (nextTimeMs >= mockScenario.durationMs) {
+        setIsPlaying(false);
+      }
+    }, PLAYBACK_UPDATE_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [isPlaying]);
+
+  const handlePlaybackToggle = () => {
+    if (isPlaying) {
+      setIsPlaying(false);
+      return;
+    }
+
+    const nextStartTimeMs =
+      currentTimeMs >= mockScenario.durationMs
+        ? INITIAL_PLAYBACK_TIME_MS
+        : currentTimeMs;
+
+    setCurrentTimeMs(nextStartTimeMs);
+    playbackTimeAtStartRef.current = nextStartTimeMs;
+    playbackStartedAtRef.current = performance.now();
+    setIsPlaying(true);
+  };
+
   return (
     <div className={styles.viewer}>
       <dl className={styles.metrics} aria-label="뷰어 통계">
@@ -143,6 +191,16 @@ export default function ViewerCanvas() {
         className={styles.canvas}
         aria-label="DriveScope 3D 뷰어"
       />
+      <div className={styles.controls}>
+        <button
+          type="button"
+          className={styles.playbackButton}
+          aria-pressed={isPlaying}
+          onClick={handlePlaybackToggle}
+        >
+          {isPlaying ? "정지" : "재생"}
+        </button>
+      </div>
     </div>
   );
 }

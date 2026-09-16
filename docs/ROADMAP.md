@@ -19,8 +19,8 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 - **Phase 1 — 완료:** `feat/phase-1-three-scene` 브랜치에서 Client Component 경계, React가 소유하는 Canvas, Three.js Scene, PerspectiveCamera, WebGLRenderer, GridHelper, 창 resize 처리, `requestAnimationFrame` 렌더 루프와 전체 cleanup을 구현하고 검증했다.
 - **Phase 2 — 완료:** 가상 포인트 10,000개의 Buffer 구조와 Material 조정, 포인트 수와 rAF 기반 FPS 표시를 구현했다. 포인트 100개와 10,000개를 각각 측정하고 FPS 계산과 React·Three.js 책임 분리를 확인했다.
 - **Phase 3 — 완료:** 공통 timestamp 기준, 모든 Frame·Event 타입과 0~15초의 가상 급제동 시나리오 데이터를 정의하고 검증했다.
-- **Phase 4 — 진행 중:** 현재 재생 시간을 나타내는 React state와 `0.0 / 15.0초` 표시를 추가했다.
-- **다음 단계:** Phase 4의 두 번째 항목으로 재생과 정지 동작을 추가한다.
+- **Phase 4 — 진행 중:** 현재 재생 시간 state와 표시, 실제 경과 시간 기반의 재생·정지 동작을 추가했다.
+- **다음 단계:** Phase 4의 세 번째 항목으로 타임라인 드래그를 추가한다.
 
 ---
 
@@ -108,7 +108,7 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 상태: **진행 중**
 
 1. [x] 현재 재생 시간을 나타내는 상태를 만든다.
-2. 재생과 정지 동작을 추가한다.
+2. [x] 재생과 정지 동작을 추가한다.
 3. 타임라인 드래그로 원하는 시점에 이동하게 한다.
 4. 현재 시간에서 가장 가까운 Frame을 찾는 함수를 만든다.
 5. 서로 다른 주기의 센서 Frame을 timestamp 기준으로 동기화한다.

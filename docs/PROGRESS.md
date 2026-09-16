@@ -5,12 +5,16 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 4 — 진행 중
-- 현재 작업: 현재 재생 시간을 나타내는 React state와 `0.0 / 15.0초` 표시를 추가했다.
-- 다음 한 단계: Phase 4 두 번째 항목인 재생과 정지 동작을 추가한다.
-- 아직 구현하지 않은 것: 가상 카메라 이미지 파일, 재생·정지, 타임라인 이동, Frame 동기화와 분석 기능
+- 현재 작업: 실제 경과 시간 기반으로 현재 시각을 증가·정지시키는 재생 버튼을 추가했다.
+- 다음 한 단계: Phase 4 세 번째 항목인 타임라인 드래그를 추가한다.
+- 아직 구현하지 않은 것: 가상 카메라 이미지 파일, 타임라인 이동, Frame 동기화와 분석 기능
 
 ## 완료한 작업
 
+- `isPlaying` state와 재생·정지 버튼을 추가했다.
+- 100ms interval의 고정 횟수가 아니라 `performance.now()`의 실제 경과 시간으로 `currentTimeMs`를 계산했다.
+- 정지 후 이어서 재생하고, 15초에 자동 정지하며 끝에서 다시 재생하면 0초로 돌아가게 했다.
+- 재생 타이머 cleanup을 Three.js 렌더 루프 cleanup과 독립적으로 관리했다.
 - `ViewerCanvas`에 밀리초 단위의 `currentTimeMs` React state를 만들고 초기값을 `0`으로 설정했다.
 - 현재 재생 시각과 `mockScenario.durationMs`를 초 단위로 변환해 `0.0 / 15.0초`로 표시했다.
 - 현재 Trajectory는 내 차량의 Planning 결과이며 물체의 관측 히스토리·속도와 미래 예측은 별도 책임임을 구분했다.
@@ -120,6 +124,18 @@
 - 이후 승인된 단계는 검증과 문서 갱신 후 Codex가 현재 브랜치에 commit까지만 하고, `origin` push는 사용자가 GitHub Desktop에서 직접 수행하도록 작업 규칙을 변경했다.
 
 ## 검증 결과
+
+### Phase 4: 재생과 정지 (2026-09-16)
+
+- `isPlaying` state에 따라 버튼 문구와 재생 interval이 함께 시작·정지하도록 구현했다.
+- 재생 기준 시각은 React 렌더링에 사용하지 않는 ref에 보관하고 100ms마다 실제 경과 시간을 측정해 `currentTimeMs`를 갱신한다.
+- 15,000ms에서 자동 정지하고 끝에서 다시 재생하면 0ms부터 시작하도록 했다.
+- 재생 effect cleanup이 interval을 제거하며 기존 Three.js 초기화 effect와 rAF 렌더 루프는 변경하지 않았다.
+- 사용자가 `setInterval`은 정확한 주기를 보장하지 않으므로 재생 시작 시각과 callback 시각의 실제 차이를 계산해 state에 반영해야 한다고 설명했다.
+- `pnpm.cmd exec tsc --noEmit --incremental false`: TypeScript 오류 없이 통과했다.
+- `pnpm.cmd build`: Next.js 16.3.3 production build와 `/viewer` 정적 페이지 생성이 통과했다.
+- 실행 중인 개발 서버의 `/viewer`가 HTTP 200으로 응답하고 초기 `재생` 버튼, 재생 시간과 Canvas 마크업을 포함함을 확인했다.
+- `git diff --check`: 공백 오류 없음.
 
 ### Phase 4: 현재 재생 시간 상태 (2026-09-16)
 
@@ -332,7 +348,7 @@
 
 ## 다음 구현 진입 조건
 
-1. 재생 여부를 나타내는 state와 시간 증가를 시작·중지하는 흐름을 설명하고 사용자 승인을 받는다.
+1. 타임라인 입력값을 `currentTimeMs`로 변환하는 방법과 드래그 중 재생 처리 규칙을 설명하고 사용자 승인을 받는다.
 
 ## 추천 커밋 메시지
 
