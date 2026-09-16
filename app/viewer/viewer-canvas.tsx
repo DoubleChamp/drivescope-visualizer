@@ -11,16 +11,19 @@ import {
   Scene,
   WebGLRenderer,
 } from "three";
+import { mockScenario } from "./_data/mock-scenario";
 import styles from "./viewer-canvas.module.css";
 
 const POINTS_PER_SIDE = 100;
 const POINT_COUNT = POINTS_PER_SIDE * POINTS_PER_SIDE;
 const POINT_SPACING = 0.1;
 const FPS_SAMPLE_INTERVAL_MS = 1_000;
+const INITIAL_PLAYBACK_TIME_MS = 0;
 
 export default function ViewerCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [framesPerSecond, setFramesPerSecond] = useState<number | null>(null);
+  const [currentTimeMs] = useState(INITIAL_PLAYBACK_TIME_MS);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -126,6 +129,13 @@ export default function ViewerCanvas() {
         <div className={styles.metric}>
           <dt>FPS</dt>
           <dd>{framesPerSecond ?? "측정 중"}</dd>
+        </div>
+        <div className={styles.metric}>
+          <dt>재생 시간</dt>
+          <dd>
+            {(currentTimeMs / 1_000).toFixed(1)} /{" "}
+            {(mockScenario.durationMs / 1_000).toFixed(1)}초
+          </dd>
         </div>
       </dl>
       <canvas

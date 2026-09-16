@@ -63,6 +63,10 @@ React Three Fiber는 사용하지 않는다. Three.js 객체의 생성, 변경, 
 
 DriveScope가 과거 로그를 재생하는 현재 시점에서는 Trajectory 전체가 과거 데이터지만, 각 Frame은 당시 Planning이 바라본 미래 예측의 스냅샷이다. 예측 위치는 같은 시각의 실제 차량 위치가 아니며 이후 `VehicleState`와 비교할 수 있다. Planning이 다시 계산할 때마다 새 `TrajectoryFrame`이 생기므로 급제동 전후 경로 변화를 보존한다.
 
+현재 `TrajectoryFrame`은 내 차량의 Planning 결과만 나타낸다. 관찰한 물체의 과거 이동은 여러 `ObjectDetectionFrame`에서 같은 `id`의 `center`를 timestamp 순서로 연결해 얻고, 관측 속도는 위치와 시간의 차이로 계산할 수 있다. 움직이는 물체의 미래 위치까지 비교해야 할 때는 내 차 Trajectory에 섞지 않고 객체 ID와 미래 offset을 가진 별도 예측 타입을 추가한다. 현재 가상 보행자는 Z 20m에 정지한 것으로 단순화했다.
+
+가상 시나리오의 Trajectory 5개는 실제 Planning 주기를 표현하지 않고 경로가 의미 있게 달라지는 핵심 시점만 남긴 최소 스냅샷이다. 실제 Planning은 더 짧은 주기로 경로를 다시 계산하며, 이 축약 데이터에서는 선택한 Trajectory timestamp와 재생 시각의 차이가 커질 수 있다.
+
 현재 `VehicleStateFrame`은 실제 상태를 측정한 `timestampMs`, 차량의 `position`과 `yawRadians`, 실제 속도 `speedMetersPerSecond`와 진행 방향 기준 가속도 `accelerationMetersPerSecondSquared`를 보관한다. 가속도는 가속할 때 양수, 속도를 유지할 때 0, 감속할 때 음수로 해석한다.
 
 Trajectory의 예상 위치와 실제 위치를 비교할 때는 `TrajectoryFrame.timestampMs + TrajectoryPoint.offsetMs`로 예상 시각을 구하고, 시나리오 공통 시간축에서 같거나 가장 가까운 `VehicleStateFrame.timestampMs`를 선택한다. 급제동 발생 여부는 물리 상태에 boolean으로 중복 저장하지 않고 별도의 Event로 표현한다.
@@ -109,6 +113,8 @@ JavaScript GC는 도달할 수 없게 된 JS 객체의 힙 메모리를 나중�
 - 예를 들어 보행자 등장 `10초`는 `10_000ms`, 급제동 `12.4초`는 `12_400ms`로 저장한다.
 - 화면에 초 단위로 표시할 때만 `timestampMs / 1_000`으로 변환한다.
 - 실제 데이터가 절대 시각이나 더 작은 단위를 사용하면 데이터 로딩 경계에서 시나리오 상대 밀리초로 정규화한다.
+
+`ViewerCanvas`는 현재 재생 시각을 `currentTimeMs` React state로 소유한다. 초기값은 시나리오 시작인 `0ms`이고 전체 길이는 `mockScenario.durationMs`인 `15_000ms`다. 화면에만 `0.0 / 15.0초`처럼 초 단위로 변환해 표시한다. 현재 단계에서는 state를 자동으로 증가시키거나 Frame과 Three.js 장면을 갱신하지 않는다.
 
 `requestAnimationFrame`이 콜백에 전달하는 `timestamp`도 밀리초 단위지만 센서 데이터의 시각은 아니다. 이 값은 브라우저 실행 시계이므로 프레임 사이의 경과 시간을 계산하는 데 사용하고, 그 차이만큼 별도의 시나리오 재생 시간을 전진시킨다.
 

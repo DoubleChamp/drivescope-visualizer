@@ -1,16 +1,19 @@
 # DriveScope 진행 상황
 
-마지막 갱신: 2026-09-15
+마지막 갱신: 2026-09-16
 
 ## 현재 위치
 
-- 현재 Phase: Phase 3 — 완료
-- 현재 작업: 모든 Frame·Event 타입과 0~15초의 가상 급제동 시나리오 데이터 정의를 마쳤다.
-- 다음 한 단계: Phase 4 첫 번째 항목인 현재 재생 시간 상태를 만든다.
-- 아직 구현하지 않은 것: 가상 카메라 이미지 파일, 재생·동기화와 분석 기능
+- 현재 Phase: Phase 4 — 진행 중
+- 현재 작업: 현재 재생 시간을 나타내는 React state와 `0.0 / 15.0초` 표시를 추가했다.
+- 다음 한 단계: Phase 4 두 번째 항목인 재생과 정지 동작을 추가한다.
+- 아직 구현하지 않은 것: 가상 카메라 이미지 파일, 재생·정지, 타임라인 이동, Frame 동기화와 분석 기능
 
 ## 완료한 작업
 
+- `ViewerCanvas`에 밀리초 단위의 `currentTimeMs` React state를 만들고 초기값을 `0`으로 설정했다.
+- 현재 재생 시각과 `mockScenario.durationMs`를 초 단위로 변환해 `0.0 / 15.0초`로 표시했다.
+- 현재 Trajectory는 내 차량의 Planning 결과이며 물체의 관측 히스토리·속도와 미래 예측은 별도 책임임을 구분했다.
 - 모든 데이터 스트림을 묶는 `ScenarioData`와 0~15초의 `mockScenario`를 정의했다.
 - Camera는 1,000ms, LiDAR는 500ms 간격으로 생성해 서로 다른 수집 주기를 데이터로 표현했다.
 - 10초 보행자 등장, 11초 객체 인식, 12초 충돌 예상, 12.4초 급제동과 13.4초 정지를 서로 독립된 데이터 스트림에 표현했다.
@@ -117,6 +120,16 @@
 - 이후 승인된 단계는 검증과 문서 갱신 후 Codex가 현재 브랜치에 commit까지만 하고, `origin` push는 사용자가 GitHub Desktop에서 직접 수행하도록 작업 규칙을 변경했다.
 
 ## 검증 결과
+
+### Phase 4: 현재 재생 시간 상태 (2026-09-16)
+
+- `ViewerCanvas`의 `currentTimeMs` state를 `0ms`로 초기화하고 `mockScenario.durationMs`와 함께 초 단위로 표시했다.
+- 현재 단계에서는 state setter, 자동 시간 증가, 재생 버튼, Frame 선택과 Three.js 데이터 갱신을 추가하지 않았다.
+- 사용자가 시간축 변경을 화면에 보여 주기 위해 `currentTimeMs`를 React state로 관리한다고 설명했다.
+- `pnpm.cmd exec tsc --noEmit --incremental false`: TypeScript 오류 없이 통과했다.
+- `pnpm.cmd build`: Next.js 16.3.3 production build와 `/viewer` 정적 페이지 생성이 통과했다.
+- 실행 중인 개발 서버의 `/viewer`가 HTTP 200으로 응답하고 `재생 시간`, `0.0 / 15.0초` 마크업을 포함함을 확인했다.
+- `git diff --check`: 공백 오류 없음.
 
 ### Phase 3: 가상 급제동 시나리오 데이터 (2026-09-15)
 
@@ -319,7 +332,7 @@
 
 ## 다음 구현 진입 조건
 
-1. 현재 재생 시간 상태의 소유 계층, 단위와 초기값을 설명하고 사용자 승인을 받는다.
+1. 재생 여부를 나타내는 state와 시간 증가를 시작·중지하는 흐름을 설명하고 사용자 승인을 받는다.
 
 ## 추천 커밋 메시지
 
