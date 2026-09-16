@@ -120,6 +120,10 @@ JavaScript GC는 도달할 수 없게 된 JS 객체의 힙 메모리를 나중�
 
 정지하면 `isPlaying` 변화에 따른 effect cleanup이 interval을 제거하고 현재 재생 시간은 유지된다. 15초에 도달하면 정확히 시나리오 길이로 제한하고 자동 정지하며, 끝에서 다시 재생하면 0초로 되돌린다. 이 state 변경은 React UI를 다시 렌더링하지만 의존성 배열이 빈 Three.js 초기화 effect를 다시 실행하지 않으므로 기존 Scene, Renderer와 GPU 리소스는 유지된다. 아직 재생 시간에 맞는 Frame 선택과 Three.js 장면 갱신은 연결하지 않았다.
 
+타임라인은 `currentTimeMs`를 `value`로 사용하는 제어된 range input이다. 범위는 `0~mockScenario.durationMs`, 간격은 100ms다. `onChange`에서 `valueAsNumber`를 읽어 문자열 변환 없이 `currentTimeMs`에 반영한다. 사용자가 타임라인을 조작하면 먼저 `isPlaying`을 false로 바꿔 기존 재생 interval이 옛 기준 시각으로 계산한 값으로 seek 결과를 덮어쓰지 않게 한다. 이동한 시각에서 재생 버튼을 누르면 새 재생 기준 ref를 설정하고 이어서 재생한다.
+
+range의 실제 값은 밀리초지만 `aria-valuetext`는 이를 `12.4초`처럼 사람이 이해하기 쉬운 문자열로 접근성 API에 제공한다. 이 값은 화면 표시나 재생 계산을 바꾸지 않으며 `<label>`의 `타임라인` 텍스트와 함께 스크린 리더가 컨트롤의 이름과 현재 값을 이해하게 한다.
+
 `requestAnimationFrame`이 콜백에 전달하는 `timestamp`도 밀리초 단위지만 센서 데이터의 시각은 아니다. 이 값은 브라우저 실행 시계이므로 프레임 사이의 경과 시간을 계산하는 데 사용하고, 그 차이만큼 별도의 시나리오 재생 시간을 전진시킨다.
 
 센서마다 수집 주기가 다르므로 Camera, LiDAR와 Object Detection의 같은 배열 인덱스를 같은 시각으로 간주하지 않는다. 이후 각 센서의 `timestampMs`와 재생 시각의 차이를 비교해 사용할 Frame을 고른다. 원본 Camera·LiDAR Frame은 우선 가장 가까운 Frame을 선택하고, 연속값이 필요한 데이터의 보간 여부는 해당 타입과 동기화 규칙을 정할 때 별도로 판단한다.

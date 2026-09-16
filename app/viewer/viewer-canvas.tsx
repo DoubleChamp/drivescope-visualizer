@@ -167,6 +167,11 @@ export default function ViewerCanvas() {
     setIsPlaying(true);
   };
 
+  const handleTimelineChange = (nextTimeMs: number) => {
+    setIsPlaying(false);
+    setCurrentTimeMs(nextTimeMs);
+  };
+
   return (
     <div className={styles.viewer}>
       <dl className={styles.metrics} aria-label="뷰어 통계">
@@ -200,6 +205,21 @@ export default function ViewerCanvas() {
         >
           {isPlaying ? "정지" : "재생"}
         </button>
+        <label className={styles.timelineLabel}>
+          <span>타임라인</span>
+          <input
+            type="range"
+            className={styles.timeline}
+            min={INITIAL_PLAYBACK_TIME_MS}
+            max={mockScenario.durationMs}
+            step={PLAYBACK_UPDATE_INTERVAL_MS}
+            value={currentTimeMs}
+            aria-valuetext={`${(currentTimeMs / 1_000).toFixed(1)}초`}
+            onChange={(event) =>
+              handleTimelineChange(event.currentTarget.valueAsNumber)
+            }
+          />
+        </label>
       </div>
     </div>
   );
