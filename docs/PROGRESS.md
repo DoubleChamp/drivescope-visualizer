@@ -1,16 +1,20 @@
 # DriveScope 진행 상황
 
-마지막 갱신: 2026-09-16
+마지막 갱신: 2026-09-17
 
 ## 현재 위치
 
-- 현재 Phase: Phase 4 — 완료
-- 현재 작업: 선택된 Camera·LiDAR·Object Detection Frame을 같은 재생 시간 기준으로 실제 UI와 Three.js 장면에 반영했다.
-- 다음 한 단계: Phase 5 첫 번째 항목인 보행자 3D 바운딩 박스 표시를 설계하고 승인받는다.
-- 아직 구현하지 않은 것: 실제 카메라 이미지 패널, 객체 3D 박스, 예상 경로·충돌 분석, 선택 UI와 실제 데이터 연결
+- 현재 Phase: Phase 5 — 진행 중
+- 현재 작업: 선택된 Object Detection의 보행자 위치·크기·yaw를 재사용하는 Three.js wireframe 박스에 반영했다.
+- 다음 한 단계: Phase 5 두 번째 항목인 차량 3D 바운딩 박스 표시를 설계하고 승인받는다.
+- 아직 구현하지 않은 것: 차량 3D 박스, 예상 경로·충돌 분석, 선택 UI, 실제 카메라 이미지 패널과 실제 데이터 연결
 
 ## 완료한 작업
 
+- 단위 `BoxGeometry`와 주황색 wireframe `MeshBasicMaterial`을 한 번 생성하고 같은 보행자 Mesh를 Frame 사이에서 재사용했다.
+- Object Detection에 보행자가 없으면 박스를 숨기고, 있으면 `center`, `size`와 `yawRadians`를 위치·축별 크기·Y축 회전에 반영했다.
+- `[width, length, height]`를 Three.js X·Y·Z 축에 맞게 `scale(width, height, length)`로 변환했다.
+- cleanup에서 보행자 Box Geometry와 Material을 명시적으로 `dispose()`하도록 했다.
 - 최대 LiDAR Frame 크기인 21개 포인트용 Buffer를 한 번 생성하고 선택 Frame의 좌표를 같은 Buffer에 복사하도록 변경했다.
 - `DynamicDrawUsage`, `needsUpdate`와 `drawRange`를 사용해 GPU Buffer를 재사용하면서 현재 Frame의 15개 또는 21개 포인트만 그리도록 했다.
 - 선택된 Camera Frame의 `imageUrl`과 Object Detection의 객체 수·ID를 동기화 정보 카드에 표시했다.
@@ -140,6 +144,17 @@
 - 이후 승인된 단계는 검증과 문서 갱신 후 Codex가 현재 브랜치에 commit까지만 하고, `origin` push는 사용자가 GitHub Desktop에서 직접 수행하도록 작업 규칙을 변경했다.
 
 ## 검증 결과
+
+### Phase 5: 보행자 3D 바운딩 박스 (2026-09-17)
+
+- 실제 타임라인 입력으로 `10_900ms`를 선택했을 때 Object Detection이 비어 있고 보행자 박스 draw call이 발생하지 않음을 확인했다.
+- 포커스된 타임라인에서 오른쪽 방향키로 `11_000ms`에 이동했을 때 `pedestrian-1`이 선택되고 주황색 wireframe 박스의 `drawElements(LINES, 72)`가 매 렌더에 추가됨을 확인했다.
+- 다시 왼쪽 방향키로 `10_900ms`에 돌아갔을 때 박스 draw call이 사라지는 것을 확인했다.
+- 1280×900 headless Chrome 화면에서 LiDAR 보행자 포인트 위치에 주황색 박스가 표시됨을 확인했다.
+- `center.y = 0.9`, `height = 1.8`인 가상 데이터 때문에 박스 바닥이 `y=0`에 닿으며 렌더러가 지면에 강제로 붙이지 않는다는 원리를 확인했다.
+- `pnpm exec tsc --noEmit`: TypeScript 오류 없이 통과했다.
+- `pnpm build`: Next.js 16.3.3 production build와 `/viewer` 정적 페이지 생성이 통과했다.
+- `git diff --check`: 공백 오류 없음.
 
 ### Phase 4: 선택된 센서 Frame의 실제 화면 반영 (2026-09-16)
 
@@ -415,7 +430,7 @@
 
 ## 다음 구현 진입 조건
 
-1. `ObjectDetection.center`, `size`와 `yawRadians`를 Three.js 바운딩 박스의 위치, 크기와 회전으로 바꾸는 원리를 설명하고 사용자 승인을 받는다.
+1. Vehicle State의 위치와 yaw에 차량 크기를 결합해 Three.js 차량 바운딩 박스로 표현하는 원리를 설명하고 사용자 승인을 받는다.
 
 ## 추천 커밋 메시지
 

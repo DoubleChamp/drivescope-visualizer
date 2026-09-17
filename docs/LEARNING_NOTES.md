@@ -385,9 +385,20 @@
 - Camera는 선택된 `imageUrl` 문자열만 정보 카드에 표시하고 실제 이미지는 아직 요청하지 않는다. Object Detection도 객체 수와 `pedestrian-1` ID만 표시하며 3D 박스는 Phase 5에서 만든다.
 - 실제 타임라인 입력을 `0ms`에서 `11_000ms`로 이동해 Camera URL, LiDAR 포인트 수, 객체 ID가 함께 갱신되고 WebGL 포인트 draw count가 15개에서 21개로 바뀌는 것을 확인했다.
 
+### 보행자 3D 바운딩 박스 (2026-09-17)
+
+- `pedestrian`은 Three.js 용어가 아니라 `ObjectDetection.category`에서 객체 종류가 보행자임을 나타내는 문자열 값이다.
+- 단위 크기 `BoxGeometry(1, 1, 1)`와 wireframe `MeshBasicMaterial`을 한 번 생성하고, 선택 Frame이 바뀔 때 같은 Mesh의 위치·크기·회전·표시 여부만 바꾼다.
+- 데이터의 `center: [x, y, z]`는 Mesh의 `position`에 그대로 대응한다. `size: [width, length, height]`는 X가 좌우, Y가 높이, Z가 진행 방향인 장면 축에 맞춰 `scale(width, height, length)` 순서로 재배치한다.
+- Y가 수직축이므로 yaw는 `rotation.y`에 적용한다. 현재 mock의 yaw는 0이지만 같은 경로로 이후 회전값을 반영할 수 있다.
+- 현재 보행자 중심 `y=0.9`와 높이 `1.8`은 중심이 높이의 절반이어서 박스 아래가 `y=0`에 닿는다. 렌더러가 바닥 높이를 계산한 것이 아니며 center가 달라지면 박스도 그 위치로 이동한다.
+- 11초 전에는 선택된 Object Detection Frame에 보행자가 없어 `visible = false`이고, 11초부터 같은 `pedestrian-1` 데이터로 `visible = true`가 된다.
+- Geometry와 Material은 Frame마다 재생성하지 않으며 컴포넌트 cleanup에서 각각 `dispose()`한다.
+- 사용자가 Three.js 박스 축이 X·Y·Z 순서이므로 데이터의 width·length·height를 장면 축에 맞게 넣어야 하며, 현재 데이터가 지면에 붙는 위치를 가정하고 있다고 설명했다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 4의 현재 시간 state, 재생·정지, 타임라인 탐색, 센서 Frame 동기화, Event 마커와 선택 Frame의 실제 화면 반영을 마쳤다. 다음 항목은 Phase 5에서 진행한다.
+Phase 4를 마치고 Phase 5의 보행자 3D 바운딩 박스까지 구현했다. 다음 항목도 Phase 5에서 진행한다.
 
-- Object Detection의 중심, 크기와 회전을 Three.js 3D 바운딩 박스로 표현하는 방법
-- Frame이 바뀌어도 박스 Geometry와 Material을 재사용하고 안전하게 정리하는 방법
+- Vehicle State 위치와 yaw를 차량 3D 바운딩 박스에 반영하는 방법
+- Object Detection 박스와 내 차량 상태 박스의 데이터 책임 차이

@@ -85,7 +85,9 @@ Event는 주기적으로 샘플링되는 Vehicle State와 달리 특정 순간�
 
 Camera Frame은 1,000ms 간격으로 16개, LiDAR Frame은 500ms 간격으로 31개를 생성해 서로 다른 센서 주기를 표현한다. 10초에 카메라 URL과 LiDAR 포인트에 보행자가 등장하고, Object Detection은 11초부터 같은 `pedestrian-1`을 제공한다. 12초 Trajectory의 2,000ms 뒤 예상 위치 `[0, 0, 20]`은 보행자 중심과 겹친다. 12.4초 급제동 Event와 `-4m/s²` 감속 이후 차량은 13.4초에 Z 15.6m에서 정지하며 이후 Trajectory도 그 위치를 넘지 않는다.
 
-현재 Viewer는 `findLatestFrameAtOrBefore`로 선택한 Camera의 `imageUrl`과 Object Detection의 객체 수·ID를 React 정보 카드에 표시한다. 실제 카메라 파일을 내려받아 보여 주는 이미지 패널과 인식 결과의 3D 박스는 아직 만들지 않았으며 Phase 5의 책임이다. 선택된 LiDAR Frame만 Three.js 포인트 장면에 실제 좌표로 반영되어 10초 전에는 도로 포인트 15개, 이후에는 보행자 포인트를 포함한 21개를 그린다.
+현재 Viewer는 `findLatestFrameAtOrBefore`로 선택한 Camera의 `imageUrl`과 Object Detection의 객체 수·ID를 React 정보 카드에 표시한다. 실제 카메라 파일을 내려받아 보여 주는 이미지 패널은 아직 만들지 않았다. 선택된 LiDAR Frame은 Three.js 포인트 장면에 실제 좌표로 반영되어 10초 전에는 도로 포인트 15개, 이후에는 보행자 포인트를 포함한 21개를 그린다. 선택된 Object Detection의 보행자는 11초부터 3D 박스로 표시한다.
+
+Phase 5의 보행자 박스는 단위 크기 `BoxGeometry(1, 1, 1)`와 조명이 필요 없는 주황색 wireframe `MeshBasicMaterial`을 마운트 시 한 번 만들고 같은 `Mesh`를 재사용한다. 선택된 Object Detection Frame에서 `category === "pedestrian"`인 객체가 없으면 `visible = false`로 숨기고, 있으면 `center`를 Mesh 위치에 반영한다. 데이터의 `size` 순서 `[width, length, height]`는 Three.js 장면 축 X·Y·Z에 맞춰 `scale(width, height, length)`로 바꾼다. Y가 수직축이므로 `yawRadians`는 `rotation.y`에 적용한다. 현재 가상 데이터의 중심 높이 `0.9m`가 높이 `1.8m`의 절반이라 박스 바닥이 결과적으로 `y=0`에 닿지만, 렌더링 코드가 지면에 강제로 붙이는 것은 아니다.
 
 ## 소유권과 생명주기
 
@@ -120,11 +122,11 @@ JavaScript GC는 도달할 수 없게 된 JS 객체의 힙 메모리를 나중�
 - 화면에 초 단위로 표시할 때만 `timestampMs / 1_000`으로 변환한다.
 - 실제 데이터가 절대 시각이나 더 작은 단위를 사용하면 데이터 로딩 경계에서 시나리오 상대 밀리초로 정규화한다.
 
-`ViewerCanvas`는 현재 재생 시각을 `currentTimeMs` React state로 소유한다. 초기값은 시나리오 시작인 `0ms`이고 전체 길이는 `mockScenario.durationMs`인 `15_000ms`다. 화면에만 `0.0 / 15.0초`처럼 초 단위로 변환해 표시한다. 아직 이 시간에 맞는 Frame 선택과 Three.js 장면 갱신은 연결하지 않았다.
+`ViewerCanvas`는 현재 재생 시각을 `currentTimeMs` React state로 소유한다. 초기값은 시나리오 시작인 `0ms`이고 전체 길이는 `mockScenario.durationMs`인 `15_000ms`다. 화면에만 `0.0 / 15.0초`처럼 초 단위로 변환해 표시한다. 이 시각에서 Camera·LiDAR·Object Detection Frame을 각각 선택하고 LiDAR Buffer와 보행자 박스를 갱신한다.
 
 재생 여부는 `isPlaying` React state가 소유하고 버튼은 이 값을 `재생`과 `정지` 사이에서 전환한다. 재생을 시작할 때의 시나리오 시간과 브라우저 시각은 화면 렌더링에 필요하지 않으므로 각각 `playbackTimeAtStartRef`와 `playbackStartedAtRef`에 보관한다. 100ms `setInterval`은 UI 갱신 기회만 제공하고 실제 재생 시간은 `재생 시작 시나리오 시간 + (현재 performance.now() - 재생 시작 performance.now())`로 계산한다. 따라서 callback 지연을 고정 `+100ms`로 누적하지 않는다.
 
-정지하면 `isPlaying` 변화에 따른 effect cleanup이 interval을 제거하고 현재 재생 시간은 유지된다. 15초에 도달하면 정확히 시나리오 길이로 제한하고 자동 정지하며, 끝에서 다시 재생하면 0초로 되돌린다. 이 state 변경은 React UI를 다시 렌더링하지만 의존성 배열이 빈 Three.js 초기화 effect를 다시 실행하지 않으므로 기존 Scene, Renderer와 GPU 리소스는 유지된다. 아직 재생 시간에 맞는 Frame 선택과 Three.js 장면 갱신은 연결하지 않았다.
+정지하면 `isPlaying` 변화에 따른 effect cleanup이 interval을 제거하고 현재 재생 시간은 유지된다. 15초에 도달하면 정확히 시나리오 길이로 제한하고 자동 정지하며, 끝에서 다시 재생하면 0초로 되돌린다. 이 state 변경은 React UI를 다시 렌더링하지만 의존성 배열이 빈 Three.js 초기화 effect를 다시 실행하지 않으므로 기존 Scene, Renderer와 GPU 리소스는 유지된다. 별도 갱신 effect가 선택된 Frame 데이터만 기존 Three.js 객체에 반영한다.
 
 타임라인은 `currentTimeMs`를 `value`로 사용하는 제어된 range input이다. 범위는 `0~mockScenario.durationMs`, 간격은 100ms다. `onChange`에서 `valueAsNumber`를 읽어 문자열 변환 없이 `currentTimeMs`에 반영한다. 사용자가 타임라인을 조작하면 먼저 `isPlaying`을 false로 바꿔 기존 재생 interval이 옛 기준 시각으로 계산한 값으로 seek 결과를 덮어쓰지 않게 한다. 이동한 시각에서 재생 버튼을 누르면 새 재생 기준 ref를 설정하고 이어서 재생한다.
 
@@ -163,7 +165,7 @@ Viewer는 Camera, LiDAR와 Object Detection의 선택 결과를 별도 React sta
 - 캐시 최대 크기와 축출 기준은 메모리와 로딩 시간을 측정한 뒤 결정한다.
 - Worker는 파싱이 병목으로 확인된 경우에만 도입한다.
 
-Buffer 재사용과 프레임 캐시는 Phase 6의 계획이며 현재 구현되지 않았다.
+LiDAR Buffer 재사용은 Phase 4에서 최소 구조를 먼저 구현했다. 실제 데이터 용량 증가 정책, 프레임 캐시와 prefetch는 Phase 6에서 측정과 함께 구현한다.
 
 ## 단순하게 시작하는 원칙
 

@@ -2,10 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  BoxGeometry,
   BufferAttribute,
   BufferGeometry,
   DynamicDrawUsage,
   GridHelper,
+  Mesh,
+  MeshBasicMaterial,
   PerspectiveCamera,
   Points,
   PointsMaterial,
@@ -35,6 +38,7 @@ export default function ViewerCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const lidarGeometryRef = useRef<BufferGeometry | null>(null);
   const lidarPositionAttributeRef = useRef<BufferAttribute | null>(null);
+  const pedestrianBoxRef = useRef<Mesh | null>(null);
   const playbackStartedAtRef = useRef(0);
   const playbackTimeAtStartRef = useRef(INITIAL_PLAYBACK_TIME_MS);
   const [framesPerSecond, setFramesPerSecond] = useState<number | null>(null);
@@ -113,6 +117,19 @@ export default function ViewerCanvas() {
     lidarPositionAttributeRef.current = positionAttribute;
     scene.add(points);
 
+    const pedestrianBoxGeometry = new BoxGeometry(1, 1, 1);
+    const pedestrianBoxMaterial = new MeshBasicMaterial({
+      color: 0xf97316,
+      wireframe: true,
+    });
+    const pedestrianBox = new Mesh(
+      pedestrianBoxGeometry,
+      pedestrianBoxMaterial,
+    );
+    pedestrianBox.visible = false;
+    pedestrianBoxRef.current = pedestrianBox;
+    scene.add(pedestrianBox);
+
     camera.position.set(30, 25, -30);
     camera.lookAt(0, 0, -10);
 
@@ -161,8 +178,11 @@ export default function ViewerCanvas() {
       window.removeEventListener("resize", handleResize);
       lidarGeometryRef.current = null;
       lidarPositionAttributeRef.current = null;
+      pedestrianBoxRef.current = null;
       pointsGeometry.dispose();
       pointsMaterial.dispose();
+      pedestrianBoxGeometry.dispose();
+      pedestrianBoxMaterial.dispose();
       grid.dispose();
       scene.clear();
       renderer.dispose();
@@ -189,6 +209,31 @@ export default function ViewerCanvas() {
     pointsGeometry.setDrawRange(0, selectedLidarPointCount);
     pointsGeometry.computeBoundingSphere();
   }, [selectedLidarFrame, selectedLidarPointCount]);
+
+  useEffect(() => {
+    const pedestrianBox = pedestrianBoxRef.current;
+
+    if (!pedestrianBox) {
+      return;
+    }
+
+    const pedestrian = selectedObjectDetectionFrame?.objects.find(
+      (object) => object.category === "pedestrian",
+    );
+
+    if (!pedestrian) {
+      pedestrianBox.visible = false;
+      return;
+    }
+
+    const [centerX, centerY, centerZ] = pedestrian.center;
+    const [width, length, height] = pedestrian.size;
+
+    pedestrianBox.position.set(centerX, centerY, centerZ);
+    pedestrianBox.scale.set(width, height, length);
+    pedestrianBox.rotation.set(0, pedestrian.yawRadians, 0);
+    pedestrianBox.visible = true;
+  }, [selectedObjectDetectionFrame]);
 
   useEffect(() => {
     if (!isPlaying) {
