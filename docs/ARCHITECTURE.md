@@ -93,6 +93,12 @@ Phase 5의 보행자와 차량 박스는 단위 크기 `BoxGeometry(1, 1, 1)` �
 
 현재 차량 박스는 `findLatestFrameAtOrBefore`로 선택한 Vehicle State의 기록 위치로 즉시 이동한다. 두 Vehicle State 사이의 위치나 yaw 중간값은 아직 계산하지 않으므로 기록 간격 사이에서는 같은 위치를 유지하다 다음 Frame 시각에 이동한다. 이후 보간을 도입한다면 목표 재생 시각이 이전·다음 Frame 사이에서 차지하는 비율로 위치와 yaw를 계산하며, 부드러운 움직임은 그 계산 결과다.
 
+예상 주행 경로도 `findLatestFrameAtOrBefore`로 현재 재생 시각에 이미 생성돼 있던 최신 `TrajectoryFrame`을 선택한다. `timestampMs`는 계획을 생성한 시각이고 각 `TrajectoryPoint.offsetMs`는 그 계획 안의 미래 시간이다. 점의 `position`은 이미 공통 시나리오 좌표계의 절대 위치이므로 선의 좌표를 만들 때 offset을 더하지 않는다. 각 점이 의미하는 예상 시각은 분석할 때 `timestampMs + offsetMs`로 계산한다.
+
+경로 렌더링은 모든 가상 Trajectory 중 최대 4점을 담는 숫자 12개의 `Float32Array`와 `BufferAttribute`, `BufferGeometry`, 노란색 `LineBasicMaterial`과 `Line`을 마운트 시 한 번 생성한다. 선택된 계획이 바뀌면 기존 배열 앞부분에 위치를 복사하고 `needsUpdate = true`로 GPU Buffer 갱신을 예약하며, `drawRange`로 현재 계획의 점 개수만 `LINE_STRIP`으로 그린다. Grid와 같은 높이에서 깊이 충돌이 생기지 않도록 렌더링할 때만 Y에 0.05m를 더하고 원본 데이터는 바꾸지 않는다. 좌표 갱신 뒤 bounding sphere를 다시 계산하고 컴포넌트 해제 시 경로 Geometry와 Material을 명시적으로 정리한다.
+
+서로 다른 `TrajectoryFrame` 사이를 보간하지 않는 이유는 화면을 부드럽게 만드는 대신 플래너가 실제로 출력하지 않은 중간 계획을 만들어 낼 수 있기 때문이다. 12.0초의 기존 계획이 보행자 위치까지 이어지고 12.4초 급제동 시점의 새 계획이 정지 위치에서 끝나는 변화 자체가 분석 대상이다. 과거 계획점의 예상 시각에 실제 Vehicle State를 맞춰 위치 오차를 계산할 수 있지만, 이후 새 계획이 안전하게 갱신됐다면 기존 계획과 실제 위치의 차이를 곧바로 실패로 단정하지 않고 계획 변경 원인과 차량 반응을 함께 본다.
+
 ## 소유권과 생명주기
 
 | 대상 | 소유 계층 | 생성 시점 | 정리 시점 |

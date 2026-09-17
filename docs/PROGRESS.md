@@ -5,12 +5,18 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 5 — 진행 중
-- 현재 작업: 선택된 Vehicle State의 위치·yaw와 시나리오 차량 크기를 초록색 Three.js wireframe 박스에 반영했다.
-- 다음 한 단계: Phase 5 세 번째 항목인 예상 주행 경로 표시를 설계하고 승인받는다.
-- 아직 구현하지 않은 것: 예상 경로·충돌 분석, 선택 UI, 실제 카메라 이미지 패널과 실제 데이터 연결
+- 현재 작업: 선택된 Planning의 미래 위치들을 재사용하는 노란색 Three.js 선으로 표시했다.
+- 다음 한 단계: Phase 5 네 번째 항목인 경로와 보행자의 충돌 예상 구간 강조를 설계하고 승인받는다.
+- 아직 구현하지 않은 것: 충돌 분석, 선택 UI, 실제 카메라 이미지 패널과 실제 데이터 연결
 
 ## 완료한 작업
 
+- 현재 재생 시각 이하의 최신 Trajectory Frame을 선택해 그 시점에 이미 존재하던 Planning만 표시했다.
+- 최대 4개 경로점용 `Float32Array`, `BufferAttribute`, `BufferGeometry`와 노란색 `Line`을 한 번 만들고 Frame 사이에서 재사용했다.
+- 선택된 계획의 위치를 기존 Buffer에 복사하고 `needsUpdate`, `drawRange`와 `computeBoundingSphere()`를 갱신했다.
+- Grid와의 깊이 충돌을 피하도록 렌더 좌표의 Y에만 0.05m를 더하고 원본 Trajectory 데이터는 유지했다.
+- 서로 다른 Planning 결과 사이를 보간하지 않아 실제로 생성되지 않은 중간 계획을 화면이 만들어 내지 않게 했다.
+- 과거 계획과 이후 실제 위치의 차이는 정량화할 중요한 지표지만, 새 계획으로의 정상 변경 여부와 함께 해석해야 함을 확인했다.
 - 차량 크기 `[1.8, 4.5, 1.5]`를 Frame마다 반복하지 않고 `ScenarioData.egoVehicleSize`에 한 번 저장했다.
 - 현재 재생 시각 이하의 최신 Vehicle State를 선택하고 위치와 yaw를 초록색 차량 Mesh에 반영했다.
 - 지면 위 차량 기준점인 `position.y`에 높이 절반을 더해 차량 박스의 하부가 지면에 닿도록 했다.
@@ -151,6 +157,15 @@
 - 이후 승인된 단계는 검증과 문서 갱신 후 Codex가 현재 브랜치에 commit까지만 하고, `origin` push는 사용자가 GitHub Desktop에서 직접 수행하도록 작업 규칙을 변경했다.
 
 ## 검증 결과
+
+### Phase 5: 예상 주행 경로 3D 선 (2026-09-17)
+
+- 실제 타임라인을 `12_000ms`로 이동했을 때 UI의 `aria-valuetext`가 `12.0초`이고, WebGL이 기존 Planning 경로를 `drawArrays(LINE_STRIP, 0, 3)`으로 렌더링함을 확인했다.
+- `12_400ms`에서는 UI가 `12.4초`로 갱신되고 급제동 Planning 경로의 4개 점을 `drawArrays(LINE_STRIP, 0, 4)`로 렌더링함을 확인했다.
+- 두 시점에서 LiDAR는 보행자 포인트를 포함한 21개 점을 그렸고, 계획선과 보행자·차량 박스가 같은 3D 장면에 표시됨을 스크린샷으로 확인했다.
+- `pnpm exec tsc --noEmit`: TypeScript 오류 없이 통과했다.
+- `pnpm build`: Next.js 16.3.3 production build와 `/viewer` 정적 페이지 생성이 통과했다.
+- `git diff --check`: 공백 오류 없음.
 
 ### Phase 5: 차량 3D 바운딩 박스 (2026-09-17)
 
@@ -447,7 +462,7 @@
 
 ## 다음 구현 진입 조건
 
-1. 선택된 `TrajectoryFrame`의 상대 미래 점들을 하나의 Three.js 선으로 연결하는 원리를 설명하고 사용자 승인을 받는다.
+1. 경로의 각 선분과 보행자 3D 바운딩 박스가 겹치는지 판정하는 기준과 강조 방식을 설명하고 사용자 승인을 받는다.
 
 ## 추천 커밋 메시지
 

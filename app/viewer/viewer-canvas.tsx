@@ -7,6 +7,8 @@ import {
   BufferGeometry,
   DynamicDrawUsage,
   GridHelper,
+  Line,
+  LineBasicMaterial,
   Mesh,
   MeshBasicMaterial,
   PerspectiveCamera,
@@ -23,9 +25,14 @@ import styles from "./viewer-canvas.module.css";
 const FPS_SAMPLE_INTERVAL_MS = 1_000;
 const INITIAL_PLAYBACK_TIME_MS = 0;
 const PLAYBACK_UPDATE_INTERVAL_MS = 100;
+const TRAJECTORY_RENDER_HEIGHT = 0.05;
 const LIDAR_POSITION_BUFFER_LENGTH = Math.max(
   0,
   ...mockScenario.lidarFrames.map((frame) => frame.positions.length),
+);
+const TRAJECTORY_POSITION_BUFFER_LENGTH = Math.max(
+  0,
+  ...mockScenario.trajectoryFrames.map((frame) => frame.points.length * 3),
 );
 const EVENT_TYPE_LABELS: Record<ScenarioEvent["type"], string> = {
   "emergency-braking": "급제동",
@@ -40,6 +47,8 @@ export default function ViewerCanvas() {
   const lidarPositionAttributeRef = useRef<BufferAttribute | null>(null);
   const pedestrianBoxRef = useRef<Mesh | null>(null);
   const vehicleBoxRef = useRef<Mesh | null>(null);
+  const trajectoryGeometryRef = useRef<BufferGeometry | null>(null);
+  const trajectoryPositionAttributeRef = useRef<BufferAttribute | null>(null);
   const playbackStartedAtRef = useRef(0);
   const playbackTimeAtStartRef = useRef(INITIAL_PLAYBACK_TIME_MS);
   const [framesPerSecond, setFramesPerSecond] = useState<number | null>(null);
@@ -61,6 +70,10 @@ export default function ViewerCanvas() {
   );
   const selectedVehicleStateFrame = findLatestFrameAtOrBefore(
     mockScenario.vehicleStateFrames,
+    currentTimeMs,
+  );
+  const selectedTrajectoryFrame = findLatestFrameAtOrBefore(
+    mockScenario.trajectoryFrames,
     currentTimeMs,
   );
   const selectedLidarPointCount = selectedLidarFrame
@@ -141,6 +154,24 @@ export default function ViewerCanvas() {
     vehicleBoxRef.current = vehicleBox;
     scene.add(vehicleBox);
 
+    const trajectoryPositions = new Float32Array(
+      TRAJECTORY_POSITION_BUFFER_LENGTH,
+    );
+    const trajectoryPositionAttribute = new BufferAttribute(
+      trajectoryPositions,
+      3,
+    );
+    trajectoryPositionAttribute.setUsage(DynamicDrawUsage);
+    const trajectoryGeometry = new BufferGeometry();
+    trajectoryGeometry.setAttribute("position", trajectoryPositionAttribute);
+    trajectoryGeometry.setDrawRange(0, 0);
+    const trajectoryMaterial = new LineBasicMaterial({ color: 0xfacc15 });
+    const trajectoryLine = new Line(trajectoryGeometry, trajectoryMaterial);
+
+    trajectoryGeometryRef.current = trajectoryGeometry;
+    trajectoryPositionAttributeRef.current = trajectoryPositionAttribute;
+    scene.add(trajectoryLine);
+
     camera.position.set(30, 25, -30);
     camera.lookAt(0, 0, -10);
 
@@ -191,11 +222,15 @@ export default function ViewerCanvas() {
       lidarPositionAttributeRef.current = null;
       pedestrianBoxRef.current = null;
       vehicleBoxRef.current = null;
+      trajectoryGeometryRef.current = null;
+      trajectoryPositionAttributeRef.current = null;
       pointsGeometry.dispose();
       pointsMaterial.dispose();
       boxGeometry.dispose();
       pedestrianBoxMaterial.dispose();
       vehicleBoxMaterial.dispose();
+      trajectoryGeometry.dispose();
+      trajectoryMaterial.dispose();
       grid.dispose();
       scene.clear();
       renderer.dispose();
@@ -272,6 +307,40 @@ export default function ViewerCanvas() {
     vehicleBox.rotation.set(0, selectedVehicleStateFrame.yawRadians, 0);
     vehicleBox.visible = true;
   }, [selectedVehicleStateFrame]);
+
+  useEffect(() => {
+    const trajectoryGeometry = trajectoryGeometryRef.current;
+    const trajectoryPositionAttribute = trajectoryPositionAttributeRef.current;
+
+    if (!trajectoryGeometry || !trajectoryPositionAttribute) {
+      return;
+    }
+
+    if (!selectedTrajectoryFrame) {
+      trajectoryGeometry.setDrawRange(0, 0);
+      return;
+    }
+
+    const trajectoryPositions =
+      trajectoryPositionAttribute.array as Float32Array;
+
+    selectedTrajectoryFrame.points.forEach((point, index) => {
+      const [positionX, positionY, positionZ] = point.position;
+      const offset = index * 3;
+
+      trajectoryPositions[offset] = positionX;
+      trajectoryPositions[offset + 1] =
+        positionY + TRAJECTORY_RENDER_HEIGHT;
+      trajectoryPositions[offset + 2] = positionZ;
+    });
+
+    trajectoryPositionAttribute.needsUpdate = true;
+    trajectoryGeometry.setDrawRange(
+      0,
+      selectedTrajectoryFrame.points.length,
+    );
+    trajectoryGeometry.computeBoundingSphere();
+  }, [selectedTrajectoryFrame]);
 
   useEffect(() => {
     if (!isPlaying) {
