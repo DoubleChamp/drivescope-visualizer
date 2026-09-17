@@ -8,12 +8,14 @@ export type CameraFrame = {
   imageUrl: string;
 };
 
+export type BoxSize = [width: number, length: number, height: number];
+
 export type ObjectDetection = {
   id: string;
   category: "vehicle" | "pedestrian";
   confidence: number;
   center: [x: number, y: number, z: number];
-  size: [width: number, length: number, height: number];
+  size: BoxSize;
   yawRadians: number;
 };
 
@@ -49,6 +51,7 @@ export type ScenarioEvent = {
 export type ScenarioData = {
   id: string;
   durationMs: number;
+  egoVehicleSize: BoxSize;
   lidarFrames: LidarFrame[];
   cameraFrames: CameraFrame[];
   objectDetectionFrames: ObjectDetectionFrame[];

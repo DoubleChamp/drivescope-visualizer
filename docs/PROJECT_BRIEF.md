@@ -10,7 +10,7 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과, 예상 주행 경로를 �
 
 목표는 특정 사고 위험 장면에서 센서 인식, 객체 인식, Planning 반응, 차량 제어 사이의 시간 관계를 빠르게 파악하는 것이다. Rerun 전체를 복제하거나 새로운 렌더링 엔진을 만드는 것은 목표가 아니다.
 
-현재는 Next.js App Router, TypeScript, Three.js 기반 프로젝트 초기화와 실행 검증을 마쳤다. `/viewer`에 React가 소유하는 Canvas와 Three.js의 Scene, PerspectiveCamera, WebGLRenderer, GridHelper를 만들고 창 크기 변경과 `requestAnimationFrame` 렌더 루프를 연결했다. Phase 2에서는 가상 포인트 10,000개로 `Float32Array`와 `BufferAttribute`의 원리를 확인했다. Phase 3에서는 센서·인식·경로·차량 상태·이벤트 타입과 0~15초의 가상 급제동 시나리오 데이터를 정의했다. Phase 4에서는 재생·탐색, timestamp 기반 인과적 동기화와 이벤트 마커를 완성하고, 선택된 Camera URL과 객체 인식 정보는 UI에, 선택된 LiDAR 좌표는 재사용하는 Three.js Buffer에 실제 반영했다. Phase 5에서는 Object Detection의 위치·크기·회전을 재사용하는 보행자 3D 바운딩 박스에 반영하기 시작했다. 이 가상 데이터로 분석 화면과 성능 구조를 검증한 뒤 nuScenes mini를 연결한다.
+현재는 Next.js App Router, TypeScript, Three.js 기반 프로젝트 초기화와 실행 검증을 마쳤다. `/viewer`에 React가 소유하는 Canvas와 Three.js의 Scene, PerspectiveCamera, WebGLRenderer, GridHelper를 만들고 창 크기 변경과 `requestAnimationFrame` 렌더 루프를 연결했다. Phase 2에서는 가상 포인트 10,000개로 `Float32Array`와 `BufferAttribute`의 원리를 확인했다. Phase 3에서는 센서·인식·경로·차량 상태·이벤트 타입과 0~15초의 가상 급제동 시나리오 데이터를 정의했다. Phase 4에서는 재생·탐색, timestamp 기반 인과적 동기화와 이벤트 마커를 완성하고, 선택된 Camera URL과 객체 인식 정보는 UI에, 선택된 LiDAR 좌표는 재사용하는 Three.js Buffer에 실제 반영했다. Phase 5에서는 Object Detection의 보행자 박스와 Vehicle State의 내 차량 박스를 같은 단위 Geometry를 공유하는 3D 객체로 표시했다. 이 가상 데이터로 분석 화면과 성능 구조를 검증한 뒤 nuScenes mini를 연결한다.
 
 ## 핵심 분석 질문
 

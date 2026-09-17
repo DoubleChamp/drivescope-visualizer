@@ -39,6 +39,7 @@ export default function ViewerCanvas() {
   const lidarGeometryRef = useRef<BufferGeometry | null>(null);
   const lidarPositionAttributeRef = useRef<BufferAttribute | null>(null);
   const pedestrianBoxRef = useRef<Mesh | null>(null);
+  const vehicleBoxRef = useRef<Mesh | null>(null);
   const playbackStartedAtRef = useRef(0);
   const playbackTimeAtStartRef = useRef(INITIAL_PLAYBACK_TIME_MS);
   const [framesPerSecond, setFramesPerSecond] = useState<number | null>(null);
@@ -56,6 +57,10 @@ export default function ViewerCanvas() {
   );
   const selectedObjectDetectionFrame = findLatestFrameAtOrBefore(
     mockScenario.objectDetectionFrames,
+    currentTimeMs,
+  );
+  const selectedVehicleStateFrame = findLatestFrameAtOrBefore(
+    mockScenario.vehicleStateFrames,
     currentTimeMs,
   );
   const selectedLidarPointCount = selectedLidarFrame
@@ -117,18 +122,24 @@ export default function ViewerCanvas() {
     lidarPositionAttributeRef.current = positionAttribute;
     scene.add(points);
 
-    const pedestrianBoxGeometry = new BoxGeometry(1, 1, 1);
+    const boxGeometry = new BoxGeometry(1, 1, 1);
     const pedestrianBoxMaterial = new MeshBasicMaterial({
       color: 0xf97316,
       wireframe: true,
     });
-    const pedestrianBox = new Mesh(
-      pedestrianBoxGeometry,
-      pedestrianBoxMaterial,
-    );
+    const pedestrianBox = new Mesh(boxGeometry, pedestrianBoxMaterial);
     pedestrianBox.visible = false;
     pedestrianBoxRef.current = pedestrianBox;
     scene.add(pedestrianBox);
+
+    const vehicleBoxMaterial = new MeshBasicMaterial({
+      color: 0x22c55e,
+      wireframe: true,
+    });
+    const vehicleBox = new Mesh(boxGeometry, vehicleBoxMaterial);
+    vehicleBox.visible = false;
+    vehicleBoxRef.current = vehicleBox;
+    scene.add(vehicleBox);
 
     camera.position.set(30, 25, -30);
     camera.lookAt(0, 0, -10);
@@ -179,10 +190,12 @@ export default function ViewerCanvas() {
       lidarGeometryRef.current = null;
       lidarPositionAttributeRef.current = null;
       pedestrianBoxRef.current = null;
+      vehicleBoxRef.current = null;
       pointsGeometry.dispose();
       pointsMaterial.dispose();
-      pedestrianBoxGeometry.dispose();
+      boxGeometry.dispose();
       pedestrianBoxMaterial.dispose();
+      vehicleBoxMaterial.dispose();
       grid.dispose();
       scene.clear();
       renderer.dispose();
@@ -237,6 +250,28 @@ export default function ViewerCanvas() {
     pedestrianBox.rotation.set(0, pedestrian.yawRadians, 0);
     pedestrianBox.visible = true;
   }, [selectedObjectDetectionFrame]);
+
+  useEffect(() => {
+    const vehicleBox = vehicleBoxRef.current;
+
+    if (!vehicleBox) {
+      return;
+    }
+
+    if (!selectedVehicleStateFrame) {
+      vehicleBox.visible = false;
+      return;
+    }
+
+    const [positionX, groundY, positionZ] =
+      selectedVehicleStateFrame.position;
+    const [width, length, height] = mockScenario.egoVehicleSize;
+
+    vehicleBox.position.set(positionX, groundY + height / 2, positionZ);
+    vehicleBox.scale.set(width, height, length);
+    vehicleBox.rotation.set(0, selectedVehicleStateFrame.yawRadians, 0);
+    vehicleBox.visible = true;
+  }, [selectedVehicleStateFrame]);
 
   useEffect(() => {
     if (!isPlaying) {

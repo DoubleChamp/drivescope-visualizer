@@ -5,12 +5,17 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 5 — 진행 중
-- 현재 작업: 선택된 Object Detection의 보행자 위치·크기·yaw를 재사용하는 Three.js wireframe 박스에 반영했다.
-- 다음 한 단계: Phase 5 두 번째 항목인 차량 3D 바운딩 박스 표시를 설계하고 승인받는다.
-- 아직 구현하지 않은 것: 차량 3D 박스, 예상 경로·충돌 분석, 선택 UI, 실제 카메라 이미지 패널과 실제 데이터 연결
+- 현재 작업: 선택된 Vehicle State의 위치·yaw와 시나리오 차량 크기를 초록색 Three.js wireframe 박스에 반영했다.
+- 다음 한 단계: Phase 5 세 번째 항목인 예상 주행 경로 표시를 설계하고 승인받는다.
+- 아직 구현하지 않은 것: 예상 경로·충돌 분석, 선택 UI, 실제 카메라 이미지 패널과 실제 데이터 연결
 
 ## 완료한 작업
 
+- 차량 크기 `[1.8, 4.5, 1.5]`를 Frame마다 반복하지 않고 `ScenarioData.egoVehicleSize`에 한 번 저장했다.
+- 현재 재생 시각 이하의 최신 Vehicle State를 선택하고 위치와 yaw를 초록색 차량 Mesh에 반영했다.
+- 지면 위 차량 기준점인 `position.y`에 높이 절반을 더해 차량 박스의 하부가 지면에 닿도록 했다.
+- 보행자와 차량 Mesh가 같은 단위 `BoxGeometry`를 공유하고 색상이 다른 Material만 각각 소유하도록 변경했다.
+- 현재 단계는 Vehicle State 사이 위치·yaw를 보간하지 않고 기록된 위치를 유지하다 다음 Frame 시각에 갱신한다.
 - 단위 `BoxGeometry`와 주황색 wireframe `MeshBasicMaterial`을 한 번 생성하고 같은 보행자 Mesh를 Frame 사이에서 재사용했다.
 - Object Detection에 보행자가 없으면 박스를 숨기고, 있으면 `center`, `size`와 `yawRadians`를 위치·축별 크기·Y축 회전에 반영했다.
 - `[width, length, height]`를 Three.js X·Y·Z 축에 맞게 `scale(width, height, length)`로 변환했다.
@@ -146,6 +151,16 @@
 - 이후 승인된 단계는 검증과 문서 갱신 후 Codex가 현재 브랜치에 commit까지만 하고, `origin` push는 사용자가 GitHub Desktop에서 직접 수행하도록 작업 규칙을 변경했다.
 
 ## 검증 결과
+
+### Phase 5: 차량 3D 바운딩 박스 (2026-09-17)
+
+- `0ms`부터 차량 wireframe draw call이 발생해 Vehicle State가 존재하는 전체 재생 구간에서 차량 박스가 표시됨을 확인했다.
+- `12_400ms`에서 초록색 차량 박스가 Vehicle State의 `Z=13.6m` 위치에 있고 주황색 보행자 박스와 함께 표시됨을 확인했다.
+- `13_400ms`에서 차량 박스가 `Z=15.6m`로 이동해 보행자 앞에서 정지한 화면을 확인했다.
+- `12_400ms`와 `13_400ms` 모두 차량과 보행자의 wireframe `drawElements(LINES, 72)`가 렌더링됨을 확인했다.
+- `pnpm exec tsc --noEmit`: TypeScript 오류 없이 통과했다.
+- `pnpm build`: Next.js 16.3.3 production build와 `/viewer` 정적 페이지 생성이 통과했다.
+- `git diff --check`: 공백 오류 없음.
 
 ### Phase 5: 보행자 3D 바운딩 박스 (2026-09-17)
 
@@ -432,7 +447,7 @@
 
 ## 다음 구현 진입 조건
 
-1. Vehicle State의 위치와 yaw에 차량 크기를 결합해 Three.js 차량 바운딩 박스로 표현하는 원리를 설명하고 사용자 승인을 받는다.
+1. 선택된 `TrajectoryFrame`의 상대 미래 점들을 하나의 Three.js 선으로 연결하는 원리를 설명하고 사용자 승인을 받는다.
 
 ## 추천 커밋 메시지
 

@@ -87,7 +87,11 @@ Camera Frame은 1,000ms 간격으로 16개, LiDAR Frame은 500ms 간격으로 31
 
 현재 Viewer는 `findLatestFrameAtOrBefore`로 선택한 Camera의 `imageUrl`과 Object Detection의 객체 수·ID를 React 정보 카드에 표시한다. 실제 카메라 파일을 내려받아 보여 주는 이미지 패널은 아직 만들지 않았다. 선택된 LiDAR Frame은 Three.js 포인트 장면에 실제 좌표로 반영되어 10초 전에는 도로 포인트 15개, 이후에는 보행자 포인트를 포함한 21개를 그린다. 선택된 Object Detection의 보행자는 11초부터 3D 박스로 표시한다.
 
-Phase 5의 보행자 박스는 단위 크기 `BoxGeometry(1, 1, 1)`와 조명이 필요 없는 주황색 wireframe `MeshBasicMaterial`을 마운트 시 한 번 만들고 같은 `Mesh`를 재사용한다. 선택된 Object Detection Frame에서 `category === "pedestrian"`인 객체가 없으면 `visible = false`로 숨기고, 있으면 `center`를 Mesh 위치에 반영한다. 데이터의 `size` 순서 `[width, length, height]`는 Three.js 장면 축 X·Y·Z에 맞춰 `scale(width, height, length)`로 바꾼다. Y가 수직축이므로 `yawRadians`는 `rotation.y`에 적용한다. 현재 가상 데이터의 중심 높이 `0.9m`가 높이 `1.8m`의 절반이라 박스 바닥이 결과적으로 `y=0`에 닿지만, 렌더링 코드가 지면에 강제로 붙이는 것은 아니다.
+Phase 5의 보행자와 차량 박스는 단위 크기 `BoxGeometry(1, 1, 1)` 하나를 공유한다. 보행자는 주황색, 차량은 초록색이며 조명이 필요 없는 wireframe `MeshBasicMaterial`은 서로 다른 색상을 위해 각각 소유한다. 선택된 Object Detection Frame에서 `category === "pedestrian"`인 객체가 없으면 보행자 Mesh를 숨기고, 있으면 `center`, `size`와 `yawRadians`를 반영한다. 데이터의 `size` 순서 `[width, length, height]`는 Three.js 장면 축 X·Y·Z에 맞춰 `scale(width, height, length)`로 바꾼다.
+
+차량 크기 `[1.8, 4.5, 1.5]`는 Frame마다 변하지 않으므로 각 `VehicleStateFrame`에 반복하지 않고 `ScenarioData.egoVehicleSize`에 한 번 저장한다. Vehicle State의 `position`은 지면 위 차량 footprint 중심을 나타내므로 차량 Mesh의 중심 Y에는 `groundY + height / 2`를 사용한다. 보행자 Detection의 `center`는 이미 3D 박스 중심이어서 같은 보정을 하지 않는다. 두 박스 모두 Y가 수직축이므로 `yawRadians`는 `rotation.y`에 적용한다.
+
+현재 차량 박스는 `findLatestFrameAtOrBefore`로 선택한 Vehicle State의 기록 위치로 즉시 이동한다. 두 Vehicle State 사이의 위치나 yaw 중간값은 아직 계산하지 않으므로 기록 간격 사이에서는 같은 위치를 유지하다 다음 Frame 시각에 이동한다. 이후 보간을 도입한다면 목표 재생 시각이 이전·다음 Frame 사이에서 차지하는 비율로 위치와 yaw를 계산하며, 부드러운 움직임은 그 계산 결과다.
 
 ## 소유권과 생명주기
 

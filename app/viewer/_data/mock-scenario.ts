@@ -142,6 +142,7 @@ const vehicleStateTimestamps = [
 export const mockScenario: ScenarioData = {
   id: "pedestrian-emergency-braking",
   durationMs: SCENARIO_DURATION_MS,
+  egoVehicleSize: [1.8, 4.5, 1.5],
   cameraFrames,
   lidarFrames,
   objectDetectionFrames,

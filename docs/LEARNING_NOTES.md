@@ -400,9 +400,19 @@
 - 빈 배열에서 보행자를 찾고 `visible = false`를 다시 지정하는 현재 비용은 작다. 실제 데이터에서 병목으로 측정될 때만 선택된 보행자를 별도 파생값으로 분리하는 최적화를 검토한다.
 - 사용자가 Detection이 없을 때도 Geometry를 메모리에 유지하고 `visible`로 draw call만 제어하면 Frame마다 객체와 GPU 리소스를 생성·해제하는 비용을 피할 수 있다고 설명했다.
 
+### 차량 3D 바운딩 박스 (2026-09-17)
+
+- Vehicle State는 시간에 따라 변하는 위치·yaw·속도·가속도를 보관하지만 차량 크기는 고정값이므로 `ScenarioData.egoVehicleSize`에 한 번만 저장한다.
+- 보행자와 차량은 모두 단위 박스에서 크기만 달라지므로 `BoxGeometry(1, 1, 1)` 하나를 공유하고, 주황색과 초록색을 구분하기 위한 Material은 각각 소유한다.
+- 현재 Vehicle State의 `position`은 3D 박스 중심이 아니라 지면 위 차량 footprint 중심이다. 차량 Mesh 중심 Y는 `groundY + height / 2`로 올려 하부가 지면에 닿게 한다.
+- 보행자 Detection의 `center`는 이미 박스 중심이지만 Vehicle State 위치는 지면 기준점이므로 같은 숫자 배열 형태라도 의미에 따라 적용 방식이 다르다.
+- `findLatestFrameAtOrBefore`로 현재 시각 이하의 최신 Vehicle State를 선택해 미래 상태를 미리 보여 주지 않는다. 선택된 Frame 참조가 바뀔 때 같은 차량 Mesh의 transform만 갱신한다.
+- 보간은 단순한 화면 효과가 아니라 두 Frame 사이 목표 시각의 위치와 yaw를 계산하는 작업이다. 부드러운 움직임은 계산된 중간 위치를 매 재생 시각에 반영한 결과이며 현재 단계에는 넣지 않았다.
+- 사용자가 차량 위치를 높이 절반만큼 올려야 하부가 지면에 닿는다고 설명하고, 보간이 부드러운 움직임인지 차량 위치 계산인지 질문해 두 개가 원인과 결과 관계임을 확인했다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 4를 마치고 Phase 5의 보행자 3D 바운딩 박스까지 구현했다. 다음 항목도 Phase 5에서 진행한다.
+Phase 4를 마치고 Phase 5의 보행자와 차량 3D 바운딩 박스까지 구현했다. 다음 항목도 Phase 5에서 진행한다.
 
-- Vehicle State 위치와 yaw를 차량 3D 바운딩 박스에 반영하는 방법
-- Object Detection 박스와 내 차량 상태 박스의 데이터 책임 차이
+- `TrajectoryFrame.timestampMs`와 `TrajectoryPoint.offsetMs`의 관계를 3D 선에 반영하는 방법
+- 경로 Geometry를 Frame 사이에서 재사용하고 점 개수에 맞게 갱신하는 방법
