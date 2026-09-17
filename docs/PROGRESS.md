@@ -15,6 +15,8 @@
 - Object Detection에 보행자가 없으면 박스를 숨기고, 있으면 `center`, `size`와 `yawRadians`를 위치·축별 크기·Y축 회전에 반영했다.
 - `[width, length, height]`를 Three.js X·Y·Z 축에 맞게 `scale(width, height, length)`로 변환했다.
 - cleanup에서 보행자 Box Geometry와 Material을 명시적으로 `dispose()`하도록 했다.
+- `null`은 원시값이라 `null → null`이면 effect 의존성이 변하지 않으며, 현재 mock에서는 빈 Object Detection Frame 참조가 1초마다 바뀐다는 차이를 코드 주석으로 남겼다.
+- 사용자가 박스를 삭제·재생성하지 않고 메모리에 유지한 채 `visible`로 draw call을 제어하면 반복 할당과 GPU 리소스 생성·해제 비용을 피할 수 있다고 설명했다.
 - 최대 LiDAR Frame 크기인 21개 포인트용 Buffer를 한 번 생성하고 선택 Frame의 좌표를 같은 Buffer에 복사하도록 변경했다.
 - `DynamicDrawUsage`, `needsUpdate`와 `drawRange`를 사용해 GPU Buffer를 재사용하면서 현재 Frame의 15개 또는 21개 포인트만 그리도록 했다.
 - 선택된 Camera Frame의 `imageUrl`과 Object Detection의 객체 수·ID를 동기화 정보 카드에 표시했다.

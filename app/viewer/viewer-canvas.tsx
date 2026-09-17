@@ -210,6 +210,9 @@ export default function ViewerCanvas() {
     pointsGeometry.computeBoundingSphere();
   }, [selectedLidarFrame, selectedLidarPointCount]);
 
+  // null은 새 객체가 아니라 원시값이므로 null이 유지되면 React의 Object.is 의존성 비교에서 변화로 보지 않는다.
+  // 현재 mock은 0초부터 빈 Detection Frame을 가지므로 Frame 참조가 1초마다 바뀔 때만 이 effect가 다시 실행된다.
+  // TODO: 실제 데이터에서 빈 Detection Frame 갱신이 병목으로 측정되면 선택된 pedestrian을 별도 파생값으로 분리할지 검토한다.
   useEffect(() => {
     const pedestrianBox = pedestrianBoxRef.current;
 

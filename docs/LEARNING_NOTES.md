@@ -395,6 +395,10 @@
 - 11초 전에는 선택된 Object Detection Frame에 보행자가 없어 `visible = false`이고, 11초부터 같은 `pedestrian-1` 데이터로 `visible = true`가 된다.
 - Geometry와 Material은 Frame마다 재생성하지 않으며 컴포넌트 cleanup에서 각각 `dispose()`한다.
 - 사용자가 Three.js 박스 축이 X·Y·Z 순서이므로 데이터의 width·length·height를 장면 축에 맞게 넣어야 하며, 현재 데이터가 지면에 붙는 위치를 가정하고 있다고 설명했다.
+- `null`은 매번 새 주소에 할당되는 객체가 아니라 JavaScript 원시값이다. React effect 의존성은 `Object.is`로 비교하므로 선택 결과가 계속 `null`이면 `null → null`은 변화가 아니며 effect가 다시 실행되지 않는다.
+- Frame 선택 함수 자체는 `currentTimeMs`에 따른 React 렌더마다 호출된다. 현재 mock에는 0초부터 Object Detection Frame이 있어 선택 결과는 `null`이 아니라 객체 배열이 빈 Frame이고, Frame 참조가 1초마다 바뀔 때 박스 갱신 effect가 실행된다.
+- 빈 배열에서 보행자를 찾고 `visible = false`를 다시 지정하는 현재 비용은 작다. 실제 데이터에서 병목으로 측정될 때만 선택된 보행자를 별도 파생값으로 분리하는 최적화를 검토한다.
+- 사용자가 Detection이 없을 때도 Geometry를 메모리에 유지하고 `visible`로 draw call만 제어하면 Frame마다 객체와 GPU 리소스를 생성·해제하는 비용을 피할 수 있다고 설명했다.
 
 ## 다음 단계에서 배울 내용
 
