@@ -9,6 +9,7 @@ import {
   GridHelper,
   Line,
   LineBasicMaterial,
+  LineSegments,
   Mesh,
   MeshBasicMaterial,
   PerspectiveCamera,
@@ -17,6 +18,9 @@ import {
   Scene,
   WebGLRenderer,
 } from "three";
+import {
+  findAxisAlignedTrajectoryCollisionSegments,
+} from "./_analysis/find-axis-aligned-trajectory-collision-segments";
 import { findLatestFrameAtOrBefore } from "./_data/find-latest-frame-at-or-before";
 import type { ScenarioEvent } from "./_data/frame-types";
 import { mockScenario } from "./_data/mock-scenario";
@@ -26,6 +30,7 @@ const FPS_SAMPLE_INTERVAL_MS = 1_000;
 const INITIAL_PLAYBACK_TIME_MS = 0;
 const PLAYBACK_UPDATE_INTERVAL_MS = 100;
 const TRAJECTORY_RENDER_HEIGHT = 0.05;
+const COLLISION_RENDER_HEIGHT = TRAJECTORY_RENDER_HEIGHT + 0.02;
 const LIDAR_POSITION_BUFFER_LENGTH = Math.max(
   0,
   ...mockScenario.lidarFrames.map((frame) => frame.positions.length),
@@ -33,6 +38,12 @@ const LIDAR_POSITION_BUFFER_LENGTH = Math.max(
 const TRAJECTORY_POSITION_BUFFER_LENGTH = Math.max(
   0,
   ...mockScenario.trajectoryFrames.map((frame) => frame.points.length * 3),
+);
+const COLLISION_POSITION_BUFFER_LENGTH = Math.max(
+  0,
+  ...mockScenario.trajectoryFrames.map(
+    (frame) => Math.max(0, frame.points.length - 1) * 2 * 3,
+  ),
 );
 const EVENT_TYPE_LABELS: Record<ScenarioEvent["type"], string> = {
   "emergency-braking": "급제동",
@@ -49,6 +60,8 @@ export default function ViewerCanvas() {
   const vehicleBoxRef = useRef<Mesh | null>(null);
   const trajectoryGeometryRef = useRef<BufferGeometry | null>(null);
   const trajectoryPositionAttributeRef = useRef<BufferAttribute | null>(null);
+  const collisionGeometryRef = useRef<BufferGeometry | null>(null);
+  const collisionPositionAttributeRef = useRef<BufferAttribute | null>(null);
   const playbackStartedAtRef = useRef(0);
   const playbackTimeAtStartRef = useRef(INITIAL_PLAYBACK_TIME_MS);
   const [framesPerSecond, setFramesPerSecond] = useState<number | null>(null);
@@ -76,6 +89,10 @@ export default function ViewerCanvas() {
     mockScenario.trajectoryFrames,
     currentTimeMs,
   );
+  const selectedPedestrian =
+    selectedObjectDetectionFrame?.objects.find(
+      (object) => object.category === "pedestrian",
+    ) ?? null;
   const selectedLidarPointCount = selectedLidarFrame
     ? selectedLidarFrame.positions.length / 3
     : 0;
@@ -172,6 +189,27 @@ export default function ViewerCanvas() {
     trajectoryPositionAttributeRef.current = trajectoryPositionAttribute;
     scene.add(trajectoryLine);
 
+    const collisionPositions = new Float32Array(
+      COLLISION_POSITION_BUFFER_LENGTH,
+    );
+    const collisionPositionAttribute = new BufferAttribute(
+      collisionPositions,
+      3,
+    );
+    collisionPositionAttribute.setUsage(DynamicDrawUsage);
+    const collisionGeometry = new BufferGeometry();
+    collisionGeometry.setAttribute("position", collisionPositionAttribute);
+    collisionGeometry.setDrawRange(0, 0);
+    const collisionMaterial = new LineBasicMaterial({ color: 0xef4444 });
+    const collisionLineSegments = new LineSegments(
+      collisionGeometry,
+      collisionMaterial,
+    );
+
+    collisionGeometryRef.current = collisionGeometry;
+    collisionPositionAttributeRef.current = collisionPositionAttribute;
+    scene.add(collisionLineSegments);
+
     camera.position.set(30, 25, -30);
     camera.lookAt(0, 0, -10);
 
@@ -224,6 +262,8 @@ export default function ViewerCanvas() {
       vehicleBoxRef.current = null;
       trajectoryGeometryRef.current = null;
       trajectoryPositionAttributeRef.current = null;
+      collisionGeometryRef.current = null;
+      collisionPositionAttributeRef.current = null;
       pointsGeometry.dispose();
       pointsMaterial.dispose();
       boxGeometry.dispose();
@@ -231,6 +271,8 @@ export default function ViewerCanvas() {
       vehicleBoxMaterial.dispose();
       trajectoryGeometry.dispose();
       trajectoryMaterial.dispose();
+      collisionGeometry.dispose();
+      collisionMaterial.dispose();
       grid.dispose();
       scene.clear();
       renderer.dispose();
@@ -268,23 +310,19 @@ export default function ViewerCanvas() {
       return;
     }
 
-    const pedestrian = selectedObjectDetectionFrame?.objects.find(
-      (object) => object.category === "pedestrian",
-    );
-
-    if (!pedestrian) {
+    if (!selectedPedestrian) {
       pedestrianBox.visible = false;
       return;
     }
 
-    const [centerX, centerY, centerZ] = pedestrian.center;
-    const [width, length, height] = pedestrian.size;
+    const [centerX, centerY, centerZ] = selectedPedestrian.center;
+    const [width, length, height] = selectedPedestrian.size;
 
     pedestrianBox.position.set(centerX, centerY, centerZ);
     pedestrianBox.scale.set(width, height, length);
-    pedestrianBox.rotation.set(0, pedestrian.yawRadians, 0);
+    pedestrianBox.rotation.set(0, selectedPedestrian.yawRadians, 0);
     pedestrianBox.visible = true;
-  }, [selectedObjectDetectionFrame]);
+  }, [selectedPedestrian]);
 
   useEffect(() => {
     const vehicleBox = vehicleBoxRef.current;
@@ -341,6 +379,48 @@ export default function ViewerCanvas() {
     );
     trajectoryGeometry.computeBoundingSphere();
   }, [selectedTrajectoryFrame]);
+
+  useEffect(() => {
+    const collisionGeometry = collisionGeometryRef.current;
+    const collisionPositionAttribute = collisionPositionAttributeRef.current;
+
+    if (!collisionGeometry || !collisionPositionAttribute) {
+      return;
+    }
+
+    if (!selectedTrajectoryFrame || !selectedPedestrian) {
+      collisionGeometry.setDrawRange(0, 0);
+      return;
+    }
+
+    const collisionSegments = findAxisAlignedTrajectoryCollisionSegments(
+      selectedTrajectoryFrame.points,
+      selectedPedestrian,
+      mockScenario.egoVehicleSize,
+    );
+    const collisionPositions =
+      collisionPositionAttribute.array as Float32Array;
+
+    collisionSegments.forEach((segment, segmentIndex) => {
+      const positions = [segment.start, segment.end];
+
+      positions.forEach((position, endpointIndex) => {
+        const [positionX, positionY, positionZ] = position;
+        const offset = (segmentIndex * 2 + endpointIndex) * 3;
+
+        collisionPositions[offset] = positionX;
+        collisionPositions[offset + 1] = positionY + COLLISION_RENDER_HEIGHT;
+        collisionPositions[offset + 2] = positionZ;
+      });
+    });
+
+    collisionPositionAttribute.needsUpdate = true;
+    collisionGeometry.setDrawRange(0, collisionSegments.length * 2);
+
+    if (collisionSegments.length > 0) {
+      collisionGeometry.computeBoundingSphere();
+    }
+  }, [selectedPedestrian, selectedTrajectoryFrame]);
 
   useEffect(() => {
     if (!isPlaying) {

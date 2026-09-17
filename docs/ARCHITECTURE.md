@@ -14,7 +14,7 @@ Scene 순회는 Attribute 배열 전체를 비교하거나 GPU Buffer를 읽어 
 
 좌표를 바꾼 뒤 호출하는 `computeBoundingSphere()`는 GPU 명령이 아니라 브라우저의 JavaScript/CPU에서 `position` Attribute를 읽어 Geometry를 감싸는 구를 다시 계산하는 작업이다. Three.js Renderer는 이 구와 Camera의 frustum을 CPU에서 먼저 비교해 객체 전체가 시야 밖이면 draw call을 생략한다. 통과한 객체의 각 정점 변환과 최종 clipping·rasterization은 그다음 GPU가 담당한다. bounding sphere는 `drawRange`가 아니라 전체 Attribute 용량을 기준으로 계산하므로 뒤쪽 값 때문에 실제 표시 범위보다 커질 수 있지만, 현재 최대 21개인 Buffer에서는 안전한 보수적 판정이고 비용도 작다.
 
-Three.js rAF 콜백은 지역 변수에 렌더 횟수와 샘플 시작 시각을 보관하고, rAF timestamp의 실제 경과 시간이 1초 이상일 때 `렌더 횟수 × 1000 / 경과 밀리초`로 평균 FPS를 계산한다. React는 현재 재생 시간, 재생 여부, 선택된 센서 정보와 약 1초마다 바뀌는 표시용 FPS state를 소유한다. 이 state로 Client Component가 다시 렌더링돼도 Canvas의 타입과 트리 위치가 같고 초기화 effect 의존성 배열이 비어 있어 기존 Canvas, Renderer와 rAF는 유지된다. 별도 interval이 없으므로 컴포넌트 해제 시 기존 `cancelAnimationFrame()`이 렌더링과 측정을 함께 중지한다. 이 값은 rAF 콜백에서 수행한 `renderer.render()` 호출 빈도이며 GPU 명령 하나의 실행 시간을 직접 측정하는 값은 아니다.
+Three.js rAF 콜백은 지역 변수에 렌더 횟수와 샘플 시작 시각을 보관하고, rAF timestamp의 실제 경과 시간이 1초 이상일 때 `렌더 횟수 × 1000 / 경과 밀리초`로 평균 FPS를 계산한다. React는 현재 재생 시간, 재생 여부, 선택된 센서 정보와 약 1초마다 바뀌는 표시용 FPS state를 소유한다. 이 state로 Client Component가 다시 렌더링돼도 Canvas의 타입과 트리 위치가 같고 초기화 effect 의존성 배열이 비어 있어 기존 Canvas, Renderer와 rAF는 유지된다. FPS 측정용 별도 interval은 없으므로 `cancelAnimationFrame()`이 렌더링과 측정을 함께 중지한다. 재생 시계의 `setInterval()`은 별도 effect가 소유하고 정지·해제 시 `clearInterval()`로 정리한다. 표시되는 FPS는 rAF 콜백에서 수행한 `renderer.render()` 호출 빈도이며 GPU 명령 하나의 실행 시간을 직접 측정하는 값은 아니다.
 
 이 문서에서 **계획**으로 표시한 내용은 설계 방향일 뿐 아직 구현된 기능이 아니다.
 
@@ -99,6 +99,14 @@ Phase 5의 보행자와 차량 박스는 단위 크기 `BoxGeometry(1, 1, 1)` �
 
 서로 다른 `TrajectoryFrame` 사이를 보간하지 않는 이유는 화면을 부드럽게 만드는 대신 플래너가 실제로 출력하지 않은 중간 계획을 만들어 낼 수 있기 때문이다. 12.0초의 기존 계획이 보행자 위치까지 이어지고 12.4초 급제동 시점의 새 계획이 정지 위치에서 끝나는 변화 자체가 분석 대상이다. 과거 계획점의 예상 시각에 실제 Vehicle State를 맞춰 위치 오차를 계산할 수 있지만, 이후 새 계획이 안전하게 갱신됐다면 기존 계획과 실제 위치의 차이를 곧바로 실패로 단정하지 않고 계획 변경 원인과 차량 반응을 함께 본다.
 
+충돌 판정은 현재 가상 시나리오의 차량과 보행자가 모두 `yaw = 0`이고 보행자가 정지해 있다는 조건에서 XZ footprint를 사용한다. `TrajectoryPoint.position`을 차량 footprint 중심으로 보고, 보행자 사각형을 차량 반폭과 반길이만큼 확장한다. 그러면 차량 박스 전체를 경로를 따라 옮기는 대신 차량 중심 선분이 이 확장 영역에 들어오는지 검사해 두 footprint의 겹침을 판정할 수 있다. 현재 보행자 폭·길이 0.6m와 차량 폭 1.8m·길이 4.5m를 합치면 확장 영역은 X `[-1.2, 1.2]`, Z `[17.45, 22.55]`다.
+
+연속한 경로점 두 개를 `P(t) = start + t(end - start)`, `0 <= t <= 1`인 선분으로 표현하고 X·Z 두 축에서 확장 영역 안에 들어오는 `t` 범위를 차례로 좁힌다. 이 slab clipping은 양 끝점이 모두 밖이어도 가운데가 영역을 통과하는 경우를 찾고, 겹치는 부분의 정확한 시작점과 끝점을 반환한다. 12.0초 계획의 마지막 선분은 Z `16 → 20` 중 `17.45 → 20`이 충돌 구간이고, 12.4초 급제동 계획은 최대 Z 15.6에서 끝나므로 충돌 구간이 없다.
+
+전체 예상 경로는 기존 노란 `Line`으로 유지한다. 충돌 구간은 최대 `(경로점 수 - 1) × 2`개 정점을 담는 별도 `Float32Array`, `BufferAttribute`, `BufferGeometry`와 빨간 `LineSegments`를 마운트 시 한 번 만들고 재사용한다. 선택된 Trajectory나 보행자가 바뀔 때 clipped 선분을 Buffer 앞부분에 복사하고 `needsUpdate`, `drawRange`와 bounding sphere를 갱신한다. 빨간 선은 노란 선보다 Y를 0.02m 더 올려 깊이 충돌을 피하고, cleanup에서 Geometry와 Material을 정리한다.
+
+이 판정은 현재 축 정렬 가상 데이터에서 정확하지만 일반적인 곡선 주행 충돌 판정은 아니다. 차량과 객체의 yaw가 서로 다르면 각 미래 시각의 회전 박스(OBB)를 SAT 같은 방법으로 비교해야 하고, Frame 사이의 회전·이동 중 충돌까지 놓치지 않으려면 swept volume이나 연속 충돌 판정이 필요하다. 현재 Trajectory에는 미래 차량 yaw와 움직이는 보행자 예측이 없으므로 이 범위는 구현하지 않는다.
+
 ## 소유권과 생명주기
 
 | 대상 | 소유 계층 | 생성 시점 | 정리 시점 |
@@ -158,7 +166,7 @@ range의 실제 값은 밀리초지만 `aria-valuetext`는 이를 `12.4초`처�
 
 Viewer는 Camera, LiDAR와 Object Detection의 선택 결과를 별도 React state에 복제하지 않고 `currentTimeMs`에서 파생한다. 현재 배열은 작으므로 렌더링 중 선형 탐색을 수행한다. 실제 데이터에서 비용이 병목으로 측정될 때만 `currentTimeMs` 기준 `useMemo`와 정렬된 배열의 이진 탐색을 검토하도록 코드에 `TODO`를 남겼다.
 
-## 계획: 시간 동기화 흐름
+## 시간 동기화 흐름
 
 1. React가 현재 재생 시간을 관리한다.
 2. 데이터 계층이 센서별 timestamp에서 해당 시간에 사용할 프레임을 선택한다.
