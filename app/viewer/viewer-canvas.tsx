@@ -15,7 +15,9 @@ import {
   PerspectiveCamera,
   Points,
   PointsMaterial,
+  Raycaster,
   Scene,
+  Vector2,
   WebGLRenderer,
 } from "three";
 import {
@@ -31,6 +33,8 @@ const INITIAL_PLAYBACK_TIME_MS = 0;
 const PLAYBACK_UPDATE_INTERVAL_MS = 100;
 const TRAJECTORY_RENDER_HEIGHT = 0.05;
 const COLLISION_RENDER_HEIGHT = TRAJECTORY_RENDER_HEIGHT + 0.02;
+const PEDESTRIAN_DEFAULT_COLOR = 0xf97316;
+const PEDESTRIAN_SELECTED_COLOR = 0xe879f9;
 const LIDAR_POSITION_BUFFER_LENGTH = Math.max(
   0,
   ...mockScenario.lidarFrames.map((frame) => frame.positions.length),
@@ -57,6 +61,7 @@ export default function ViewerCanvas() {
   const lidarGeometryRef = useRef<BufferGeometry | null>(null);
   const lidarPositionAttributeRef = useRef<BufferAttribute | null>(null);
   const pedestrianBoxRef = useRef<Mesh | null>(null);
+  const pedestrianBoxMaterialRef = useRef<MeshBasicMaterial | null>(null);
   const vehicleBoxRef = useRef<Mesh | null>(null);
   const trajectoryGeometryRef = useRef<BufferGeometry | null>(null);
   const trajectoryPositionAttributeRef = useRef<BufferAttribute | null>(null);
@@ -69,6 +74,7 @@ export default function ViewerCanvas() {
     INITIAL_PLAYBACK_TIME_MS,
   );
   const [isPlaying, setIsPlaying] = useState(false);
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const selectedCameraFrame = findLatestFrameAtOrBefore(
     mockScenario.cameraFrames,
     currentTimeMs,
@@ -89,10 +95,11 @@ export default function ViewerCanvas() {
     mockScenario.trajectoryFrames,
     currentTimeMs,
   );
-  const selectedPedestrian =
+  const currentPedestrian =
     selectedObjectDetectionFrame?.objects.find(
       (object) => object.category === "pedestrian",
     ) ?? null;
+  const currentPedestrianId = currentPedestrian?.id ?? null;
   const selectedLidarPointCount = selectedLidarFrame
     ? selectedLidarFrame.positions.length / 3
     : 0;
@@ -154,12 +161,13 @@ export default function ViewerCanvas() {
 
     const boxGeometry = new BoxGeometry(1, 1, 1);
     const pedestrianBoxMaterial = new MeshBasicMaterial({
-      color: 0xf97316,
+      color: PEDESTRIAN_DEFAULT_COLOR,
       wireframe: true,
     });
     const pedestrianBox = new Mesh(boxGeometry, pedestrianBoxMaterial);
     pedestrianBox.visible = false;
     pedestrianBoxRef.current = pedestrianBox;
+    pedestrianBoxMaterialRef.current = pedestrianBoxMaterial;
     scene.add(pedestrianBox);
 
     const vehicleBoxMaterial = new MeshBasicMaterial({
@@ -214,6 +222,8 @@ export default function ViewerCanvas() {
     camera.lookAt(0, 0, -10);
 
     const renderer = new WebGLRenderer({ canvas });
+    const raycaster = new Raycaster();
+    const pointerPosition = new Vector2();
     const handleResize = () => {
       const nextWidth = canvas.clientWidth;
       const nextHeight = canvas.clientHeight;
@@ -221,6 +231,35 @@ export default function ViewerCanvas() {
       camera.aspect = nextWidth / nextHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(nextWidth, nextHeight, false);
+    };
+    const handleCanvasClick = (event: MouseEvent) => {
+      const canvasBounds = canvas.getBoundingClientRect();
+
+      if (
+        canvasBounds.width === 0 ||
+        canvasBounds.height === 0 ||
+        !pedestrianBox.visible
+      ) {
+        setSelectedObjectId(null);
+        return;
+      }
+
+      pointerPosition.set(
+        ((event.clientX - canvasBounds.left) / canvasBounds.width) * 2 - 1,
+        -((event.clientY - canvasBounds.top) / canvasBounds.height) * 2 + 1,
+      );
+
+      camera.updateMatrixWorld();
+      pedestrianBox.updateWorldMatrix(true, false);
+      raycaster.setFromCamera(pointerPosition, camera);
+
+      const objectId = pedestrianBox.userData.objectId;
+      const intersectsPedestrian =
+        raycaster.intersectObject(pedestrianBox, false).length > 0;
+
+      setSelectedObjectId(
+        intersectsPedestrian && typeof objectId === "string" ? objectId : null,
+      );
     };
     let animationFrameId: number;
     let sampleStartedAt: number | null = null;
@@ -251,14 +290,17 @@ export default function ViewerCanvas() {
 
     handleResize();
     window.addEventListener("resize", handleResize);
+    canvas.addEventListener("click", handleCanvasClick);
     animationFrameId = window.requestAnimationFrame(renderFrame);
 
     return () => {
       window.cancelAnimationFrame(animationFrameId);
       window.removeEventListener("resize", handleResize);
+      canvas.removeEventListener("click", handleCanvasClick);
       lidarGeometryRef.current = null;
       lidarPositionAttributeRef.current = null;
       pedestrianBoxRef.current = null;
+      pedestrianBoxMaterialRef.current = null;
       vehicleBoxRef.current = null;
       trajectoryGeometryRef.current = null;
       trajectoryPositionAttributeRef.current = null;
@@ -310,19 +352,47 @@ export default function ViewerCanvas() {
       return;
     }
 
-    if (!selectedPedestrian) {
+    if (!currentPedestrian) {
       pedestrianBox.visible = false;
+      delete pedestrianBox.userData.objectId;
       return;
     }
 
-    const [centerX, centerY, centerZ] = selectedPedestrian.center;
-    const [width, length, height] = selectedPedestrian.size;
+    const [centerX, centerY, centerZ] = currentPedestrian.center;
+    const [width, length, height] = currentPedestrian.size;
 
     pedestrianBox.position.set(centerX, centerY, centerZ);
     pedestrianBox.scale.set(width, height, length);
-    pedestrianBox.rotation.set(0, selectedPedestrian.yawRadians, 0);
+    pedestrianBox.rotation.set(0, currentPedestrian.yawRadians, 0);
+    pedestrianBox.userData.objectId = currentPedestrian.id;
     pedestrianBox.visible = true;
-  }, [selectedPedestrian]);
+  }, [currentPedestrian]);
+
+  useEffect(() => {
+    setSelectedObjectId((currentSelectedObjectId) =>
+      currentSelectedObjectId !== null &&
+      currentSelectedObjectId !== currentPedestrianId
+        ? null
+        : currentSelectedObjectId,
+    );
+  }, [currentPedestrianId]);
+
+  useEffect(() => {
+    const pedestrianBoxMaterial = pedestrianBoxMaterialRef.current;
+
+    if (!pedestrianBoxMaterial) {
+      return;
+    }
+
+    const isCurrentPedestrianSelected =
+      selectedObjectId !== null && selectedObjectId === currentPedestrianId;
+
+    pedestrianBoxMaterial.color.setHex(
+      isCurrentPedestrianSelected
+        ? PEDESTRIAN_SELECTED_COLOR
+        : PEDESTRIAN_DEFAULT_COLOR,
+    );
+  }, [currentPedestrianId, selectedObjectId]);
 
   useEffect(() => {
     const vehicleBox = vehicleBoxRef.current;
@@ -388,14 +458,14 @@ export default function ViewerCanvas() {
       return;
     }
 
-    if (!selectedTrajectoryFrame || !selectedPedestrian) {
+    if (!selectedTrajectoryFrame || !currentPedestrian) {
       collisionGeometry.setDrawRange(0, 0);
       return;
     }
 
     const collisionSegments = findAxisAlignedTrajectoryCollisionSegments(
       selectedTrajectoryFrame.points,
-      selectedPedestrian,
+      currentPedestrian,
       mockScenario.egoVehicleSize,
     );
     const collisionPositions =
@@ -420,7 +490,7 @@ export default function ViewerCanvas() {
     if (collisionSegments.length > 0) {
       collisionGeometry.computeBoundingSphere();
     }
-  }, [selectedPedestrian, selectedTrajectoryFrame]);
+  }, [currentPedestrian, selectedTrajectoryFrame]);
 
   useEffect(() => {
     if (!isPlaying) {

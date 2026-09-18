@@ -2,7 +2,7 @@
 
 ## 현재 상태
 
-Next.js App Router와 TypeScript가 동작하며 Three.js는 설치되어 있다. `/viewer` 아래에 React가 소유하는 Canvas와 작은 Client Component 경계를 만들고, 컴포넌트가 마운트될 때 Scene, PerspectiveCamera, WebGLRenderer와 `GridHelper(80, 16)`를 생성한다. 창 크기가 바뀌면 Canvas의 CSS 크기를 다시 읽어 Camera의 종횡비와 투영 행렬, Renderer의 drawing buffer를 갱신한다. `requestAnimationFrame` 콜백은 Scene을 렌더링한 뒤 다음 프레임을 하나씩 다시 예약한다. 컴포넌트 해제 시 최신 animation frame과 resize 리스너를 먼저 취소하고 Grid, 포인트 Geometry와 Material, Scene과 Renderer를 정리한다.
+Next.js App Router와 TypeScript가 동작하며 Three.js는 설치되어 있다. `/viewer` 아래에 React가 소유하는 Canvas와 작은 Client Component 경계를 만들고, 컴포넌트가 마운트될 때 Scene, PerspectiveCamera, WebGLRenderer와 `GridHelper(80, 16)`를 생성한다. 창 크기가 바뀌면 Canvas의 CSS 크기를 다시 읽어 Camera의 종횡비와 투영 행렬, Renderer의 drawing buffer를 갱신한다. `requestAnimationFrame` 콜백은 Scene을 렌더링한 뒤 다음 프레임을 하나씩 다시 예약한다. 컴포넌트 해제 시 최신 animation frame과 resize·Canvas click 리스너를 먼저 취소하고 Grid와 런타임이 소유한 Geometry·Material, Scene과 Renderer를 정리한다.
 
 Phase 2에서는 같은 effect에서 포인트 10,000개의 좌표를 숫자 30,000개인 `Float32Array`에 생성한다. XZ 방향으로 간격 0.1인 100×100 배열을 원점 중심의 `-4.95~4.95` 범위에 놓고 높이는 `y = 0.25`로 고정한다. 좌표 데이터 크기는 120,000바이트다. `BufferAttribute(pointPositions, 3)`가 연속된 숫자 세 개를 한 점의 `x`, `y`, `z`로 해석하고, 이를 `BufferGeometry`의 `position` 속성으로 직접 연결한다. 하나의 `PointsMaterial`에서 모든 점에 공통으로 적용할 색상을 `0x38bdf8`, 크기를 `0.06`으로 지정한다. 기본값인 `sizeAttenuation: true`가 PerspectiveCamera에서 거리에 따라 화면상의 점 크기를 줄인다. 하나의 `Points`가 Geometry와 Material을 묶으며 좌표 Buffer, Geometry와 Material은 마운트할 때 생성하고 기존 렌더 루프에서 재사용한다. cleanup에서는 예약과 이벤트를 차단한 뒤 포인트의 Geometry와 Material도 각각 `dispose()`한다.
 
@@ -89,6 +89,10 @@ Camera Frame은 1,000ms 간격으로 16개, LiDAR Frame은 500ms 간격으로 31
 
 Phase 5의 보행자와 차량 박스는 단위 크기 `BoxGeometry(1, 1, 1)` 하나를 공유한다. 보행자는 주황색, 차량은 초록색이며 조명이 필요 없는 wireframe `MeshBasicMaterial`은 서로 다른 색상을 위해 각각 소유한다. 선택된 Object Detection Frame에서 `category === "pedestrian"`인 객체가 없으면 보행자 Mesh를 숨기고, 있으면 `center`, `size`와 `yawRadians`를 반영한다. 데이터의 `size` 순서 `[width, length, height]`는 Three.js 장면 축 X·Y·Z에 맞춰 `scale(width, height, length)`로 바꾼다.
 
+Canvas click 좌표는 `getBoundingClientRect()`로 구한 CSS 영역 안의 비율로 바꾼 뒤 X는 `비율 × 2 - 1`, Y는 DOM과 WebGL의 증가 방향이 반대이므로 `-(비율 × 2 - 1)`인 NDC로 변환한다. `Raycaster.setFromCamera()`는 Camera 위치에서 이 NDC가 가리키는 3D 방향으로 광선을 만들고, 현재 보이는 보행자 Mesh의 `BoxGeometry` 삼각형 면과 교차하는지 검사한다. wireframe은 그리는 방식이므로 선 사이의 면도 선택 영역이며, Three.js Raycaster는 `visible = false`를 자동으로 제외하지 않아 click handler가 표시 여부를 먼저 검사한다.
+
+선택 상태는 Frame마다 새 참조가 될 수 있는 Detection 객체나 Three.js Mesh 대신 안정적인 `ObjectDetection.id`를 React state에 저장한다. 현재 Mesh의 `userData.objectId`가 최신 Frame의 ID를 보관하므로 마운트 시 만들어진 click handler도 오래된 Frame closure를 읽지 않는다. 같은 ID가 다음 Detection Frame에 있으면 선택을 유지하고, 대상이 사라지거나 빈 공간을 클릭하면 해제한다. Three.js는 기존 보행자 Material의 색만 주황색에서 자홍색으로 바꾸며 Color uniform 값 변경에는 `needsUpdate`가 필요하지 않다. Raycaster와 NDC용 Vector2는 GPU 리소스가 아니므로 `dispose()`하지 않고 Canvas click listener만 cleanup에서 제거한다.
+
 차량 크기 `[1.8, 4.5, 1.5]`는 Frame마다 변하지 않으므로 각 `VehicleStateFrame`에 반복하지 않고 `ScenarioData.egoVehicleSize`에 한 번 저장한다. Vehicle State의 `position`은 지면 위 차량 footprint 중심을 나타내므로 차량 Mesh의 중심 Y에는 `groundY + height / 2`를 사용한다. 보행자 Detection의 `center`는 이미 3D 박스 중심이어서 같은 보정을 하지 않는다. 두 박스 모두 Y가 수직축이므로 `yawRadians`는 `rotation.y`에 적용한다.
 
 현재 차량 박스는 `findLatestFrameAtOrBefore`로 선택한 Vehicle State의 기록 위치로 즉시 이동한다. 두 Vehicle State 사이의 위치나 yaw 중간값은 아직 계산하지 않으므로 기록 간격 사이에서는 같은 위치를 유지하다 다음 Frame 시각에 이동한다. 이후 보간을 도입한다면 목표 재생 시각이 이전·다음 Frame 사이에서 차지하는 비율로 위치와 yaw를 계산하며, 부드러운 움직임은 그 계산 결과다.
@@ -125,7 +129,7 @@ JavaScript GC는 도달할 수 없게 된 JS 객체의 힙 메모리를 나중�
 
 탭을 닫아 해당 페이지 실행 영역과 WebGL context 자체가 파괴되면 브라우저와 GPU 드라이버가 그 context의 GPU 리소스를 회수한다. 반면 Next.js SPA 안에서 컴포넌트만 해제될 때는 같은 `window`와 WebGL context가 계속 살아 있으므로 탭 종료에 기대지 않고 명시적으로 정리한다.
 
-- `cancelAnimationFrame()`과 `removeEventListener()`는 브라우저가 보관한 콜백 참조와 이후 실행을 끊는다.
+- `cancelAnimationFrame()`과 resize·Canvas click의 `removeEventListener()`는 브라우저가 보관한 콜백 참조와 이후 실행을 끊는다.
 - `grid.dispose()`는 Grid JS 객체를 삭제하지 않고 Geometry와 Material의 dispose 이벤트를 통해 GPU 리소스 해제를 요청한다.
 - `scene.clear()`는 Scene과 자식의 참조 관계를 끊지만 GPU 리소스를 해제하지 않는다.
 - 현재처럼 Scene 전체가 다른 곳에 보관되지 않고 함께 도달 불가능해진다면 JS GC는 자식 관계가 남아 있어도 그래프 전체를 회수할 수 있다. `scene.clear()`는 즉시 연결을 명시적으로 끊고 이후 Scene 재사용이나 외부 참조가 생겨도 소유권을 분명히 하기 위해 유지한다.

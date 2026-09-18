@@ -1,16 +1,21 @@
 # DriveScope 진행 상황
 
-마지막 갱신: 2026-09-17
+마지막 갱신: 2026-09-19
 
 ## 현재 위치
 
 - 현재 Phase: Phase 5 — 진행 중
-- 현재 작업: 축 정렬 가상 시나리오에서 차량 크기를 포함한 충돌 예상 구간을 계산해 빨간 선으로 강조했으며 원리 이해 확인이 남아 있다.
-- 다음 한 단계: 확장된 충돌 영역과 선분 clipping의 의미를 확인한 뒤 보행자 선택 방식의 범위를 설명하고 승인받는다.
-- 아직 구현하지 않은 것: 선택 UI, 실제 카메라 이미지 패널, 회전·곡선·동적 객체의 일반 충돌 판정과 실제 데이터 연결
+- 현재 작업: Canvas 클릭을 Raycaster의 보행자 Mesh 교차 판정과 객체 ID 선택 상태에 연결하고 선택 색상을 표시했으며 원리 이해 확인이 남아 있다.
+- 다음 한 단계: 클릭 좌표의 NDC 변환과 Camera 광선, Three.js hit 결과가 React 선택 ID와 Material 색상으로 이어지는 흐름을 확인한 뒤 선택 객체 기본 정보 표시의 범위를 설명하고 승인받는다.
+- 아직 구현하지 않은 것: 선택 객체 기본 정보, 실제 카메라 이미지 패널, 회전·곡선·동적 객체의 일반 충돌 판정과 실제 데이터 연결
 
 ## 완료한 작업
 
+- Canvas click의 CSS 좌표를 NDC로 변환하고 Camera에서 `Raycaster` 광선을 만들어 현재 보이는 보행자 Mesh와 교차하는지 검사했다.
+- 안정적인 `ObjectDetection.id`를 React 선택 상태로 저장하고 최신 ID는 Mesh `userData`에 반영해 마운트 시 click handler의 오래된 Frame closure를 피했다.
+- 같은 ID가 다음 Detection Frame에 있으면 선택을 유지하고, 빈 공간을 클릭하거나 현재 Frame에서 대상이 사라지면 선택을 해제했다.
+- 선택된 보행자는 기존 wireframe Material의 색만 주황색에서 자홍색으로 바꾸며 Geometry와 Material을 추가 생성하지 않았다.
+- Raycaster가 숨긴 Mesh도 검사하는 현재 Three.js 동작에 맞춰 `visible`을 먼저 확인하고, cleanup에서 Canvas click listener와 Material ref를 정리했다.
 - 차량 중심 경로로 차량·보행자 footprint의 겹침을 판정할 수 있도록 보행자 XZ 영역을 차량 반폭·반길이만큼 확장했다.
 - 경로의 인접한 두 점을 선분으로 보고 slab 방식으로 확장 영역과 겹치는 정확한 시작·끝 위치를 계산하는 순수 함수를 분리했다.
 - 현재 mock의 확장 영역 X `[-1.2, 1.2]`, Z `[17.45, 22.55]`를 기준으로 12.0초 계획의 Z `17.45 → 20`만 충돌 구간이 됨을 확인했다.
@@ -165,6 +170,17 @@
 - 이후 승인된 단계는 검증과 문서 갱신 후 Codex가 현재 브랜치에 commit까지만 하고, `origin` push는 사용자가 GitHub Desktop에서 직접 수행하도록 작업 규칙을 변경했다.
 
 ## 검증 결과
+
+### Phase 5: 보행자 선택 (2026-09-19)
+
+- TypeScript Compiler를 `--noEmit --incremental false`로 실행해 오류 없이 통과했다.
+- Next.js 16.3.3 production build와 `/viewer` 정적 페이지 생성을 통과했다.
+- 실제 Three.js Camera와 보행자 `BoxGeometry`를 같은 transform으로 구성하고, 박스 중심을 투영한 NDC에서 Raycaster 교차 1회, 빈 NDC에서 0회를 확인했다.
+- 설치된 Three.js 0.185.1에서 `visible = false`인 Mesh도 Raycaster 교차 결과에 포함됨을 재현해 handler의 표시 여부 선검사가 필요함을 확인했다.
+- 실행 중인 개발 서버의 `/viewer`가 HTTP 200으로 응답하고 Canvas와 타임라인 마크업을 포함함을 확인했다.
+- 현재 환경에는 연결 가능한 브라우저가 없어 클릭 뒤 주황색에서 자홍색으로 바뀌는 WebGL 화면, 빈 공간 해제, Frame 간 선택 유지, 11초 이전 seek 시 해제와 재등장만으로 자동 재선택되지 않는 동작은 자동 검사하지 못했다. 수동 확인 항목으로 남아 있다.
+- 코드 리뷰에서 CSS 영역 기준 NDC 계산, seek 직후 행렬 갱신, 안정적인 ID 유지, 숨은 Mesh 방지, click listener cleanup과 기존 Material 재사용을 확인했다.
+- `git diff --check`: 공백 오류 없음.
 
 ### Phase 5: 충돌 예상 구간 강조 (2026-09-17)
 
@@ -481,9 +497,9 @@
 
 ## 다음 구현 진입 조건
 
-1. 사용자가 보행자 영역을 차량 반폭·반길이만큼 확장하면 차량 중심 경로로 박스 겹침을 판정할 수 있는 이유를 설명한다.
-2. 점 하나가 아니라 경로 선분을 검사하고 slab clipping으로 겹친 일부만 구하는 이유를 설명한다.
-3. 현재 yaw 0 판정과 일반적인 OBB·연속 충돌 판정의 차이를 설명한 뒤 Phase 5 다섯 번째 항목의 구현 범위를 승인받는다.
+1. 사용자가 Canvas의 DOM 좌표를 NDC `[-1, 1]` 범위로 바꾸고 Y 부호를 뒤집는 이유를 설명한다.
+2. Camera와 NDC로 만든 Raycaster 광선이 wireframe 선이 아니라 Mesh의 삼각형 면과 교차하며, 숨긴 Mesh를 별도로 제외해야 하는 이유를 설명한다.
+3. Three.js의 hit 결과에서 안정적인 객체 ID를 React state에 저장하고 다시 Material 색상에 반영하는 책임 흐름을 설명한 뒤 Phase 5 여섯 번째 항목의 구현 범위를 승인받는다.
 
 ## 추천 커밋 메시지
 
