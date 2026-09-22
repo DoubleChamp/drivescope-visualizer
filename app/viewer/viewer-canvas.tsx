@@ -100,6 +100,10 @@ export default function ViewerCanvas() {
       (object) => object.category === "pedestrian",
     ) ?? null;
   const currentPedestrianId = currentPedestrian?.id ?? null;
+  const selectedObject =
+    selectedObjectDetectionFrame?.objects.find(
+      (object) => object.id === selectedObjectId,
+    ) ?? null;
   const selectedLidarPointCount = selectedLidarFrame
     ? selectedLidarFrame.positions.length / 3
     : 0;
@@ -587,6 +591,35 @@ export default function ViewerCanvas() {
           </div>
         ))}
       </dl>
+      <section className={styles.selectedObject} aria-label="선택한 객체 정보">
+        <h2>선택한 객체</h2>
+        {selectedObject ? (
+          <dl className={styles.selectedObjectDetails}>
+            <div>
+              <dt>ID</dt>
+              <dd>{selectedObject.id}</dd>
+            </div>
+            <div>
+              <dt>종류</dt>
+              <dd>{selectedObject.category === "pedestrian" ? "보행자" : "차량"}</dd>
+            </div>
+            <div>
+              <dt>신뢰도</dt>
+              <dd>{(selectedObject.confidence * 100).toFixed(0)}%</dd>
+            </div>
+            <div>
+              <dt>크기 (너비 × 길이 × 높이)</dt>
+              <dd>{selectedObject.size.map((value) => `${value.toFixed(1)}m`).join(" × ")}</dd>
+            </div>
+            <div>
+              <dt>인식 시각</dt>
+              <dd>{((selectedObjectDetectionFrame?.timestampMs ?? 0) / 1_000).toFixed(1)}초</dd>
+            </div>
+          </dl>
+        ) : (
+          <p>3D 장면에서 보행자 박스를 클릭하세요.</p>
+        )}
+      </section>
       <div className={styles.controls}>
         <button
           type="button"

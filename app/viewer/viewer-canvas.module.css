@@ -87,6 +87,48 @@
   font-weight: 500;
 }
 
+.selectedObject {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+}
+
+.selectedObject h2 {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.selectedObject p {
+  margin: 0.5rem 0 0;
+  color: #475569;
+  font-size: 0.875rem;
+}
+
+.selectedObjectDetails {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+}
+
+.selectedObjectDetails div {
+  display: flex;
+  gap: 0.375rem;
+}
+
+.selectedObjectDetails dt {
+  color: #475569;
+}
+
+.selectedObjectDetails dd {
+  margin: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 .controls {
   display: flex;
   align-items: flex-start;

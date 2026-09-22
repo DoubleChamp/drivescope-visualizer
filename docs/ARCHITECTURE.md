@@ -93,6 +93,8 @@ Canvas click 좌표는 `getBoundingClientRect()`로 구한 CSS 영역 안의 비
 
 선택 상태는 Frame마다 새 참조가 될 수 있는 Detection 객체나 Three.js Mesh 대신 안정적인 `ObjectDetection.id`를 React state에 저장한다. 현재 Mesh의 `userData.objectId`가 최신 Frame의 ID를 보관하므로 마운트 시 만들어진 click handler도 오래된 Frame closure를 읽지 않는다. 같은 ID가 다음 Detection Frame에 있으면 선택을 유지하고, 대상이 사라지거나 빈 공간을 클릭하면 해제한다. Three.js는 기존 보행자 Material의 색만 주황색에서 자홍색으로 바꾸며 Color uniform 값 변경에는 `needsUpdate`가 필요하지 않다. Raycaster와 NDC용 Vector2는 GPU 리소스가 아니므로 `dispose()`하지 않고 Canvas click listener만 cleanup에서 제거한다.
 
+선택 정보 패널은 React가 `selectedObjectId`와 현재 선택된 Object Detection Frame을 대조해 객체를 파생한다. ID만 state에 저장하므로 같은 객체의 새 Frame이 선택되면 confidence·크기·인식 시각은 현재 Frame 값으로 갱신된다. ID가 없거나 현재 Frame에 객체가 없으면 안내 문구를 표시한다. 정보 패널은 Three.js Geometry나 Material을 만들지 않는다.
+
 차량 크기 `[1.8, 4.5, 1.5]`는 Frame마다 변하지 않으므로 각 `VehicleStateFrame`에 반복하지 않고 `ScenarioData.egoVehicleSize`에 한 번 저장한다. Vehicle State의 `position`은 지면 위 차량 footprint 중심을 나타내므로 차량 Mesh의 중심 Y에는 `groundY + height / 2`를 사용한다. 보행자 Detection의 `center`는 이미 3D 박스 중심이어서 같은 보정을 하지 않는다. 두 박스 모두 Y가 수직축이므로 `yawRadians`는 `rotation.y`에 적용한다.
 
 현재 차량 박스는 `findLatestFrameAtOrBefore`로 선택한 Vehicle State의 기록 위치로 즉시 이동한다. 두 Vehicle State 사이의 위치나 yaw 중간값은 아직 계산하지 않으므로 기록 간격 사이에서는 같은 위치를 유지하다 다음 Frame 시각에 이동한다. 이후 보간을 도입한다면 목표 재생 시각이 이전·다음 Frame 사이에서 차지하는 비율로 위치와 yaw를 계산하며, 부드러운 움직임은 그 계산 결과다.

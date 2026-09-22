@@ -444,11 +444,17 @@
 - 같은 ID가 다음 Detection Frame에도 있으면 선택을 유지하고, 빈 공간을 클릭하거나 대상이 사라지면 해제한다. Three.js는 기존 Material 색만 바꾸며 새 GPU 리소스를 만들지 않는다.
 - Canvas click listener는 마운트 시 한 번 등록하고 cleanup에서 같은 함수 참조로 제거한다. Raycaster와 Vector2는 JavaScript 계산 객체라 별도 `dispose()`가 필요 없다.
 
+### 선택 객체 정보 표시 (2026-09-22, 사용자 이해 확인 대기)
+
+- `Raycaster.intersectObject()`는 교차 지점 배열을 반환하므로 `.length > 0`은 지정한 Mesh와 한 번 이상 교차했는지 확인한다. `recursive: false`는 자식 객체 검사만 제외한다. 사용자가 배열 결과에서 `hit.object`를 직접 사용할 수 있는지 질문했고, 여러 객체를 검사할 때는 그 객체의 ID를 읽는 방법이 유용함을 설명했다.
+- React에는 안정적인 객체 ID만 선택 state로 저장하고, 패널에 필요한 신뢰도·크기·인식 시각은 현재 Detection Frame에서 같은 ID의 객체를 찾아 표시한다. 이 방식은 Frame이 바뀔 때 오래된 객체 정보를 고정해 두지 않는다.
+- 브라우저에서 선택 후 12초 96%에서 11초 90%로 갱신되며, 빈 곳 클릭과 대상 소멸 시 안내 문구로 돌아오는 것을 확인했다. 사용자가 이 파생 데이터 흐름을 설명할 수 있는지는 아직 확인하지 않았다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 5의 보행자 선택까지 구현했으며 Raycaster 선택 원리의 이해 확인이 남아 있다.
+Phase 5의 선택 객체 정보 표시까지 구현했으며 선택 ID와 현재 Frame의 관계에 대한 이해 확인이 남아 있다.
 
 - Canvas DOM 좌표를 NDC로 변환하는 식과 Y 부호를 뒤집는 이유
 - Camera 광선과 Mesh 삼각형의 교차, `visible`과 wireframe이 선택 판정에 미치는 영향
 - React의 객체 ID 선택 state와 Three.js Material 시각 피드백의 책임 분리
-- 이해 확인 뒤 선택한 객체의 기본 정보를 React UI에 표시하는 방법
+- 이해 확인 뒤 같은 시간축의 전방 카메라 이미지를 React UI에 표시하는 방법
