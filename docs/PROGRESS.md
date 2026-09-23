@@ -1,6 +1,6 @@
 # DriveScope 진행 상황
 
-마지막 갱신: 2026-09-23
+마지막 갱신: 2026-09-24
 
 ## 현재 위치
 
@@ -8,6 +8,14 @@
 - 현재 작업: LiDAR Frame을 timestamp로 조회하는 CPU 캐시와 모의 로더 경계를 연결했다.
 - 다음 한 단계: CPU 캐시와 Three.js GPU Buffer의 차이를 확인한 뒤 이전·다음 Frame prefetch를 설계하고 승인받는다.
 - 아직 구현하지 않은 것: prefetch·캐시 크기 제한·실제 로딩 시간 측정, 회전·곡선·동적 객체의 일반 충돌 판정과 실제 데이터 연결
+
+### 충돌 선분 clipping 학습 주석 보강 (2026-09-24)
+
+- `clipSegmentToBounds`에 `P(t) = start + t(end - start)`와 `0 <= t <= 1`의 의미를 코드 흐름별 주석으로 기록했다.
+- `boundary = start + t × difference`를 정리해 `t = (boundary - start) / difference`로 각 경계 도달 비율을 구하는 과정과 역방향 이동에서 `Math.min`·`Math.max`가 필요한 이유를 설명했다.
+- X·Z축에서 허용되는 구간의 교집합을 가장 늦은 진입 비율과 가장 이른 이탈 비율로 좁히고, `entryRatio <= exitRatio`일 때만 공통 구간이 존재하는 이유를 기록했다.
+- 각 경로 선분을 독립적으로 `[0, 1]`에서 시작해 검사하고, 최종 비율을 원래 XYZ 선분에 대입해 빨간 충돌 조각의 좌표를 복원한다는 흐름을 명시했다.
+- 실행 로직은 바꾸지 않았다. TypeScript 검사와 Next.js 16.3.3 production build 및 `/viewer` 정적 페이지 생성이 통과했다.
 
 ### Phase 6: LiDAR 현재 Frame 캐시 (2026-09-23)
 
