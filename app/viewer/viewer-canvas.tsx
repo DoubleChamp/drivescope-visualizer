@@ -591,6 +591,29 @@ export default function ViewerCanvas() {
           </div>
         ))}
       </dl>
+      <section className={styles.cameraPanel} aria-label="전방 카메라">
+        <div className={styles.cameraPanelHeading}>
+          <h2>전방 카메라 · 가상 장면</h2>
+          <span>
+            {selectedCameraFrame
+              ? `촬영 ${(selectedCameraFrame.timestampMs / 1_000).toFixed(1)}초`
+              : "Frame 없음"}
+          </span>
+        </div>
+        {selectedCameraFrame ? (
+          <img
+            className={styles.cameraImage}
+            src={selectedCameraFrame.imageUrl}
+            alt={`가상 전방 카메라 ${(
+              selectedCameraFrame.timestampMs / 1_000
+            ).toFixed(1)}초 장면`}
+            width={640}
+            height={360}
+          />
+        ) : (
+          <p>표시할 카메라 Frame이 없습니다.</p>
+        )}
+      </section>
       <section className={styles.selectedObject} aria-label="선택한 객체 정보">
         <h2>선택한 객체</h2>
         {selectedObject ? (

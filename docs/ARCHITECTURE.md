@@ -85,7 +85,7 @@ Event는 주기적으로 샘플링되는 Vehicle State와 달리 특정 순간�
 
 Camera Frame은 1,000ms 간격으로 16개, LiDAR Frame은 500ms 간격으로 31개를 생성해 서로 다른 센서 주기를 표현한다. 10초에 카메라 URL과 LiDAR 포인트에 보행자가 등장하고, Object Detection은 11초부터 같은 `pedestrian-1`을 제공한다. 12초 Trajectory의 2,000ms 뒤 예상 위치 `[0, 0, 20]`은 보행자 중심과 겹친다. 12.4초 급제동 Event와 `-4m/s²` 감속 이후 차량은 13.4초에 Z 15.6m에서 정지하며 이후 Trajectory도 그 위치를 넘지 않는다.
 
-현재 Viewer는 `findLatestFrameAtOrBefore`로 선택한 Camera의 `imageUrl`과 Object Detection의 객체 수·ID를 React 정보 카드에 표시한다. 실제 카메라 파일을 내려받아 보여 주는 이미지 패널은 아직 만들지 않았다. 선택된 LiDAR Frame은 Three.js 포인트 장면에 실제 좌표로 반영되어 10초 전에는 도로 포인트 15개, 이후에는 보행자 포인트를 포함한 21개를 그린다. 선택된 Object Detection의 보행자는 11초부터 3D 박스로 표시한다.
+현재 Viewer는 `findLatestFrameAtOrBefore`로 선택한 Camera의 `imageUrl`과 Object Detection의 객체 수·ID를 React 정보 카드에 표시한다. 같은 Camera URL은 전방 카메라 `<img>`의 `src`에도 반영되며 브라우저가 `public/mock-camera/`의 가상 SVG를 요청하고 디코딩한다. 촬영 시각을 함께 표시하며 Camera Frame 주기 사이에서는 최신 과거 이미지를 유지한다. 선택된 LiDAR Frame은 Three.js 포인트 장면에 실제 좌표로 반영되어 10초 전에는 도로 포인트 15개, 이후에는 보행자 포인트를 포함한 21개를 그린다. 선택된 Object Detection의 보행자는 11초부터 3D 박스로 표시한다.
 
 Phase 5의 보행자와 차량 박스는 단위 크기 `BoxGeometry(1, 1, 1)` 하나를 공유한다. 보행자는 주황색, 차량은 초록색이며 조명이 필요 없는 wireframe `MeshBasicMaterial`은 서로 다른 색상을 위해 각각 소유한다. 선택된 Object Detection Frame에서 `category === "pedestrian"`인 객체가 없으면 보행자 Mesh를 숨기고, 있으면 `center`, `size`와 `yawRadians`를 반영한다. 데이터의 `size` 순서 `[width, length, height]`는 Three.js 장면 축 X·Y·Z에 맞춰 `scale(width, height, length)`로 바꾼다.
 
