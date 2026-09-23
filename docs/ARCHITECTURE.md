@@ -197,6 +197,10 @@ Three.js 런타임 Hook은 코드 줄 수만 기준으로 더 잘게 자르지 �
 
 ## 계획: Buffer와 캐시
 
+Phase 6의 첫 단계에서는 LiDAR 현재 Frame을 위한 CPU 캐시를 구현했다. `currentTimeMs`로 최신 과거 Frame의 timestamp를 고르는 정책은 그대로 유지하고, 그 timestamp를 키로 `FrameCache<LidarFrame>`의 Map을 조회한다. miss일 때 모의 로더가 원본 좌표를 새 `Float32Array`로 복사해 Frame을 만들고, hit일 때는 같은 Frame과 좌표 배열 참조를 돌려준다. 캐시는 `useLidarFrameCache`가 Viewer 생명주기 동안 소유하며 화면에서 hit·miss와 항목 수를 확인할 수 있다.
+
+캐시된 `LidarFrame.positions`는 CPU의 JavaScript 배열이다. `useThreeViewer`의 `lidarPositionAttributeRef`는 LiDAR 점을 그리는 별도의 Three.js BufferAttribute이며, 선택된 Frame의 좌표를 그 배열에 복사한 뒤 GPU 갱신을 요청한다. 예상 경로 Buffer와 차량 Mesh는 이 캐시와 다른 리소스다. 현재 가상 원본 Frame 전체가 이미 메모리에 있으므로 모의 로더는 실제 디스크·네트워크 파싱 비용을 재현하지 않는다. 캐시 용량 제한과 축출, prefetch, 실제 로딩 시간 측정은 다음 단계에서 다룬다.
+
 - 포인트 배열과 `BufferAttribute`를 매 프레임 새로 만들지 않고 가능한 범위에서 재사용한다.
 - 실제 포인트 수가 바뀔 때의 용량 증가 정책은 측정 후 결정한다.
 - 이전·현재·다음 프레임을 우선 캐시하고 주변 프레임을 미리 가져온다.

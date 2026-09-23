@@ -4,10 +4,19 @@
 
 ## 현재 위치
 
-- 현재 Phase: Phase 5 — 기능 구현과 Viewer 구조 정리 완료, 이해 확인 대기
-- 현재 작업: 한 파일에 섞여 있던 재생·Frame 선택·객체 선택·Three.js 런타임·화면 패널을 책임별 Hook과 컴포넌트로 분리했다.
-- 다음 한 단계: 정리된 데이터 흐름과 Camera Frame 선택 원리를 확인한 뒤 Phase 6의 Frame 캐시를 설계하고 승인받는다.
-- 아직 구현하지 않은 것: Frame 캐시·prefetch·로딩 시간 측정, 회전·곡선·동적 객체의 일반 충돌 판정과 실제 데이터 연결
+- 현재 Phase: Phase 6 — LiDAR 현재 Frame 캐시 구현, 이해 확인 대기
+- 현재 작업: LiDAR Frame을 timestamp로 조회하는 CPU 캐시와 모의 로더 경계를 연결했다.
+- 다음 한 단계: CPU 캐시와 Three.js GPU Buffer의 차이를 확인한 뒤 이전·다음 Frame prefetch를 설계하고 승인받는다.
+- 아직 구현하지 않은 것: prefetch·캐시 크기 제한·실제 로딩 시간 측정, 회전·곡선·동적 객체의 일반 충돌 판정과 실제 데이터 연결
+
+### Phase 6: LiDAR 현재 Frame 캐시 (2026-09-23)
+
+- 재생 시각에서 최신 과거 LiDAR Frame의 timestamp를 먼저 선택하고, `FrameCache`의 `Map<number, LidarFrame>`에서 해당 timestamp를 조회한다. 이 선택 단계 자체는 캐시로 생략되지 않는다.
+- 첫 접근은 miss로 모의 로더를 호출해 `Float32Array` 좌표를 복사한 `LidarFrame`을 만든다. 재방문은 hit로 같은 Frame 참조를 돌려주어 로더를 다시 호출하지 않는다.
+- `useLidarFrameCache`는 컴포넌트 생명주기 동안 CPU 캐시를 유지하고, 빠른 seek 중 이전 로딩 결과가 늦게 끝나도 현재 화면을 덮어쓰지 않게 한다. 해제 시 캐시 참조를 정리한다.
+- `useThreeViewer`는 캐시를 소유하지 않는다. 전달받은 LiDAR 좌표를 기존 `lidarPositionAttributeRef`의 GPU Buffer에 복사해 그린다. Trajectory Buffer와 차량 Mesh는 별개다.
+- 통계 영역에 `loading`·`hit`·`miss`와 캐시 Frame 수를 표시한다. headless Chrome에서 0초 첫 접근은 miss·15포인트·1개, 12초 첫 접근은 miss·21포인트·2개, 0초 재방문은 hit·15포인트·2개로 확인했다. TypeScript 검사와 production build도 통과했다.
+- 현재 가상 시나리오의 원본 LiDAR Frame은 이미 모두 메모리에 있다. 모의 로더의 복사는 실제 파일 파싱을 대신하는 학습용 동작이며, 현 단계에서 성능이나 총 메모리 사용량 개선을 주장하지 않는다. 캐시 축출·실제 로딩 시간 측정은 후속 단계다.
 
 ### Viewer 책임 분리 리팩터링 (2026-09-23)
 

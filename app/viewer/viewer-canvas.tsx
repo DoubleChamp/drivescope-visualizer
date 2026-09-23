@@ -8,6 +8,7 @@ import { SynchronizedFramesPanel } from "./_components/synchronized-frames-panel
 import { ViewerMetrics } from "./_components/viewer-metrics";
 import { mockScenario } from "./_data/mock-scenario";
 import { selectScenarioFrames } from "./_data/select-scenario-frames";
+import { useLidarFrameCache } from "./_hooks/use-lidar-frame-cache";
 import { useObjectSelection } from "./_hooks/use-object-selection";
 import { usePlayback } from "./_hooks/use-playback";
 import { useThreeViewer } from "./_hooks/use-three-viewer";
@@ -21,19 +22,25 @@ export default function ViewerCanvas() {
 
   // 모든 센서가 같은 currentTimeMs를 입력으로 사용하되 각자의 주기대로 Frame을 선택한다.
   const frames = selectScenarioFrames(mockScenario, currentTimeMs);
+  const {
+    frame: lidarFrame,
+    status: lidarCacheStatus,
+    entryCount: cachedLidarFrameCount,
+  } = useLidarFrameCache({
+    sourceFrames: mockScenario.lidarFrames,
+    targetTimestampMs: frames.lidar?.timestampMs ?? null,
+  });
   const currentPedestrian =
     frames.objectDetection?.objects.find(
       (object) => object.category === "pedestrian",
     ) ?? null;
-  const lidarPointCount = frames.lidar
-    ? frames.lidar.positions.length / 3
-    : 0;
+  const lidarPointCount = lidarFrame ? lidarFrame.positions.length / 3 : 0;
   const { selectedObject, selectedObjectId, setSelectedObjectId } =
     useObjectSelection(frames.objectDetection);
   const { framesPerSecond } = useThreeViewer({
     canvasRef,
     scenario: mockScenario,
-    lidarFrame: frames.lidar,
+    lidarFrame,
     pedestrian: currentPedestrian,
     vehicleStateFrame: frames.vehicleState,
     trajectoryFrame: frames.trajectory,
@@ -48,6 +55,8 @@ export default function ViewerCanvas() {
         framesPerSecond={framesPerSecond}
         currentTimeMs={currentTimeMs}
         durationMs={mockScenario.durationMs}
+        lidarCacheStatus={lidarCacheStatus}
+        cachedLidarFrameCount={cachedLidarFrameCount}
       />
       <canvas
         ref={canvasRef}
@@ -57,7 +66,7 @@ export default function ViewerCanvas() {
       <SynchronizedFramesPanel
         currentTimeMs={currentTimeMs}
         cameraFrame={frames.camera}
-        lidarFrame={frames.lidar}
+        lidarFrame={lidarFrame}
         objectDetectionFrame={frames.objectDetection}
       />
       <CameraPanel frame={frames.camera} />

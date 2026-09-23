@@ -469,12 +469,20 @@
 - 구조를 바꿔도 동작이 같아야 리팩터링이다. TypeScript와 build뿐 아니라 실제 Canvas 클릭, seek 뒤 ID 유지, Buffer draw count, 카메라의 인과적 Frame 선택과 화면 이탈 cleanup을 회귀 검사했다.
 - 사용자가 Three.js 관련 객체와 기능을 `useThreeViewer`에 모아 생성부터 메모리·GPU 리소스 정리까지 같은 Hook이 맡게 한 구조라고 설명했다. 순수 충돌 계산은 Three.js 런타임 책임이 아니므로 `_analysis`에 남는다는 경계도 함께 확인했다.
 
+### LiDAR 현재 Frame 캐시 (2026-09-23, 사용자 이해 확인 대기)
+
+- `LidarFrame.positions`의 `Float32Array`는 CPU에 있는 LiDAR 점 좌표 `[x, y, z, ...]`다. Trajectory 선의 Buffer나 차량 Mesh를 뜻하지 않는다.
+- 재생 시각에서 필요한 LiDAR timestamp를 찾는 과정은 계속 필요하다. 캐시는 그 timestamp의 Frame을 이미 로딩했는지 확인해 같은 Frame과 좌표 배열을 재사용한다.
+- Three.js의 `lidarPositionAttributeRef`는 화면에 점을 그리기 위해 마운트 시 한 번 만든 BufferAttribute다. CPU 캐시가 Frame을 돌려주면 좌표를 이 기존 배열에 복사하고 `needsUpdate`로 GPU 전송을 예약한다.
+- 현재 mock 데이터는 모든 원본 Frame을 이미 메모리에 두므로 이 캐시는 로더 중복 호출을 보여 주는 학습 모델이다. 0초 miss → 12초 miss → 0초 hit를 브라우저에서 확인했지만 메모리 절감이나 실제 파일 로딩 속도 개선을 측정한 것은 아니다.
+- 빠른 seek에서는 이전 로딩 완료가 현재 선택을 덮어쓰지 않게 하며, 컴포넌트 해제 시 Map을 비워 참조를 끊는다. 캐시 크기 제한과 축출은 다음 학습 단계다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 5의 기능과 Viewer 책임 분리까지 완료했으며 정리된 데이터 흐름과 Camera Frame URL·브라우저 이미지 로딩의 책임에 대한 이해 확인이 남아 있다.
+Phase 6의 현재 LiDAR Frame 캐시를 구현했으며 CPU 캐시와 GPU Buffer의 역할에 대한 사용자 이해 확인이 남아 있다.
 
 - Canvas DOM 좌표를 NDC로 변환하는 식과 Y 부호를 뒤집는 이유
 - Camera 광선과 Mesh 삼각형의 교차, `visible`과 wireframe이 선택 판정에 미치는 영향
 - React의 객체 ID 선택 state와 Three.js Material 시각 피드백의 책임 분리
 - `ViewerCanvas`, Custom Hook, 표시 컴포넌트와 Three.js 런타임 Hook 사이의 책임 분리
-- 이해 확인 뒤 Phase 6의 현재 Frame 캐시와 이전·다음 Frame prefetch 구조
+- 이해 확인 뒤 Phase 6의 이전·다음 Frame prefetch 구조

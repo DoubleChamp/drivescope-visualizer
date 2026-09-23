@@ -21,7 +21,8 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 - **Phase 3 — 완료:** 공통 timestamp 기준, 모든 Frame·Event 타입과 0~15초의 가상 급제동 시나리오 데이터를 정의하고 검증했다.
 - **Phase 4 — 완료:** 현재 재생 시간 state, 재생·정지, 타임라인 드래그, Frame 선택·센서 동기화와 급제동 이벤트 마커를 추가하고 선택된 Camera·LiDAR·Object Detection Frame을 화면에 반영했다.
 - **Phase 5 — 기능 구현과 구조 정리 완료, 이해 확인 대기:** 보행자·차량 박스, 예상 경로와 충돌 구간, 객체 선택·기본 정보와 같은 시간축의 가상 전방 카메라 패널을 구현했다. 이어서 Viewer를 재생·선택·Three.js 런타임 Hook과 표시 컴포넌트로 책임별 분리했다.
-- **다음 단계:** 정리된 데이터 흐름과 Camera Frame URL이 React 이미지·브라우저 로딩으로 이어지는 흐름을 확인한 뒤 Phase 6의 첫 번째 항목을 설계한다.
+- **Phase 6 — 현재 Frame 캐시 구현, 이해 확인 대기:** LiDAR Frame의 timestamp별 CPU 캐시와 모의 로더를 연결하고 첫 접근 miss·재방문 hit를 화면에서 확인했다.
+- **다음 단계:** CPU Frame 캐시와 Three.js GPU Buffer의 역할을 확인한 뒤 이전·다음 Frame prefetch를 설계한다.
 
 ---
 
