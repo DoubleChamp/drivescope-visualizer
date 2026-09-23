@@ -4,10 +4,20 @@
 
 ## 현재 위치
 
-- 현재 Phase: Phase 5 — 기능 구현 완료, 이해 확인 대기
-- 현재 작업: 선택된 Camera Frame의 URL을 사용하는 가상 전방 카메라 이미지 패널을 연결했다.
-- 다음 한 단계: Camera Frame 선택과 브라우저 이미지 로딩의 책임을 확인한 뒤 Phase 6의 Frame 캐시를 설계하고 승인받는다.
+- 현재 Phase: Phase 5 — 기능 구현과 Viewer 구조 정리 완료, 이해 확인 대기
+- 현재 작업: 한 파일에 섞여 있던 재생·Frame 선택·객체 선택·Three.js 런타임·화면 패널을 책임별 Hook과 컴포넌트로 분리했다.
+- 다음 한 단계: 정리된 데이터 흐름과 Camera Frame 선택 원리를 확인한 뒤 Phase 6의 Frame 캐시를 설계하고 승인받는다.
 - 아직 구현하지 않은 것: Frame 캐시·prefetch·로딩 시간 측정, 회전·곡선·동적 객체의 일반 충돌 판정과 실제 데이터 연결
+
+### Viewer 책임 분리 리팩터링 (2026-09-23)
+
+- 702줄이던 `viewer-canvas.tsx`를 78줄의 조합 컴포넌트로 줄였다. 이 파일은 현재 시간에서 Frame을 선택하고 Hook과 표시 컴포넌트를 연결하는 역할만 맡는다.
+- `usePlayback`은 재생 시간과 타이머를, `useObjectSelection`은 안정적인 객체 ID와 현재 Frame의 객체 조회를 담당한다.
+- `selectScenarioFrames`는 하나의 재생 시각으로 센서별 최신 과거 Frame을 선택하는 순수 함수다.
+- `useThreeViewer`는 Canvas에 붙는 Scene·Camera·Renderer·GPU 리소스·Raycaster의 생성, Frame별 갱신과 cleanup을 한 생명주기 안에서 관리한다. 리소스 소유권과 정리 위치가 갈라지지 않도록 Three.js 런타임은 하나의 Hook으로 유지했다.
+- 통계, 동기화 정보, 가상 카메라, 선택 객체 정보와 재생 컨트롤을 `_components`의 표시 컴포넌트로 분리했다. 모두 `ViewerCanvas`의 Client Component 경계 아래에서 렌더링된다.
+- 역할과 이유가 바로 드러나지 않는 경계에 주석을 추가했다. 코드를 그대로 읽어 주는 주석은 피하고 Buffer 재사용, 좌표 변환, 리소스 소유권과 같은 판단 근거를 기록했다.
+- TypeScript 검사와 production build가 통과했다. headless Chrome 회귀 검사에서 센서 Buffer·경로·충돌선 갱신, 보행자 선택과 ID 유지, 빈 공간 선택 해제, 12.4초의 12초 카메라 유지, 재생 진행과 페이지 이탈 cleanup을 확인했다.
 
 ### Phase 5: 전방 카메라 이미지 패널 (2026-09-23)
 

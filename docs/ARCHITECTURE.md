@@ -181,6 +181,20 @@ Viewer는 Camera, LiDAR와 Object Detection의 선택 결과를 별도 React sta
 
 센서별 주기가 다르므로 Camera, LiDAR, Annotation을 하나의 배열 인덱스로 맞추지 않는다. 기본 재생 Frame은 `findLatestFrameAtOrBefore`로 선택하고, 예측과 실제값 비교처럼 양쪽 후보가 필요한 분석에는 `findNearestFrame`을 사용한다. 센서별 허용 시간 차이를 넘었을 때 화면을 유지할지 비울지는 실제 데이터 연결 단계에서 정한다.
 
+## Viewer 코드의 책임 경계
+
+`app/viewer/viewer-canvas.tsx`는 Viewer의 조합 지점이다. 현재 재생 시각을 받아 센서 Frame과 보행자를 파생하고, React Hook과 화면 컴포넌트 사이에 필요한 값만 전달한다. 재생 타이머, Three.js 리소스 생성 코드와 각 패널의 마크업은 이 파일에 직접 두지 않는다.
+
+- `_data/select-scenario-frames.ts`: 같은 `currentTimeMs`를 모든 센서 배열에 적용해 현재 사용할 Frame 묶음을 반환하는 순수 함수
+- `_hooks/use-playback.ts`: 재생 시간, 재생 여부, 실제 경과 시간 기반 타이머, seek 동작을 소유
+- `_hooks/use-object-selection.ts`: React state에는 객체 ID만 저장하고 현재 Detection Frame에서 최신 객체를 파생
+- `_hooks/use-three-viewer.ts`: Scene·Camera·Renderer·Geometry·Material·Buffer·Raycaster와 DOM listener의 생성, 갱신, cleanup을 소유
+- `_components/`: 통계, 동기화 정보, 카메라, 선택 객체와 재생 컨트롤의 표시와 사용자 입력을 담당
+
+Three.js 런타임 Hook은 코드 줄 수만 기준으로 더 잘게 자르지 않는다. 하나의 초기화 effect에서 만든 리소스를 여러 Frame 갱신 effect가 ref로 재사용하고 같은 cleanup에서 해제하므로, 생성자와 소유자와 정리자를 한곳에서 추적할 수 있는 응집도가 더 중요하다. 순수 충돌 계산은 기존처럼 `_analysis`에 남겨 Three.js 렌더 책임과 분리한다.
+
+`"use client"`는 브라우저 경계의 시작점인 `ViewerCanvas`에만 둔다. 이 컴포넌트가 가져오는 Hook과 표시 컴포넌트는 같은 Client Component 모듈 그래프에 포함되므로 파일마다 지시문을 반복하지 않는다. 표시 컴포넌트는 Three.js 객체를 알지 못하고 직렬화 가능한 값과 이벤트 콜백만 props로 받는다.
+
 ## 계획: Buffer와 캐시
 
 - 포인트 배열과 `BufferAttribute`를 매 프레임 새로 만들지 않고 가능한 범위에서 재사용한다.

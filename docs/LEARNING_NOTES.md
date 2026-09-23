@@ -458,11 +458,22 @@
 - 카메라 패널은 React UI이며 Three.js Texture가 아니다. 따라서 새 Geometry·Material·Texture와 `dispose()` 대상이 추가되지 않았다.
 - 사용자가 URL 데이터와 실제 브라우저 이미지 객체의 책임 차이를 설명할 수 있는지는 아직 확인하지 않았다.
 
+### Viewer 책임 분리 리팩터링 (2026-09-23, 사용자 이해 확인 대기)
+
+- Custom Hook은 기능을 숨기는 이름표가 아니라 서로 함께 변하는 state와 effect의 책임 경계다. `usePlayback`은 시간 진행 규칙을, `useObjectSelection`은 선택 ID와 최신 Frame 조회 규칙을 묶는다.
+- `selectScenarioFrames`는 React state를 만들지 않는 순수 함수다. 같은 시나리오와 같은 시각을 넣으면 같은 선택 규칙으로 결과를 만들기 때문에 동기화 정책을 UI와 분리해서 읽을 수 있다.
+- `ViewerCanvas`는 702줄에서 78줄로 줄었고, 현재는 데이터와 기능을 조립하는 역할만 한다. 표시 전용 컴포넌트는 받은 props를 화면으로 바꾸며 Three.js 객체를 직접 다루지 않는다.
+- `useThreeViewer`는 여전히 큰 Hook이지만 Scene과 GPU 리소스의 생성·재사용·해제를 같은 소유자 안에서 추적하려고 한곳에 유지했다. 줄 수만 줄이려고 여러 Hook으로 나누면 같은 Geometry를 누가 생성하고 누가 `dispose()`하는지 오히려 흩어질 수 있다.
+- `ViewerCanvas`의 `"use client"` 아래에서 import되는 컴포넌트와 Hook도 Client Component 그래프에 포함된다. 브라우저 API를 쓰는 모든 파일에 지시문을 반복할 필요는 없다.
+- 주석은 `무엇을 하는 코드인지`를 문법 그대로 반복하기보다 `왜 Buffer를 재사용하는지`, `왜 DOM Y를 뒤집는지`, `왜 공유 Geometry를 한 번만 정리하는지`처럼 코드만으로 알기 어려운 이유와 책임을 설명해야 한다.
+- 구조를 바꿔도 동작이 같아야 리팩터링이다. TypeScript와 build뿐 아니라 실제 Canvas 클릭, seek 뒤 ID 유지, Buffer draw count, 카메라의 인과적 Frame 선택과 화면 이탈 cleanup을 회귀 검사했다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 5의 가상 전방 카메라 패널까지 구현했으며 Camera Frame URL과 브라우저 이미지 로딩의 책임에 대한 이해 확인이 남아 있다.
+Phase 5의 기능과 Viewer 책임 분리까지 완료했으며 정리된 데이터 흐름과 Camera Frame URL·브라우저 이미지 로딩의 책임에 대한 이해 확인이 남아 있다.
 
 - Canvas DOM 좌표를 NDC로 변환하는 식과 Y 부호를 뒤집는 이유
 - Camera 광선과 Mesh 삼각형의 교차, `visible`과 wireframe이 선택 판정에 미치는 영향
 - React의 객체 ID 선택 state와 Three.js Material 시각 피드백의 책임 분리
+- `ViewerCanvas`, Custom Hook, 표시 컴포넌트와 Three.js 런타임 Hook 사이의 책임 분리
 - 이해 확인 뒤 Phase 6의 현재 Frame 캐시와 이전·다음 Frame prefetch 구조
