@@ -63,6 +63,14 @@ export default function ViewerCanvas() {
         className={styles.canvas}
         aria-label="DriveScope 3D 뷰어"
       />
+      <PlaybackControls
+        currentTimeMs={currentTimeMs}
+        durationMs={mockScenario.durationMs}
+        events={mockScenario.events}
+        isPlaying={isPlaying}
+        onSeek={seek}
+        onTogglePlayback={togglePlayback}
+      />
       <SynchronizedFramesPanel
         currentTimeMs={currentTimeMs}
         cameraFrame={frames.camera}
@@ -73,14 +81,6 @@ export default function ViewerCanvas() {
       <SelectedObjectPanel
         object={selectedObject}
         frame={frames.objectDetection}
-      />
-      <PlaybackControls
-        currentTimeMs={currentTimeMs}
-        durationMs={mockScenario.durationMs}
-        events={mockScenario.events}
-        isPlaying={isPlaying}
-        onSeek={seek}
-        onTogglePlayback={togglePlayback}
       />
     </div>
   );
