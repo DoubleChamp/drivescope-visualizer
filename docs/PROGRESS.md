@@ -4,10 +4,18 @@
 
 ## 현재 위치
 
-- 현재 Phase: Phase 6 — LiDAR 현재 Frame 캐시 구현, 이해 확인 대기
-- 현재 작업: LiDAR Frame을 timestamp로 조회하는 CPU 캐시와 모의 로더 경계를 연결했다.
-- 다음 한 단계: CPU 캐시와 Three.js GPU Buffer의 차이를 확인한 뒤 이전·다음 Frame prefetch를 설계하고 승인받는다.
-- 아직 구현하지 않은 것: prefetch·캐시 크기 제한·실제 로딩 시간 측정, 회전·곡선·동적 객체의 일반 충돌 판정과 실제 데이터 연결
+- 현재 Phase: Phase 6 — LiDAR 이전·다음 Frame prefetch 구현, 이해 확인 대기
+- 현재 작업: 현재 Frame 표시 뒤 양옆 LiDAR Frame을 CPU 캐시에 미리 넣고 timestamp별 진행 중 요청을 공유한다.
+- 다음 한 단계: prefetch와 인과적 Frame 선택의 관계를 확인한 뒤 캐시 크기 제한과 제거 규칙을 설계한다.
+- 아직 구현하지 않은 것: 캐시 크기 제한·실제 로딩 시간 측정, 회전·곡선·동적 객체의 일반 충돌 판정과 실제 데이터 연결
+
+### Phase 6: LiDAR 이전·다음 Frame prefetch (2026-09-24)
+
+- 현재 LiDAR Frame을 먼저 조회하거나 로딩해 화면에 전달한 뒤, 원본 Frame 배열에서 바로 이전·다음 timestamp를 찾아 같은 CPU 캐시에 미리 로딩한다. 첫 Frame과 마지막 Frame에서는 존재하는 한쪽만 가져온다.
+- 완료된 Frame은 기존 `FrameCache`가 보관하고, 아직 완료되지 않은 로딩은 `Map<number, Promise<LidarFrame | null>>`이 timestamp별로 공유한다. prefetch 도중 사용자가 같은 Frame으로 이동해도 모의 로더를 중복 호출하지 않는다.
+- prefetch 완료는 현재 `frame`과 `hit`·`miss`를 바꾸지 않고 캐시 항목 수만 갱신한다. 화면에 표시할 timestamp는 여전히 `currentTimeMs` 이하의 최신 과거 Frame 선택 결과이므로 미래 Frame을 미리 캐시해도 일찍 표시되지 않는다.
+- 빠른 seek로 대상이 바뀌면 이전 요청 결과는 현재 화면 state를 덮어쓰지 않지만, 완료된 주변 Frame은 캐시에 남아 이후 탐색에 사용할 수 있다.
+- TypeScript 검사와 Next.js 16.3.3 production build가 통과했고 `/viewer`가 기존 개발 서버에서 HMR 재컴파일 후 HTTP 200으로 응답했다. 브라우저 제어 런타임의 Windows sandbox 초기화 실패로 이번 단계의 자동 UI seek 검사는 실행하지 못했다.
 
 ### 충돌 선분 clipping 학습 주석 보강 (2026-09-24)
 
