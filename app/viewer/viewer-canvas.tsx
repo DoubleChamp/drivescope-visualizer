@@ -26,6 +26,7 @@ export default function ViewerCanvas() {
     frame: lidarFrame,
     status: lidarCacheStatus,
     entryCount: cachedLidarFrameCount,
+    capacity: lidarCacheCapacity,
   } = useLidarFrameCache({
     sourceFrames: mockScenario.lidarFrames,
     targetTimestampMs: frames.lidar?.timestampMs ?? null,
@@ -57,6 +58,7 @@ export default function ViewerCanvas() {
         durationMs={mockScenario.durationMs}
         lidarCacheStatus={lidarCacheStatus}
         cachedLidarFrameCount={cachedLidarFrameCount}
+        lidarCacheCapacity={lidarCacheCapacity}
       />
       <canvas
         ref={canvasRef}

@@ -3,6 +3,8 @@ import { FrameCache } from "../_data/frame-cache";
 import type { LidarFrame } from "../_data/frame-types";
 import { loadMockLidarFrame } from "../_data/load-mock-lidar-frame";
 
+const LIDAR_FRAME_CACHE_CAPACITY = 5;
+
 export type LidarCacheStatus = "empty" | "loading" | "hit" | "miss";
 
 type CachedFrameState = {
@@ -22,7 +24,9 @@ export function useLidarFrameCache({
   targetTimestampMs,
 }: UseLidarFrameCacheOptions) {
   // Map 변경은 화면 자체가 아니므로 React state가 아닌 장기 생존 객체에 보관한다.
-  const [cache] = useState(() => new FrameCache<LidarFrame>());
+  const [cache] = useState(
+    () => new FrameCache<LidarFrame>(LIDAR_FRAME_CACHE_CAPACITY),
+  );
   // 완료되기 전 요청도 timestamp별로 공유해 현재 로딩과 prefetch가 중복되지 않게 한다.
   const [inFlightLoads] = useState(
     () => new Map<number, Promise<LidarFrame | null>>(),
@@ -151,5 +155,6 @@ export function useLidarFrameCache({
           ? state.status
           : "loading",
     entryCount: state.entryCount,
+    capacity: cache.capacity,
   };
 }

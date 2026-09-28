@@ -8,6 +8,7 @@ type ViewerMetricsProps = {
   durationMs: number;
   lidarCacheStatus: LidarCacheStatus;
   cachedLidarFrameCount: number;
+  lidarCacheCapacity: number;
 };
 
 const CACHE_STATUS_LABELS: Record<LidarCacheStatus, string> = {
@@ -24,6 +25,7 @@ export function ViewerMetrics({
   durationMs,
   lidarCacheStatus,
   cachedLidarFrameCount,
+  lidarCacheCapacity,
 }: ViewerMetricsProps) {
   return (
     <dl className={styles.metrics} aria-label="뷰어 통계">
@@ -45,7 +47,8 @@ export function ViewerMetrics({
       <div className={styles.metric}>
         <dt>LiDAR 캐시</dt>
         <dd>
-          {CACHE_STATUS_LABELS[lidarCacheStatus]} · {cachedLidarFrameCount}개
+          {CACHE_STATUS_LABELS[lidarCacheStatus]} · {cachedLidarFrameCount}/
+          {lidarCacheCapacity}개
         </dd>
       </div>
     </dl>

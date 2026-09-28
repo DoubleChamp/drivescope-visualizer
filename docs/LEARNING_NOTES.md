@@ -490,6 +490,14 @@
 - 완료된 Frame 캐시와 별도로 진행 중 Promise를 timestamp별로 보관하면 현재 로딩과 prefetch가 겹칠 때 같은 요청을 공유할 수 있다.
 - prefetch는 현재 표시 Frame이나 hit·miss 판정을 바꾸지 않고 캐시 항목 수만 갱신한다. 캐시 최대 크기와 축출 정책은 다음 단계다.
 
+### LiDAR 캐시 최대 크기와 LRU 축출 (2026-09-28, 사용자 이해 확인 대기)
+
+- 완료된 CPU Frame 캐시는 최대 5개로 제한했다. 현재·이전·다음 prefetch 작업 집합 3개를 유지하면서 최근에 탐색한 Frame 2개도 남길 수 있는 학습용 크기다.
+- JavaScript `Map`은 삽입 순서를 유지한다. cache hit로 `get()`한 항목을 삭제 후 다시 넣으면 맨 뒤의 최근 사용 위치로 이동하고, 새 Frame을 넣은 뒤 맨 앞 timestamp를 지우면 가장 오래 사용하지 않은 항목을 제거할 수 있다.
+- 진행 중 Promise는 완성된 `LidarFrame`이나 좌표 배열이 아니므로 Frame 캐시 항목 수에 포함하지 않는다. Promise가 완료돼 Frame이 저장될 때 LRU 최대 크기를 적용한다.
+- LRU는 최근 접근 패턴을 기준으로 재사용 가능성이 높은 Frame을 남기지만 실제 LiDAR Frame의 메모리 크기나 사용자 seek 패턴을 측정해 정한 최적값은 아니다. 실제 데이터 연결 뒤 용량 5가 적절한지 다시 측정해야 한다.
+- `drawRange`와 GPU Buffer 재사용은 CPU Frame 캐시 축출과 별개다. CPU 캐시에서 Frame이 제거되어도 현재 Three.js Buffer에 복사된 좌표는 다음 Frame 갱신 전까지 렌더 리소스에 남을 수 있다.
+
 ### Viewer 레이아웃 안정성 (2026-09-24)
 
 - 내용 크기를 따라가는 flex 오버레이에서는 `측정 중`·숫자 FPS와 `loading`·`hit`·`miss`처럼 길이가 다른 문자열이 바뀔 때 상자의 폭도 바뀐다. 고정 폭 grid와 같은 크기의 열을 사용하면 값은 갱신되어도 주변 배치가 밀리지 않는다.
@@ -498,10 +506,10 @@
 
 ## 다음 단계에서 배울 내용
 
-Phase 6의 현재 LiDAR Frame 캐시와 양옆 Frame prefetch를 구현했으며 prefetch와 인과적 Frame 선택의 관계에 대한 사용자 이해 확인이 남아 있다.
+Phase 6의 현재 LiDAR Frame 캐시, 양옆 Frame prefetch와 최대 5개 LRU 축출을 구현했으며 최근 사용 순서와 CPU 캐시 제한에 대한 사용자 이해 확인이 남아 있다.
 
 - Canvas DOM 좌표를 NDC로 변환하는 식과 Y 부호를 뒤집는 이유
 - Camera 광선과 Mesh 삼각형의 교차, `visible`과 wireframe이 선택 판정에 미치는 영향
 - React의 객체 ID 선택 state와 Three.js Material 시각 피드백의 책임 분리
 - `ViewerCanvas`, Custom Hook, 표시 컴포넌트와 Three.js 런타임 Hook 사이의 책임 분리
-- Phase 6 prefetch의 진행 중 요청 공유와 캐시 크기 제한·축출 정책
+- Phase 6 LRU 캐시와 Frame 로딩 시간 측정

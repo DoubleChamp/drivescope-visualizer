@@ -21,8 +21,8 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 - **Phase 3 — 완료:** 공통 timestamp 기준, 모든 Frame·Event 타입과 0~15초의 가상 급제동 시나리오 데이터를 정의하고 검증했다.
 - **Phase 4 — 완료:** 현재 재생 시간 state, 재생·정지, 타임라인 드래그, Frame 선택·센서 동기화와 급제동 이벤트 마커를 추가하고 선택된 Camera·LiDAR·Object Detection Frame을 화면에 반영했다.
 - **Phase 5 — 기능 구현과 구조 정리 완료, 이해 확인 대기:** 보행자·차량 박스, 예상 경로와 충돌 구간, 객체 선택·기본 정보와 같은 시간축의 가상 전방 카메라 패널을 구현했다. 이어서 Viewer를 재생·선택·Three.js 런타임 Hook과 표시 컴포넌트로 책임별 분리했다.
-- **Phase 6 — 이전·다음 Frame prefetch 구현, 이해 확인 대기:** LiDAR Frame의 timestamp별 CPU 캐시와 모의 로더에 현재 Frame 주변의 이전·다음 Frame 선로딩과 진행 중 요청 공유를 연결했다.
-- **다음 단계:** prefetch가 화면의 인과적 Frame 선택을 바꾸지 않는 이유를 확인한 뒤 캐시 크기 제한과 제거 규칙을 설계한다.
+- **Phase 6 — 최대 5개 LRU 캐시 구현, 이해 확인 대기:** LiDAR Frame의 timestamp별 CPU 캐시와 양옆 Frame prefetch에 최대 크기와 최근 사용 기준 제거 규칙을 연결했다.
+- **다음 단계:** LRU 캐시가 최근 탐색 구간을 남기면서 크기 5를 넘지 않는 원리를 확인한 뒤 Frame 로딩 시간 측정과 표시를 설계한다.
 
 ---
 
@@ -147,12 +147,12 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 
 상태: **진행 중**
 
-1. 현재 Frame을 재사용할 수 있는 캐시를 만든다.
-2. 이전·다음 Frame을 미리 가져온다.
-3. 캐시 크기 제한과 제거 규칙을 정한다.
-4. 포인트 위치 Buffer를 Frame마다 새로 만들지 않고 재사용한다.
-5. Geometry, Material, Texture와 Renderer의 정리 시점을 검증한다.
-6. FPS를 측정하고 표시한다.
+1. [x] 현재 Frame을 재사용할 수 있는 캐시를 만든다.
+2. [x] 이전·다음 Frame을 미리 가져온다.
+3. [x] 캐시 크기 제한과 제거 규칙을 정한다.
+4. [x] 포인트 위치 Buffer를 Frame마다 새로 만들지 않고 재사용한다.
+5. [x] Geometry, Material, Texture와 Renderer의 정리 시점을 검증한다.
+6. [x] FPS를 측정하고 표시한다.
 7. Frame 로딩 시간을 측정하고 표시한다.
 8. 측정 결과 병목이 데이터 파싱임을 보여줄 때만 Worker를 도입한다.
 
