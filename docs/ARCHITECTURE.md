@@ -201,9 +201,11 @@ Phase 6의 첫 단계에서는 LiDAR 현재 Frame을 위한 CPU 캐시를 구현
 
 캐시된 `LidarFrame.positions`는 CPU의 JavaScript 배열이다. `useThreeViewer`의 `lidarPositionAttributeRef`는 LiDAR 점을 그리는 별도의 Three.js BufferAttribute이며, 선택된 Frame의 좌표를 그 배열에 복사한 뒤 GPU 갱신을 요청한다. 예상 경로 Buffer와 차량 Mesh는 이 캐시와 다른 리소스다. 현재 가상 원본 Frame 전체가 이미 메모리에 있으므로 모의 로더는 실제 디스크·네트워크 파싱 비용을 재현하지 않는다.
 
-현재 Frame이 준비되면 `useLidarFrameCache`는 원본 LiDAR Frame 배열에서 바로 이전·다음 timestamp를 찾아 같은 CPU 캐시에 미리 로딩한다. 완료된 Frame은 `FrameCache`가, 완료 전 요청은 timestamp를 키로 한 Promise Map이 보관하므로 현재 로딩과 prefetch가 겹쳐도 같은 로더 Promise를 공유한다. prefetch는 캐시 항목 수만 갱신하고 현재 화면 Frame과 hit·miss 상태를 바꾸지 않는다. 화면 timestamp는 여전히 재생 시각으로 선택하므로 미래 Frame을 미리 보관해도 인과적 동기화는 유지된다. 실제 로딩 시간 측정은 다음 단계에서 다룬다.
+현재 Frame이 준비되면 `useLidarFrameCache`는 원본 LiDAR Frame 배열에서 바로 이전·다음 timestamp를 찾아 같은 CPU 캐시에 미리 로딩한다. 완료된 Frame은 `FrameCache`가, 완료 전 요청은 timestamp를 키로 한 Promise Map이 보관하므로 현재 로딩과 prefetch가 겹쳐도 같은 로더 Promise를 공유한다. prefetch는 캐시 항목 수만 갱신하고 현재 화면 Frame과 hit·miss 상태를 바꾸지 않는다. 화면 timestamp는 여전히 재생 시각으로 선택하므로 미래 Frame을 미리 보관해도 인과적 동기화는 유지된다.
 
 `FrameCache`의 최대 크기는 현재 5개다. `Map`의 삽입 순서를 최근 사용 순서로 사용해 `get()`에 성공한 Frame은 삭제 후 다시 넣고, 새 Frame 저장으로 5개를 넘으면 맨 앞의 가장 오래 사용하지 않은 Frame을 제거한다. 현재·이전·다음 3개로 이루어진 prefetch 작업 집합과 최근 탐색 Frame 2개가 함께 남을 수 있는 학습용 크기다. 완료 전 Promise Map은 아직 CPU Frame을 소유하지 않으므로 이 5개에 포함하지 않는다. 통계에는 현재 항목 수와 최대 크기를 `현재/5개`로 표시한다. 실제 데이터의 Frame당 메모리와 탐색 패턴을 측정하면 이 고정값을 다시 판단한다.
+
+새 모의 로더를 시작할 때의 `performance.now()`와 Promise 완료 직후의 시각 차이를 해당 Frame의 로딩 시간으로 사용한다. 진행 중 Promise는 Frame과 측정 시간을 함께 공유하고, 현재 화면이 miss로 그 결과를 받았을 때만 Metrics에 ms를 반영한다. prefetch는 현재 측정값을 바꾸지 않으며 cache hit는 로더 자체를 호출하지 않아 `캐시로 생략`으로 표시한다. 이 값은 모의 원본 검색과 `Float32Array` 복사만 포함하므로 실제 파일 읽기·압축 해제·파싱 성능을 대표하지 않는다.
 
 - 포인트 배열과 `BufferAttribute`를 매 프레임 새로 만들지 않고 가능한 범위에서 재사용한다.
 - 실제 포인트 수가 바뀔 때의 용량 증가 정책은 측정 후 결정한다.
@@ -211,7 +213,7 @@ Phase 6의 첫 단계에서는 LiDAR 현재 Frame을 위한 CPU 캐시를 구현
 - 현재 캐시는 최근 사용 기준으로 최대 5개를 유지하며, 실제 데이터의 메모리와 로딩 시간을 측정한 뒤 적절한 크기를 다시 결정한다.
 - Worker는 파싱이 병목으로 확인된 경우에만 도입한다.
 
-LiDAR Buffer 재사용은 Phase 4에서 최소 구조를 먼저 구현했다. Frame 캐시, 양옆 Frame prefetch와 최대 5개 LRU 축출은 Phase 6에서 연결했으며, 실제 데이터 용량 증가와 캐시 크기 조정은 측정과 함께 결정한다.
+LiDAR Buffer 재사용은 Phase 4에서 최소 구조를 먼저 구현했다. Frame 캐시, 양옆 Frame prefetch, 최대 5개 LRU 축출과 모의 로더 시간 표시는 Phase 6에서 연결했으며, 실제 데이터 용량 증가와 캐시 크기 조정은 실제 파일 측정과 함께 결정한다.
 
 ## 단순하게 시작하는 원칙
 

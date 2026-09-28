@@ -4,10 +4,20 @@
 
 ## 현재 위치
 
-- 현재 Phase: Phase 6 — 최대 5개 LRU Frame 캐시 구현, 이해 확인 대기
-- 현재 작업: 최근 사용한 LiDAR Frame을 우선 남기고 CPU 캐시가 5개를 넘으면 가장 오래 사용하지 않은 Frame을 제거한다.
-- 다음 한 단계: LRU 축출 원리를 확인한 뒤 Frame 로딩 시간 측정과 표시를 설계한다.
-- 아직 구현하지 않은 것: 실제 로딩 시간 측정, 회전·곡선·동적 객체의 일반 충돌 판정과 실제 데이터 연결
+- 현재 Phase: Phase 6 — 기능 구현 완료, Frame 로딩 시간 이해 확인 대기
+- 현재 작업: LiDAR cache miss의 모의 로더 실행 시간을 측정하고 cache hit에서는 로더 생략을 표시한다.
+- 다음 한 단계: 측정 구간과 hit·miss 차이를 확인한 뒤 Phase 7의 실제 데이터 변환 범위를 설계한다.
+- 아직 구현하지 않은 것: 실제 파일 로딩·파싱 시간 측정, 회전·곡선·동적 객체의 일반 충돌 판정과 실제 데이터 연결
+
+### Phase 6: LiDAR Frame 로딩 시간 측정 (2026-09-28)
+
+- `getOrLoadFrame()`이 새 모의 로더 Promise를 만들 때 `performance.now()`를 기록하고, Promise가 완료된 직후의 시각을 빼서 `loadDurationMs`를 계산한다. `loadMockLidarFrame()`의 원본 검색, 비동기 경계와 새 `Float32Array` 복사 시간이 이 구간에 포함된다.
+- 진행 중 요청 Map은 Frame과 측정 시간을 함께 반환하는 Promise를 공유한다. prefetch와 현재 요청이 겹쳐도 로더와 시간 측정을 중복 실행하지 않는다.
+- 현재 화면이 cache miss로 받은 결과만 로딩 시간을 state에 저장한다. prefetch 완료는 현재 측정값을 덮어쓰지 않고, cache hit는 로더가 실행되지 않았으므로 Metrics에 `캐시로 생략`을 표시한다.
+- 통계 오버레이에 `Frame 로딩` 항목을 추가했다. 로딩 중에는 `측정 중`, miss 완료 뒤에는 소수점 둘째 자리까지의 ms, hit에서는 로더 생략 여부를 표시한다.
+- Node에서 같은 모의 로더를 실행해 새 좌표 배열 참조와 1포인트 로딩 약 `0.10ms`를 확인했다. 이 값은 실제 파일 I/O나 대규모 파싱을 포함하지 않으며 환경과 실행마다 달라질 수 있다.
+- TypeScript 검사와 Next.js 16.3.3 production build가 통과했고 개발 서버 `/viewer`가 HTTP 200으로 응답했다. 브라우저 제어 런타임의 Windows sandbox 초기화 실패로 자동 UI 상태 전환 검사는 실행하지 못했다.
+- 현재 측정으로 데이터 파싱 병목을 주장할 수 없으므로 Worker는 도입하지 않는다. 실제 nuScenes 파일을 연결한 뒤 동일한 경계를 다시 측정한다.
 
 ### Phase 6: LiDAR 캐시 최대 크기와 LRU 축출 (2026-09-28)
 

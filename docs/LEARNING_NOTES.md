@@ -490,13 +490,22 @@
 - 완료된 Frame 캐시와 별도로 진행 중 Promise를 timestamp별로 보관하면 현재 로딩과 prefetch가 겹칠 때 같은 요청을 공유할 수 있다.
 - prefetch는 현재 표시 Frame이나 hit·miss 판정을 바꾸지 않고 캐시 항목 수만 갱신한다. 캐시 최대 크기와 축출 정책은 다음 단계다.
 
-### LiDAR 캐시 최대 크기와 LRU 축출 (2026-09-28, 사용자 이해 확인 대기)
+### LiDAR 캐시 최대 크기와 LRU 축출 (2026-09-28, 사용자 이해 확인 완료)
 
 - 완료된 CPU Frame 캐시는 최대 5개로 제한했다. 현재·이전·다음 prefetch 작업 집합 3개를 유지하면서 최근에 탐색한 Frame 2개도 남길 수 있는 학습용 크기다.
 - JavaScript `Map`은 삽입 순서를 유지한다. cache hit로 `get()`한 항목을 삭제 후 다시 넣으면 맨 뒤의 최근 사용 위치로 이동하고, 새 Frame을 넣은 뒤 맨 앞 timestamp를 지우면 가장 오래 사용하지 않은 항목을 제거할 수 있다.
 - 진행 중 Promise는 완성된 `LidarFrame`이나 좌표 배열이 아니므로 Frame 캐시 항목 수에 포함하지 않는다. Promise가 완료돼 Frame이 저장될 때 LRU 최대 크기를 적용한다.
 - LRU는 최근 접근 패턴을 기준으로 재사용 가능성이 높은 Frame을 남기지만 실제 LiDAR Frame의 메모리 크기나 사용자 seek 패턴을 측정해 정한 최적값은 아니다. 실제 데이터 연결 뒤 용량 5가 적절한지 다시 측정해야 한다.
 - `drawRange`와 GPU Buffer 재사용은 CPU Frame 캐시 축출과 별개다. CPU 캐시에서 Frame이 제거되어도 현재 Three.js Buffer에 복사된 좌표는 다음 Frame 갱신 전까지 렌더 리소스에 남을 수 있다.
+- 사용자가 용량 3의 `[0, 500, 1000]`에서 `get(0)`이 0을 맨 뒤로 옮기고, 이후 `set(1500)`이 맨 앞의 500을 제거한다고 설명해 LRU 순서 갱신을 확인했다.
+- `Map`의 순서 그림은 JavaScript 배열 저장 구조를 뜻하지 않는다. ECMAScript는 관찰 가능한 삽입 순서를 보장하고 실제 해시 저장과 순서 관리 방식은 엔진이 결정하므로 배열 `shift()`와 같은 전체 요소 복사를 가정하지 않는다.
+
+### LiDAR Frame 로딩 시간 (2026-09-28, 사용자 이해 확인 대기)
+
+- `performance.now()`는 브라우저에서 단조 증가하는 고해상도 시각을 제공한다. 모의 로더 호출 직전과 Promise 완료 직후의 차이로 검색·비동기 경계·좌표 배열 복사에 걸린 시간을 측정한다.
+- cache hit에서는 로더를 호출하지 않으므로 새로운 로딩 시간이 존재하지 않는다. Metrics는 0ms로 오해하게 표시하지 않고 `캐시로 생략`이라고 구분한다.
+- prefetch가 시작한 Promise를 현재 요청이 함께 기다리면 동일한 Frame과 측정 시간을 공유한다. prefetch만 완료된 경우에는 현재 화면의 로딩 시간 state를 바꾸지 않는다.
+- Node의 모의 1포인트 Frame에서는 약 `0.10ms`가 측정됐지만 실제 파일 I/O나 대규모 LiDAR 파싱을 포함하지 않으므로 Worker 필요성을 판단할 근거가 아니다.
 
 ### Viewer 레이아웃 안정성 (2026-09-24)
 
@@ -506,10 +515,10 @@
 
 ## 다음 단계에서 배울 내용
 
-Phase 6의 현재 LiDAR Frame 캐시, 양옆 Frame prefetch와 최대 5개 LRU 축출을 구현했으며 최근 사용 순서와 CPU 캐시 제한에 대한 사용자 이해 확인이 남아 있다.
+Phase 6의 CPU Frame 캐시, prefetch, 최대 5개 LRU 축출과 모의 로더 시간 표시를 구현했으며 로딩 시간 측정 구간에 대한 사용자 이해 확인이 남아 있다.
 
 - Canvas DOM 좌표를 NDC로 변환하는 식과 Y 부호를 뒤집는 이유
 - Camera 광선과 Mesh 삼각형의 교차, `visible`과 wireframe이 선택 판정에 미치는 영향
 - React의 객체 ID 선택 state와 Three.js Material 시각 피드백의 책임 분리
 - `ViewerCanvas`, Custom Hook, 표시 컴포넌트와 Three.js 런타임 Hook 사이의 책임 분리
-- Phase 6 LRU 캐시와 Frame 로딩 시간 측정
+- Phase 6 Frame 로딩 시간과 Phase 7 실제 데이터 변환 경계

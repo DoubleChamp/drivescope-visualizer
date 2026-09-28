@@ -12,6 +12,12 @@ type CachedFrameState = {
   frame: LidarFrame | null;
   status: LidarCacheStatus;
   entryCount: number;
+  loadDurationMs: number | null;
+};
+
+type LidarFrameLoadResult = {
+  frame: LidarFrame | null;
+  loadDurationMs: number | null;
 };
 
 type UseLidarFrameCacheOptions = {
@@ -29,13 +35,14 @@ export function useLidarFrameCache({
   );
   // 완료되기 전 요청도 timestamp별로 공유해 현재 로딩과 prefetch가 중복되지 않게 한다.
   const [inFlightLoads] = useState(
-    () => new Map<number, Promise<LidarFrame | null>>(),
+    () => new Map<number, Promise<LidarFrameLoadResult>>(),
   );
   const [state, setState] = useState<CachedFrameState>({
     timestampMs: null,
     frame: null,
     status: "empty",
     entryCount: 0,
+    loadDurationMs: null,
   });
 
   useEffect(() => {
@@ -43,15 +50,24 @@ export function useLidarFrameCache({
 
     const getOrLoadFrame = (timestampMs: number) => {
       const cachedFrame = cache.get(timestampMs);
-      if (cachedFrame) return Promise.resolve(cachedFrame);
+      if (cachedFrame) {
+        return Promise.resolve({
+          frame: cachedFrame,
+          loadDurationMs: null,
+        });
+      }
 
       const inFlightLoad = inFlightLoads.get(timestampMs);
       if (inFlightLoad) return inFlightLoad;
 
+      const loadStartedAt = performance.now();
       const load = loadMockLidarFrame(sourceFrames, timestampMs)
         .then((frame) => {
           if (frame) cache.set(frame);
-          return frame;
+          return {
+            frame,
+            loadDurationMs: performance.now() - loadStartedAt,
+          };
         })
         .finally(() => {
           inFlightLoads.delete(timestampMs);
@@ -92,6 +108,7 @@ export function useLidarFrameCache({
         frame: null,
         status: "empty",
         entryCount: cache.size,
+        loadDurationMs: null,
       });
       return;
     }
@@ -103,6 +120,7 @@ export function useLidarFrameCache({
         frame: cachedFrame,
         status: "hit",
         entryCount: cache.size,
+        loadDurationMs: null,
       });
       void prefetchNeighborFrames();
 
@@ -116,16 +134,18 @@ export function useLidarFrameCache({
       frame: null,
       status: "loading",
       entryCount: cache.size,
+      loadDurationMs: null,
     });
 
-    void getOrLoadFrame(targetTimestampMs).then((frame) => {
+    void getOrLoadFrame(targetTimestampMs).then((result) => {
       if (ignoreResult) return;
 
       setState({
         timestampMs: targetTimestampMs,
-        frame,
+        frame: result.frame,
         status: "miss",
         entryCount: cache.size,
+        loadDurationMs: result.loadDurationMs,
       });
       void prefetchNeighborFrames();
     });
@@ -156,5 +176,6 @@ export function useLidarFrameCache({
           : "loading",
     entryCount: state.entryCount,
     capacity: cache.capacity,
+    loadDurationMs: stateMatchesTarget ? state.loadDurationMs : null,
   };
 }
