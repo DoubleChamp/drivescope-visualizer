@@ -1,6 +1,6 @@
 # DriveScope 진행 상황
 
-마지막 갱신: 2026-09-29
+마지막 갱신: 2026-09-30
 
 ## 현재 위치
 
@@ -9,6 +9,15 @@
 - 다음 한 단계: 포맷 v1에 맞춰 nuScenes mini의 첫 scene을 변환하는 Python 변환기를 만든다.
 - 아직 구현하지 않은 것: nuScenes 변환기, 실제 파일 로딩·파싱, 실제 데이터 Viewer 연결, 배포와 데모 영상
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다.
+
+## 다른 컴퓨터에서 이어서 시작하기
+
+1. GitHub Desktop에서 `main`의 원격 변경을 먼저 확인하고 pull한다.
+2. `pnpm validate:manifest`와 `pnpm build`로 현재 기준선을 확인한다.
+3. [DATA_FORMAT.md](./DATA_FORMAT.md)의 포맷 v1에 맞춰 nuScenes mini 첫 scene을 변환하는 Python CLI를 다음 한 단계로 구현한다.
+4. Python 변환기는 브라우저 런타임이나 API 요청마다 실행하지 않는다. 개발 시 원본 로그를 한 번 전처리해 `manifest.json`, `camera/*`, `lidar/*.bin`을 만드는 축소된 ingestion pipeline이다.
+5. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
+6. 실제 LiDAR·카메라 연결과 오류 처리가 안정된 직후 Viewer 디자인을 마감하고, 이후 README·배포·1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
 
 ### Phase 7: DriveScope 디스크 포맷 v1 (2026-09-29)
 

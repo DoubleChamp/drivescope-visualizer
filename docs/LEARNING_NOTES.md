@@ -520,6 +520,11 @@
 - manifest의 자산 경로를 manifest 기준 상대 경로로 제한하면 시나리오 디렉터리 전체를 다른 정적 배포 위치로 옮겨도 내부 경로를 유지할 수 있다.
 - 원본 microsecond timestamp의 차이를 먼저 구한 뒤 1,000으로 나누고 내림하면 모든 센서를 0부터 시작하는 공통 정수 millisecond 시간축에 놓을 수 있다.
 - nuScenes 좌표 보정과 Viewer 축 변환을 Python에서 한 번 끝내면 브라우저 로더는 동일한 `Float32Array` 데이터 경계만 다루고 Three.js 런타임은 좌표계 변환 책임을 갖지 않는다.
+- Python 변환기는 최종 사용자가 브라우저에서 실행하는 기능이 아니라, 원본 nuScenes를 웹 제공용 데이터로 정규화하는 오프라인 ingestion 단계다. 실제 서비스에서는 같은 변환기를 업로드 뒤의 작업 큐·서버 Worker가 자동 실행할 수 있다.
+- `timestampOriginUs`는 센서 주기가 아니라 선택한 센서 Frame 중 가장 이른 절대 시각이다. Python이 이를 기준으로 상대 `timestampMs`를 만들며 Viewer 재생은 작은 상대 시간만 사용한다.
+- Node 검증 스크립트는 `readFileSync → JSON.parse → parseDriveScopeManifest` 순서로 fixture를 검사한다. 미래 브라우저 로더는 파일 시스템 대신 `fetch → response.json → parseDriveScopeManifest` 순서를 사용하고 같은 순수 parser를 재사용한다.
+- 정적 배포 파일도 첫 접근에는 HTTP 로딩이 있다. DriveScope CPU Frame 캐시, 브라우저 HTTP cache, CDN cache, 원본 서버 순서의 여러 캐시 계층 가운데 먼저 hit한 위치에서 데이터를 얻는다.
+- 카메라와 LiDAR의 timestamp 선택과 네트워크 준비 완료는 서로 다른 문제다. 연속 재생에서는 센서를 독립적으로 갱신하고, 정지·seek 분석에서는 센서별 timestamp와 loading 상태를 함께 보여주는 방향으로 설계한다.
 
 ## 다음 단계에서 배울 내용
 
