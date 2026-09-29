@@ -513,12 +513,21 @@
 - 자주 함께 보는 Canvas와 타임라인은 DOM 순서도 가깝게 두어야 긴 카메라·객체 정보 패널을 지나 이동하지 않고 장면을 바로 seek할 수 있다.
 - 이번 변경은 표시 위치와 크기만 조정했다. 캐시 상태 전환을 숨기거나 이전 LiDAR Frame을 로딩 중에 유지하는 데이터 정책 변경은 포함하지 않았다.
 
+### DriveScope 디스크 포맷과 외부 JSON 검증 (2026-09-29)
+
+- TypeScript 타입은 컴파일되는 코드의 형태를 검사하지만 Python이 생성한 JSON의 런타임 값까지 보장하지 않는다. 외부 JSON을 `unknown`으로 받고 필드와 범위를 검사한 뒤 manifest 타입으로 좁혀야 한다.
+- LiDAR 좌표를 JSON 숫자 배열 대신 `x, y, z` Float32 바이너리로 두면 각 포인트는 12바이트이며 기대 파일 크기는 `pointCount × 12`바이트로 확인할 수 있다.
+- manifest의 자산 경로를 manifest 기준 상대 경로로 제한하면 시나리오 디렉터리 전체를 다른 정적 배포 위치로 옮겨도 내부 경로를 유지할 수 있다.
+- 원본 microsecond timestamp의 차이를 먼저 구한 뒤 1,000으로 나누고 내림하면 모든 센서를 0부터 시작하는 공통 정수 millisecond 시간축에 놓을 수 있다.
+- nuScenes 좌표 보정과 Viewer 축 변환을 Python에서 한 번 끝내면 브라우저 로더는 동일한 `Float32Array` 데이터 경계만 다루고 Three.js 런타임은 좌표계 변환 책임을 갖지 않는다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 6의 CPU Frame 캐시, prefetch, 최대 5개 LRU 축출과 모의 로더 시간 표시를 구현했으며 로딩 시간 측정 구간에 대한 사용자 이해 확인이 남아 있다.
+Phase 7의 디스크 포맷 v1을 고정했으며, 다음에는 nuScenes mini 첫 scene에서 이 포맷을 실제로 출력하는 Python 변환 경로를 확인한다.
 
 - Canvas DOM 좌표를 NDC로 변환하는 식과 Y 부호를 뒤집는 이유
 - Camera 광선과 Mesh 삼각형의 교차, `visible`과 wireframe이 선택 판정에 미치는 영향
 - React의 객체 ID 선택 state와 Three.js Material 시각 피드백의 책임 분리
 - `ViewerCanvas`, Custom Hook, 표시 컴포넌트와 Three.js 런타임 Hook 사이의 책임 분리
-- Phase 6 Frame 로딩 시간과 Phase 7 실제 데이터 변환 경계
+- nuScenes sensor calibration·ego pose를 시나리오 좌표로 합성하는 순서
+- Python이 쓴 little-endian Float32 바이너리를 브라우저가 `ArrayBuffer`로 읽는 경계

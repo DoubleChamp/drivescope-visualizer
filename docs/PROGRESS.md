@@ -1,13 +1,25 @@
 # DriveScope 진행 상황
 
-마지막 갱신: 2026-09-28
+마지막 갱신: 2026-09-29
 
 ## 현재 위치
 
-- 현재 Phase: Phase 6 — 기능 구현 완료, Frame 로딩 시간 이해 확인 대기
-- 현재 작업: LiDAR cache miss의 모의 로더 실행 시간을 측정하고 cache hit에서는 로더 생략을 표시한다.
-- 다음 한 단계: 측정 구간과 hit·miss 차이를 확인한 뒤 Phase 7의 실제 데이터 변환 범위를 설계한다.
-- 아직 구현하지 않은 것: 실제 파일 로딩·파싱 시간 측정, 회전·곡선·동적 객체의 일반 충돌 판정과 실제 데이터 연결
+- 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
+- 현재 작업: Python 변환기와 TypeScript 로더가 공유할 DriveScope 디스크 포맷 v1을 정의하고 가상 manifest로 검증했다.
+- 다음 한 단계: 포맷 v1에 맞춰 nuScenes mini의 첫 scene을 변환하는 Python 변환기를 만든다.
+- 아직 구현하지 않은 것: nuScenes 변환기, 실제 파일 로딩·파싱, 실제 데이터 Viewer 연결, 배포와 데모 영상
+- 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다.
+
+### Phase 7: DriveScope 디스크 포맷 v1 (2026-09-29)
+
+- `manifest.json`에는 schema version, 시나리오 ID·길이, 원본 nuScenes 시간 기준, 센서 채널, Frame별 상대 timestamp와 파일 경로를 저장하도록 정의했다.
+- LiDAR 좌표는 JSON에 펼치지 않고 포인트마다 `x, y, z` little-endian Float32 3개를 연속 저장한다. 파일의 기대 크기는 `pointCount × 3 × 4`바이트다.
+- 원본 microsecond timestamp는 포함할 센서 Frame 중 가장 이른 값을 기준으로 `floor((sourceTimestampUs - timestampOriginUs) / 1000)`을 적용해 0부터 시작하는 정수 밀리초로 바꾼다.
+- Python이 미리 nuScenes 좌표를 현재 Viewer의 `X=오른쪽, Y=위, Z=앞, meter`인 시나리오 좌표로 변환하고, 브라우저는 좌표를 다시 회전하지 않는 책임 경계를 정했다.
+- `DriveScopeManifest` TypeScript 타입과 `parseDriveScopeManifest()` 런타임 검증 함수를 추가했다. 외부 JSON을 `unknown`으로 받아 version, 타입, timestamp 범위·순서와 manifest 기준 상대 경로를 확인한 뒤 타입이 있는 값으로 반환한다.
+- 작은 fixture manifest를 추가하고 `pnpm validate:manifest`로 LiDAR 2개·Camera 2개와 timestamp 내림 규칙을 검증했다.
+- `pnpm exec tsc --noEmit --incremental false`와 Next.js 16.3.3 production build가 통과했으며 `/viewer` 정적 페이지 생성도 유지됐다.
+- 첫 배포를 우선하도록 Worker 작업은 Phase 7 완료 조건에서 분리했다. 배포 후 같은 실제 데이터로 메인 스레드와 Worker 파싱을 측정·비교하고 효과를 문서화한다.
 
 ### Phase 6: LiDAR Frame 로딩 시간 측정 (2026-09-28)
 

@@ -51,6 +51,12 @@ React Three Fiber는 사용하지 않는다. Three.js 객체의 생성, 변경, 
 
 데이터 계층은 UI 표현이나 Three.js 객체를 직접 소유하지 않는다.
 
+Phase 7의 실제 데이터 경계는 [DATA_FORMAT.md](./DATA_FORMAT.md)의 DriveScope 디스크 포맷 v1을 따른다. Python 변환기는 `manifest.json`, 전방 카메라 이미지와 LiDAR Float32 바이너리를 시나리오 디렉터리에 출력한다. manifest에는 파일 자체가 아니라 manifest 기준 상대 경로와 timestamp·포인트 수 같은 메타데이터만 둔다. LiDAR 좌표는 `x, y, z` little-endian Float32 연속 배열로 저장해 JSON 문자열 파싱을 피한다.
+
+외부 JSON은 TypeScript 타입 선언만으로 검증되지 않는다. 브라우저 로더는 JSON을 `unknown`으로 받은 뒤 `parseDriveScopeManifest()`에서 schema version, 필드 타입, 정수 timestamp, Frame 순서와 안전한 상대 경로를 확인하고 나서 `DriveScopeManifest`로 사용한다. 검증된 manifest의 LiDAR 바이너리를 읽어 만든 `Float32Array`가 기존 `LidarFrame.positions` 경계로 들어가며, manifest 타입에 Three.js 객체를 넣지 않는다.
+
+원본 nuScenes timestamp는 microsecond 정수지만 시나리오 내부 시간은 가장 이른 변환 대상 센서 Frame을 `0ms`로 삼는다. Python 변환기는 `floor((sourceTimestampUs - timestampOriginUs) / 1000)`으로 상대 정수 밀리초를 만든다. 모든 위치는 변환 단계에서 현재 Viewer의 `X=오른쪽, Y=위, Z=앞, meter`인 첫 sample 기준 좌표계로 맞춘다. 따라서 브라우저와 Three.js는 nuScenes 보정 행렬이나 절대 시각 변환을 다시 수행하지 않는다.
+
 현재 `LidarFrame`은 측정 시점인 `timestampMs`와 `[x, y, z, ...]` 순서의 `Float32Array`인 `positions`만 보관한다. 포인트 수는 중복 필드로 저장하지 않고 `positions.length / 3`으로 계산한다. intensity처럼 아직 사용하지 않는 값은 미리 추가하지 않는다.
 
 `LidarFrame`에는 Three.js의 `BufferAttribute`, `BufferGeometry`나 `Points`를 넣지 않는다. 데이터 계층은 CPU의 순수 좌표를 제공하고, Three.js 런타임이 좌표 해석과 GPU 전송 상태를 관리할 `BufferAttribute`를 소유한다. CPU 배열을 바꾼 뒤에는 Attribute의 `needsUpdate`를 설정해야 다음 `renderer.render()`에서 변경 데이터가 GPU로 전송되고 새 화면에 사용된다.

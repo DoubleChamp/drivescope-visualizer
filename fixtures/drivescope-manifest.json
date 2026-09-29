@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "scenarioId": "format-smoke-test",
+  "durationMs": 500,
+  "coordinateSystem": "x-right-y-up-z-forward-meters",
+  "source": {
+    "dataset": "nuScenes",
+    "sceneToken": "fixture-scene-token",
+    "timestampOriginUs": "1000000"
+  },
+  "lidar": {
+    "channel": "LIDAR_TOP",
+    "positionEncoding": "float32-le-xyz",
+    "frames": [
+      {
+        "timestampMs": 0,
+        "positionsFile": "lidar/000000.bin",
+        "pointCount": 2
+      },
+      {
+        "timestampMs": 500,
+        "positionsFile": "lidar/000500.bin",
+        "pointCount": 3
+      }
+    ]
+  },
+  "camera": {
+    "channel": "CAM_FRONT",
+    "frames": [
+      {
+        "timestampMs": 0,
+        "imageFile": "camera/000000.jpg"
+      },
+      {
+        "timestampMs": 500,
+        "imageFile": "camera/000500.jpg"
+      }
+    ]
+  }
+}
