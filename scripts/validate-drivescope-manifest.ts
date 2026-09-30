@@ -29,7 +29,7 @@ if (requestedPath) {
     assert.equal(statSync(imagePath).isFile(), true);
   }
 } else {
-  assert.equal(manifest.schemaVersion, 1);
+  assert.equal(manifest.schemaVersion, 2);
   assert.equal(
     manifest.lidar.frames[0].pointCount *
       3 *
@@ -37,6 +37,17 @@ if (requestedPath) {
     24,
   );
   assert.equal(manifest.camera.frames[1].timestampMs, 500);
+  assert.deepEqual(manifest.egoVehicle.frames[0].position, [0, 0, 0]);
+  assert.equal(manifest.egoVehicle.frames[1].position[2], 2);
+  assert.throws(
+    () =>
+      parseDriveScopeManifest({
+        ...manifest,
+        schemaVersion: 1,
+        egoVehicle: undefined,
+      }),
+    /schemaVersion.*2/,
+  );
   assert.throws(
     () =>
       parseDriveScopeManifest({
@@ -53,6 +64,21 @@ if (requestedPath) {
       }),
     /안전한 상대 경로/,
   );
+  assert.throws(
+    () =>
+      parseDriveScopeManifest({
+        ...manifest,
+        egoVehicle: {
+          frames: [
+            {
+              ...manifest.egoVehicle.frames[0],
+              position: [0, 0],
+            },
+          ],
+        },
+      }),
+    /숫자 3개의 좌표 배열/,
+  );
 
   const sourceTimestampUs = 1_500_999;
   const timestampOriginUs = Number(manifest.source.timestampOriginUs);
@@ -64,5 +90,5 @@ if (requestedPath) {
 }
 
 console.log(
-  `DriveScope manifest 검증 완료 (${manifestPath}): LiDAR ${manifest.lidar.frames.length}개, Camera ${manifest.camera.frames.length}개`,
+  `DriveScope manifest 검증 완료 (${manifestPath}): LiDAR ${manifest.lidar.frames.length}개, Camera ${manifest.camera.frames.length}개, Ego pose ${manifest.egoVehicle.frames.length}개`,
 );

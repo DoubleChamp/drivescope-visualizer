@@ -535,9 +535,16 @@
 - 실제 `scene-0061`은 LiDAR 39개·Camera 39개, 총 1,354,112 LiDAR 포인트와 `19,185ms` 길이로 변환됐다. TypeScript parser가 manifest를 검증하고 각 LiDAR 파일 크기가 `pointCount × 12`인지, 모든 카메라 파일이 존재하는지 교차 확인했다.
 - 생성 결과는 원본 데이터와 마찬가지로 개발용 대용량 자산이므로 Git 소스에 포함하지 않는다. 저장소에는 재현 가능한 변환 코드·의존성·포맷·검증 절차만 남긴다.
 
+### 실제 ego vehicle 궤적 보존 (2026-09-30)
+
+- 사용자가 LiDAR 점군을 첫 차량 기준의 공통 좌표로 옮겼다면 정적인 환경뿐 아니라 그 안에서 이동하는 실제 차량 궤적도 함께 있어야 한다고 설명했다.
+- 각 Frame의 ego pose를 점군 변환에 사용하는 것과 그 pose를 Viewer용 데이터로 보존하는 것은 별개의 책임이다. v1은 변환 계산 뒤 pose를 버렸기 때문에 실제 차량 Mesh를 움직일 정보가 없었다.
+- 첫 LiDAR ego pose의 역변환을 현재 ego pose에 곱하면 첫 차량은 원점·yaw 0이 되고 이후 pose는 첫 차량으로부터의 상대 위치와 방향이 된다. 같은 행렬을 LiDAR와 ego vehicle에 적용해야 둘이 하나의 시나리오 좌표계에서 맞는다.
+- 위치와 yaw는 nuScenes pose에서 직접 얻을 수 있지만 속도와 가속도는 현재 입력에 명시적으로 포함하지 않았으므로 추정값을 manifest에 사실처럼 저장하지 않는다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 7의 디스크 포맷 v1과 nuScenes mini 첫 scene 변환을 완료했으며, 다음에는 실제 manifest와 필요한 LiDAR 바이너리를 브라우저에서 비동기로 읽어 기존 캐시 경계에 연결한다.
+Phase 7의 디스크 포맷 v2와 nuScenes mini 첫 scene·ego 궤적 변환을 완료했으며, 다음에는 실제 manifest와 필요한 LiDAR 바이너리를 브라우저에서 비동기로 읽어 기존 캐시 경계에 연결한다.
 
 - Canvas DOM 좌표를 NDC로 변환하는 식과 Y 부호를 뒤집는 이유
 - Camera 광선과 Mesh 삼각형의 교차, `visible`과 wireframe이 선택 판정에 미치는 영향

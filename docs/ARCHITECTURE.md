@@ -51,7 +51,7 @@ React Three Fiber는 사용하지 않는다. Three.js 객체의 생성, 변경, 
 
 데이터 계층은 UI 표현이나 Three.js 객체를 직접 소유하지 않는다.
 
-Phase 7의 실제 데이터 경계는 [DATA_FORMAT.md](./DATA_FORMAT.md)의 DriveScope 디스크 포맷 v1을 따른다. Python 변환기는 `manifest.json`, 전방 카메라 이미지와 LiDAR Float32 바이너리를 시나리오 디렉터리에 출력한다. manifest에는 파일 자체가 아니라 manifest 기준 상대 경로와 timestamp·포인트 수 같은 메타데이터만 둔다. LiDAR 좌표는 `x, y, z` little-endian Float32 연속 배열로 저장해 JSON 문자열 파싱을 피한다.
+Phase 7의 실제 데이터 경계는 [DATA_FORMAT.md](./DATA_FORMAT.md)의 DriveScope 디스크 포맷 v2를 따른다. Python 변환기는 `manifest.json`, 전방 카메라 이미지와 LiDAR Float32 바이너리를 시나리오 디렉터리에 출력한다. manifest에는 파일 자체가 아니라 manifest 기준 상대 경로, timestamp·포인트 수와 ego vehicle pose 같은 메타데이터만 둔다. LiDAR 좌표는 `x, y, z` little-endian Float32 연속 배열로 저장해 JSON 문자열 파싱을 피한다.
 
 외부 JSON은 TypeScript 타입 선언만으로 검증되지 않는다. 브라우저 로더는 JSON을 `unknown`으로 받은 뒤 `parseDriveScopeManifest()`에서 schema version, 필드 타입, 정수 timestamp, Frame 순서와 안전한 상대 경로를 확인하고 나서 `DriveScopeManifest`로 사용한다. 검증된 manifest의 LiDAR 바이너리를 읽어 만든 `Float32Array`가 기존 `LidarFrame.positions` 경계로 들어가며, manifest 타입에 Three.js 객체를 넣지 않는다.
 
@@ -59,7 +59,9 @@ Phase 7의 실제 데이터 경계는 [DATA_FORMAT.md](./DATA_FORMAT.md)의 Driv
 
 구현된 `scripts/convert_nuscenes_mini.py`는 공식 nuScenes devkit으로 선택 scene의 sample 연결 목록을 순회하며 `LIDAR_TOP`·`CAM_FRONT` keyframe을 읽는다. LiDAR 점에는 `scenarioFromGlobal × globalFromCurrentEgo × currentEgoFromSensor` 순서의 동차 변환을 적용한다. 여기서 scenario 기준은 첫 sample의 `LIDAR_TOP` ego pose이며, 그 뒤 `viewerX = -sourceY`, `viewerY = sourceZ`, `viewerZ = sourceX`로 축을 바꾼다. 변환 결과는 기존 출력에 덮어쓰지 않고 임시 디렉터리에서 완성한 뒤 scene 디렉터리로 이동한다.
 
-첫 mini scene `scene-0061`의 실제 결과는 LiDAR·Camera keyframe이 각각 39개이고 시간 범위는 `0~19,185ms`다. 가장 이른 Camera Frame이 origin이고 첫 LiDAR Frame은 `35ms`이므로 모든 센서의 첫 Frame이 반드시 `0ms`일 필요는 없다. 현재 실제 산출물은 브라우저에 아직 연결하지 않았으며 다음 로더 단계에서 manifest를 먼저 읽고 필요한 LiDAR 바이너리만 기존 Promise 공유·LRU 캐시에 공급한다.
+같은 `scenarioFromGlobal × globalFromCurrentEgo` 행렬에서 ego vehicle의 위치와 진행 방향도 추출해 manifest v2의 `egoVehicle.frames`에 저장한다. 점군 변환에 pose를 잠깐 사용하는 것만으로는 Viewer가 차량의 실제 위치를 알 수 없으므로, LiDAR keyframe과 같은 timestamp의 `position`·`yawRadians`를 별도 데이터로 보존한다. 속도·가속도는 현재 원본에서 직접 읽지 않았으므로 추정해 넣지 않는다.
+
+첫 mini scene `scene-0061`의 실제 v2 결과는 LiDAR·Camera keyframe이 각각 39개이고 ego vehicle pose도 39개이며 시간 범위는 `0~19,185ms`다. 가장 이른 Camera Frame이 origin이고 첫 LiDAR·ego Frame은 `35ms`이므로 모든 스트림의 첫 Frame이 반드시 `0ms`일 필요는 없다. 첫 ego pose는 시나리오 원점과 yaw 0이고 마지막 위치는 약 `[-35.00, 1.48, 68.41]m`, 첫 위치로부터의 직선 이동 거리는 약 `76.86m`다. 현재 실제 산출물은 브라우저에 아직 연결하지 않았으며 다음 로더 단계에서 manifest를 먼저 읽고 필요한 LiDAR 바이너리만 기존 Promise 공유·LRU 캐시에 공급한다.
 
 현재 `LidarFrame`은 측정 시점인 `timestampMs`와 `[x, y, z, ...]` 순서의 `Float32Array`인 `positions`만 보관한다. 포인트 수는 중복 필드로 저장하지 않고 `positions.length / 3`으로 계산한다. intensity처럼 아직 사용하지 않는 값은 미리 추가하지 않는다.
 

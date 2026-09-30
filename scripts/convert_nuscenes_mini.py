@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 os.environ.setdefault(
     "MPLCONFIGDIR",
@@ -14,13 +15,15 @@ os.environ.setdefault(
 )
 
 import numpy as np
-from nuscenes.nuscenes import NuScenes
-from nuscenes.utils.data_classes import LidarPointCloud
 from nuscenes.utils.geometry_utils import transform_matrix
 from pyquaternion import Quaternion
 
+if TYPE_CHECKING:
+    from nuscenes.nuscenes import NuScenes
+
 
 NUSCENES_VERSION = "v1.0-mini"
+DRIVESCOPE_SCHEMA_VERSION = 2
 LIDAR_CHANNEL = "LIDAR_TOP"
 CAMERA_CHANNEL = "CAM_FRONT"
 
@@ -46,6 +49,37 @@ def pose_matrix(record: dict[str, Any], *, inverse: bool = False) -> np.ndarray:
         Quaternion(record["rotation"]),
         inverse=inverse,
     )
+
+
+def scenario_ego_matrix_to_viewer_pose(
+    scenario_from_ego: np.ndarray,
+) -> tuple[list[float], float]:
+    if scenario_from_ego.shape != (4, 4):
+        raise ValueError("scenario_from_ego는 4×4 변환 행렬이어야 합니다.")
+
+    source_position = scenario_from_ego[:3, 3].reshape(3, 1)
+    source_forward = (
+        scenario_from_ego[:3, :3] @ np.array([1.0, 0.0, 0.0])
+    ).reshape(3, 1)
+    viewer_position = source_xyz_to_viewer_xyz(source_position)[0]
+    viewer_forward = source_xyz_to_viewer_xyz(source_forward)[0]
+
+    horizontal_forward_length = math.hypot(
+        float(viewer_forward[0]),
+        float(viewer_forward[2]),
+    )
+    if horizontal_forward_length <= np.finfo(np.float64).eps:
+        raise ValueError("ego vehicle의 수평 진행 방향을 계산할 수 없습니다.")
+
+    position = [float(value) for value in viewer_position]
+    yaw_radians = math.atan2(
+        float(viewer_forward[0]),
+        float(viewer_forward[2]),
+    )
+    if not all(math.isfinite(value) for value in [*position, yaw_radians]):
+        raise ValueError("유한하지 않은 ego vehicle pose가 있습니다.")
+
+    return position, yaw_radians
 
 
 def collect_scene_samples(nusc: NuScenes, scene: dict[str, Any]) -> list[dict[str, Any]]:
@@ -99,6 +133,8 @@ def convert_scene(
     output_root: Path,
     scene_index: int,
 ) -> Path:
+    from nuscenes.utils.data_classes import LidarPointCloud
+
     if scene_index < 0 or scene_index >= len(nusc.scene):
         raise IndexError(f"scene-index는 0 이상 {len(nusc.scene) - 1} 이하여야 합니다.")
 
@@ -135,8 +171,9 @@ def convert_scene(
         lidar_directory.mkdir()
         camera_directory.mkdir()
 
-        lidar_frames: list[dict[str, int | str]] = []
-        camera_frames: list[dict[str, int | str]] = []
+        lidar_frames: list[dict[str, Any]] = []
+        camera_frames: list[dict[str, Any]] = []
+        ego_vehicle_frames: list[dict[str, Any]] = []
         used_lidar_names: set[str] = set()
         used_camera_names: set[str] = set()
 
@@ -151,13 +188,15 @@ def convert_scene(
                 "calibrated_sensor", source_frame["calibrated_sensor_token"]
             )
             ego_pose = nusc.get("ego_pose", source_frame["ego_pose_token"])
+            scenario_from_current_ego = scenario_from_global @ pose_matrix(ego_pose)
             sensor_to_scenario = (
-                scenario_from_global
-                @ pose_matrix(ego_pose)
-                @ pose_matrix(calibrated_sensor)
+                scenario_from_current_ego @ pose_matrix(calibrated_sensor)
             )
             point_cloud.transform(sensor_to_scenario)
             viewer_points = source_xyz_to_viewer_xyz(point_cloud.points[:3])
+            ego_position, ego_yaw_radians = scenario_ego_matrix_to_viewer_pose(
+                scenario_from_current_ego
+            )
 
             if not np.isfinite(viewer_points).all():
                 raise ValueError(f"유한하지 않은 LiDAR 좌표가 있습니다: {source_path}")
@@ -185,6 +224,13 @@ def convert_scene(
                     "pointCount": point_count,
                 }
             )
+            ego_vehicle_frames.append(
+                {
+                    "timestampMs": timestamp_ms,
+                    "position": ego_position,
+                    "yawRadians": ego_yaw_radians,
+                }
+            )
 
         for source_frame in camera_source_frames:
             timestamp_ms = relative_timestamp_ms(
@@ -204,13 +250,15 @@ def convert_scene(
 
         lidar_frames.sort(key=lambda frame: int(frame["timestampMs"]))
         camera_frames.sort(key=lambda frame: int(frame["timestampMs"]))
+        ego_vehicle_frames.sort(key=lambda frame: int(frame["timestampMs"]))
         duration_ms = max(
             int(lidar_frames[-1]["timestampMs"]),
             int(camera_frames[-1]["timestampMs"]),
+            int(ego_vehicle_frames[-1]["timestampMs"]),
         )
 
         manifest = {
-            "schemaVersion": 1,
+            "schemaVersion": DRIVESCOPE_SCHEMA_VERSION,
             "scenarioId": scenario_id,
             "durationMs": duration_ms,
             "coordinateSystem": "x-right-y-up-z-forward-meters",
@@ -227,6 +275,9 @@ def convert_scene(
             "camera": {
                 "channel": CAMERA_CHANNEL,
                 "frames": camera_frames,
+            },
+            "egoVehicle": {
+                "frames": ego_vehicle_frames,
             },
         }
 
@@ -245,7 +296,7 @@ def convert_scene(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="nuScenes mini scene을 DriveScope 디스크 포맷 v1로 변환합니다."
+        description="nuScenes mini scene을 DriveScope 디스크 포맷 v2로 변환합니다."
     )
     parser.add_argument(
         "--dataroot",
@@ -269,6 +320,8 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    from nuscenes.nuscenes import NuScenes
+
     args = parse_args()
     dataroot = args.dataroot.resolve()
     output_root = args.output_root.resolve()
@@ -286,6 +339,7 @@ def main() -> None:
     print(
         f"LiDAR {len(manifest['lidar']['frames'])}개, "
         f"Camera {len(manifest['camera']['frames'])}개, "
+        f"Ego pose {len(manifest['egoVehicle']['frames'])}개, "
         f"길이 {manifest['durationMs']}ms"
     )
 

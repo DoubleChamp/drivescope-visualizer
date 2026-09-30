@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "scenarioId": "format-smoke-test",
   "durationMs": 500,
   "coordinateSystem": "x-right-y-up-z-forward-meters",
@@ -34,6 +34,20 @@
       {
         "timestampMs": 500,
         "imageFile": "camera/000500.jpg"
+      }
+    ]
+  },
+  "egoVehicle": {
+    "frames": [
+      {
+        "timestampMs": 0,
+        "position": [0, 0, 0],
+        "yawRadians": 0
+      },
+      {
+        "timestampMs": 500,
+        "position": [0, 0, 2],
+        "yawRadians": 0
       }
     ]
   }

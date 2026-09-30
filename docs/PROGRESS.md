@@ -5,7 +5,7 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: 공식 nuScenes devkit을 사용하는 Python CLI로 mini 첫 scene을 DriveScope 디스크 포맷 v1로 변환하고 실제 산출물을 검증했다.
+- 현재 작업: Python 변환기가 LiDAR 변환에 사용한 실제 ego pose를 보존하도록 DriveScope 디스크 포맷을 v2로 올리고 mini 첫 scene의 차량 궤적을 검증했다.
 - 다음 한 단계: 변환한 manifest와 현재 LiDAR Frame 바이너리를 브라우저에서 비동기로 읽어 기존 Promise 공유·LRU 캐시에 연결한다.
 - 아직 구현하지 않은 것: 실제 파일 브라우저 로딩·파싱, 실제 데이터 Viewer 연결, 로딩 실패 처리, 배포와 데모 영상
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
@@ -14,10 +14,20 @@
 
 1. GitHub Desktop에서 `main`의 원격 변경을 먼저 확인하고 pull한다.
 2. `pnpm validate:manifest`와 `pnpm build`로 현재 기준선을 확인한다.
-3. [DATA_FORMAT.md](./DATA_FORMAT.md)의 명령으로 nuScenes mini 첫 scene을 다시 변환하고 실제 산출물을 검증할 수 있다.
-4. Python 변환기는 브라우저 런타임이나 API 요청마다 실행하지 않는다. 개발 시 원본 로그를 한 번 전처리해 `manifest.json`, `camera/*`, `lidar/*.bin`을 만드는 축소된 ingestion pipeline이다.
-5. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
-6. 실제 LiDAR·카메라 연결과 오류 처리가 안정된 직후 Viewer 디자인을 마감하고, 이후 README·배포·1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+3. 현재 컴퓨터의 `drivescope-output-v2/scene-0061` 디렉터리 전체를 개인 저장장치로 다른 컴퓨터에 복사하면 nuScenes 원본 다운로드와 Python 변환을 반복할 필요가 없다. v1 출력이 아니라 `schemaVersion: 2`인 v2 출력을 사용한다.
+4. v2 산출물을 복사하지 않을 때만 nuScenes mini 원본을 다른 컴퓨터에 내려받고 [DATA_FORMAT.md](./DATA_FORMAT.md)의 명령으로 첫 scene을 다시 변환한다. `.venv`는 Git에 없으므로 이 경우 새로 만들고 의존성을 설치한다.
+5. Python 변환기는 브라우저 런타임이나 API 요청마다 실행하지 않는다. 개발 시 원본 로그를 한 번 전처리해 `manifest.json`, `camera/*`, `lidar/*.bin`을 만드는 축소된 ingestion pipeline이다.
+6. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
+7. 실제 LiDAR·카메라 연결과 오류 처리가 안정된 직후 Viewer 디자인을 마감하고, 이후 README·배포·1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### Phase 7: 실제 ego vehicle 궤적과 디스크 포맷 v2 (2026-09-30)
+
+- LiDAR 점군은 이미 현재 sensor에서 현재 ego·global을 거쳐 첫 LiDAR ego 기준으로 변환됐지만, v1 manifest에는 변환에 사용한 현재 ego pose가 남지 않아 Viewer가 실제 차량 Mesh의 위치와 방향을 알 수 없었다.
+- `schemaVersion`을 `2`로 올리고 `egoVehicle.frames`에 LiDAR keyframe과 같은 `timestampMs`, 첫 LiDAR ego 기준 `position`과 Viewer Y축 기준 `yawRadians`를 저장했다. 속도·가속도는 근거 없이 추정하지 않았다.
+- 실제 v2 `scene-0061`은 LiDAR 39개·Camera 39개·Ego pose 39개다. Ego와 LiDAR timestamp가 모두 일치했고 첫 pose는 부동소수점 오차 범위에서 원점·yaw 0이었다.
+- 마지막 ego 위치는 약 `[-35.00, 1.48, 68.41]m`, 첫 위치와의 직선거리는 약 `76.86m`, 마지막 yaw는 약 `-1.715rad`였다. 모든 위치와 yaw가 유한값임을 확인했다.
+- 기존 v1 산출물은 보존하고 새 결과를 `drivescope-output-v2/scene-0061`에 생성했다. 생성 데이터는 계속 Git에 포함하지 않는다.
+- Python 단위 테스트는 첫 pose 원점, 축 변환과 yaw 부호까지 5개가 통과했다. TypeScript parser는 manifest v2, 3개 숫자의 position, 유한한 yaw와 정렬된 timestamp를 검사하며 fixture와 실제 v2 산출물 검증을 통과했다. Windows 가상 메모리 부족으로 첫 production build 시도가 중단됐지만 순차 재시도에서는 TypeScript·정적 페이지 생성을 포함한 전체 build가 통과했다.
 
 ### Phase 7: nuScenes mini 첫 scene 변환기 (2026-09-30)
 

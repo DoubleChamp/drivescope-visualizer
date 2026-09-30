@@ -1,4 +1,4 @@
-export const DRIVE_SCOPE_MANIFEST_VERSION = 1 as const;
+export const DRIVE_SCOPE_MANIFEST_VERSION = 2 as const;
 
 export type DriveScopeManifest = {
   schemaVersion: typeof DRIVE_SCOPE_MANIFEST_VERSION;
@@ -24,6 +24,13 @@ export type DriveScopeManifest = {
     frames: Array<{
       timestampMs: number;
       imageFile: string;
+    }>;
+  };
+  egoVehicle: {
+    frames: Array<{
+      timestampMs: number;
+      position: [x: number, y: number, z: number];
+      yawRadians: number;
     }>;
   };
 };
@@ -56,6 +63,29 @@ function readInteger(value: unknown, path: string, minimum: number): number {
   }
 
   return value as number;
+}
+
+function readFiniteNumber(value: unknown, path: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`${path}는 유한한 숫자여야 합니다.`);
+  }
+
+  return value;
+}
+
+function readPosition(
+  value: unknown,
+  path: string,
+): [x: number, y: number, z: number] {
+  if (!Array.isArray(value) || value.length !== 3) {
+    throw new Error(`${path}는 숫자 3개의 좌표 배열이어야 합니다.`);
+  }
+
+  return [
+    readFiniteNumber(value[0], `${path}[0]`),
+    readFiniteNumber(value[1], `${path}[1]`),
+    readFiniteNumber(value[2], `${path}[2]`),
+  ];
 }
 
 function readLiteral<T extends string | number>(
@@ -110,10 +140,16 @@ function assertSortedTimestamps(
 
 export function parseDriveScopeManifest(value: unknown): DriveScopeManifest {
   const manifest = readObject(value, "manifest");
+  const schemaVersion = readLiteral(
+    manifest.schemaVersion,
+    DRIVE_SCOPE_MANIFEST_VERSION,
+    "manifest.schemaVersion",
+  );
   const durationMs = readInteger(manifest.durationMs, "manifest.durationMs", 0);
   const source = readObject(manifest.source, "manifest.source");
   const lidar = readObject(manifest.lidar, "manifest.lidar");
   const camera = readObject(manifest.camera, "manifest.camera");
+  const egoVehicle = readObject(manifest.egoVehicle, "manifest.egoVehicle");
 
   if (!/^\d+$/.test(readNonEmptyString(source.timestampOriginUs, "manifest.source.timestampOriginUs"))) {
     throw new Error("manifest.source.timestampOriginUs는 음수가 아닌 정수 문자열이어야 합니다.");
@@ -125,6 +161,10 @@ export function parseDriveScopeManifest(value: unknown): DriveScopeManifest {
 
   if (!Array.isArray(camera.frames)) {
     throw new Error("manifest.camera.frames는 배열이어야 합니다.");
+  }
+
+  if (!Array.isArray(egoVehicle.frames)) {
+    throw new Error("manifest.egoVehicle.frames는 배열이어야 합니다.");
   }
 
   const lidarFrames = lidar.frames.map((frameValue, index) => {
@@ -164,15 +204,39 @@ export function parseDriveScopeManifest(value: unknown): DriveScopeManifest {
     };
   });
 
+  const egoVehicleFrames = egoVehicle.frames.map((frameValue, index) => {
+    const frame = readObject(
+      frameValue,
+      `manifest.egoVehicle.frames[${index}]`,
+    );
+
+    return {
+      timestampMs: readInteger(
+        frame.timestampMs,
+        `manifest.egoVehicle.frames[${index}].timestampMs`,
+        0,
+      ),
+      position: readPosition(
+        frame.position,
+        `manifest.egoVehicle.frames[${index}].position`,
+      ),
+      yawRadians: readFiniteNumber(
+        frame.yawRadians,
+        `manifest.egoVehicle.frames[${index}].yawRadians`,
+      ),
+    };
+  });
+
   assertSortedTimestamps(lidarFrames, durationMs, "manifest.lidar.frames");
   assertSortedTimestamps(cameraFrames, durationMs, "manifest.camera.frames");
+  assertSortedTimestamps(
+    egoVehicleFrames,
+    durationMs,
+    "manifest.egoVehicle.frames",
+  );
 
   return {
-    schemaVersion: readLiteral(
-      manifest.schemaVersion,
-      DRIVE_SCOPE_MANIFEST_VERSION,
-      "manifest.schemaVersion",
-    ),
+    schemaVersion,
     scenarioId: readNonEmptyString(manifest.scenarioId, "manifest.scenarioId"),
     durationMs,
     coordinateSystem: readLiteral(
@@ -197,6 +261,9 @@ export function parseDriveScopeManifest(value: unknown): DriveScopeManifest {
     camera: {
       channel: readLiteral(camera.channel, "CAM_FRONT", "manifest.camera.channel"),
       frames: cameraFrames,
+    },
+    egoVehicle: {
+      frames: egoVehicleFrames,
     },
   };
 }

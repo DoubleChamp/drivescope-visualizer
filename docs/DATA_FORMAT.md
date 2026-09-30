@@ -1,6 +1,6 @@
-# DriveScope 디스크 포맷 v1
+# DriveScope 디스크 포맷 v2
 
-이 문서는 nuScenes mini를 변환하는 Python 코드와 브라우저의 TypeScript 로더가 공유할 첫 번째 디스크 계약을 정의한다. 실제 데이터 변환과 Viewer 연결 전에 파일 경계, 시간축과 좌표축을 먼저 고정한다.
+이 문서는 nuScenes mini를 변환하는 Python 코드와 브라우저의 TypeScript 로더가 공유할 현재 디스크 계약을 정의한다. v2는 LiDAR·Camera만 있던 v1에 실제 ego vehicle pose를 추가한다.
 
 ## 디렉터리 구조
 
@@ -25,16 +25,18 @@ TypeScript 계약과 런타임 검증 함수는 `app/viewer/_data/drivescope-man
 
 주요 필드는 다음과 같다.
 
-- `schemaVersion`: 현재 포맷 버전 `1`
+- `schemaVersion`: 현재 포맷 버전 `2`
 - `scenarioId`: DriveScope에서 사용할 시나리오 ID
 - `durationMs`: 마지막으로 재생할 수 있는 상대 시각
 - `source.timestampOriginUs`: 시나리오 시작에 해당하는 원본 nuScenes timestamp. JSON 정밀도와 언어별 정수 처리 차이를 피하려고 문자열로 저장한다.
 - `lidar.frames[].positionsFile`: 변환된 LiDAR 좌표 바이너리의 상대 경로
 - `lidar.frames[].pointCount`: 바이너리에 들어 있는 포인트 수
 - `camera.frames[].imageFile`: 전방 카메라 이미지의 상대 경로
+- `egoVehicle.frames[].position`: 첫 LiDAR ego pose 기준의 실제 차량 위치 `[x, y, z]`
+- `egoVehicle.frames[].yawRadians`: Viewer의 Y축을 기준으로 한 실제 차량 진행 방향
 - 각 Frame의 `timestampMs`: 시나리오 시작 기준의 정수 밀리초
 
-Frame 배열은 `timestampMs` 오름차순이어야 하며 모든 timestamp는 `0` 이상 `durationMs` 이하여야 한다.
+LiDAR, Camera와 ego vehicle Frame 배열은 `timestampMs` 오름차순이어야 하며 모든 timestamp는 `0` 이상 `durationMs` 이하여야 한다. 현재 ego vehicle Frame은 변환된 LiDAR keyframe과 같은 timestamp를 사용한다. `position`과 `yawRadians`는 유한한 숫자여야 한다.
 
 ## timestamp 변환
 
@@ -53,7 +55,7 @@ timestampMs = floor((sourceTimestampUs - timestampOriginUs) / 1000)
 - 포인트 하나는 `x`, `y`, `z` 순서의 little-endian IEEE 754 Float32 세 개다.
 - 포인트 하나의 크기는 12바이트다.
 - 파일 크기는 반드시 `pointCount × 3 × 4`바이트여야 한다.
-- intensity, ring index와 원본 nuScenes의 추가 성분은 v1에 저장하지 않는다.
+- intensity, ring index와 원본 nuScenes의 추가 성분은 v2에 저장하지 않는다.
 - JSON에 좌표를 펼치지 않아 JSON 파싱 비용과 문자열 크기를 피한다.
 
 브라우저 로더는 `ArrayBuffer`의 바이트 길이를 먼저 검사한 뒤 Float32 좌표로 해석한다. 실제 파일 로더와 이 검사는 다음 Phase 7 단계에서 연결한다.
@@ -69,6 +71,12 @@ timestampMs = floor((sourceTimestampUs - timestampOriginUs) / 1000)
 - 원점: 시나리오 첫 sample의 ego vehicle 위치
 
 nuScenes ego 좌표의 `x=앞, y=왼쪽, z=위`를 Viewer 축으로 옮길 때는 먼저 센서 보정과 ego pose를 적용하고, 첫 sample 기준 시나리오 좌표로 바꾼 뒤 `viewerX = -sourceY`, `viewerY = sourceZ`, `viewerZ = sourceX` 규칙을 적용한다. 이 변환은 Python 변환기의 책임이며 브라우저는 manifest의 좌표를 다시 회전하지 않는다.
+
+## Ego vehicle pose
+
+LiDAR 점을 공통 시나리오 좌표로 옮길 때 사용한 각 시점의 `ego_pose`를 버리지 않고 `egoVehicle.frames`에도 기록한다. 첫 LiDAR ego pose의 역변환을 적용하므로 첫 ego Frame의 위치와 yaw는 부동소수점 오차 범위에서 `[0, 0, 0]`, `0`이다. 이후 Frame의 위치와 yaw는 첫 차량 기준으로 얼마나 이동하고 회전했는지를 뜻한다.
+
+현재 포맷은 nuScenes에서 직접 확인한 pose만 저장한다. 속도와 가속도는 별도 CAN bus 원본이나 명시적인 계산 규칙 없이 추정하지 않는다. Viewer 연결 단계에서는 위치와 yaw로 실제 차량 Mesh를 움직이고, 속도·가속도가 필요해질 때 데이터 출처와 계산 기준을 먼저 정한다.
 
 ## 검증
 
@@ -90,7 +98,7 @@ python -m venv .venv
   --scene-index 0
 ```
 
-현재 변환기는 scene의 sample keyframe `LIDAR_TOP`과 `CAM_FRONT`만 출력하며 중간 sweep은 포함하지 않는다. 좌표 기준은 첫 sample의 LiDAR ego pose이고 timestamp origin은 포함한 LiDAR·Camera Frame 중 가장 이른 원본 timestamp다.
+현재 변환기는 scene의 sample keyframe `LIDAR_TOP`과 `CAM_FRONT`, LiDAR keyframe 시점의 ego vehicle pose만 출력하며 중간 sweep은 포함하지 않는다. 좌표 기준은 첫 sample의 LiDAR ego pose이고 timestamp origin은 포함한 LiDAR·Camera Frame 중 가장 이른 원본 timestamp다.
 
 ### 산출물 검증
 
