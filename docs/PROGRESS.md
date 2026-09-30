@@ -5,9 +5,9 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: Python 변환기가 LiDAR 변환에 사용한 실제 ego pose를 보존하도록 DriveScope 디스크 포맷을 v2로 올리고 mini 첫 scene의 차량 궤적을 검증했다.
+- 현재 작업: 기존 Viewer 기능과 Three.js 런타임을 유지한 채 정보 위계와 반응형 배치를 정리하는 Viewer UI 셸 1차 리뉴얼을 완료했다.
 - 다음 한 단계: 변환한 manifest와 현재 LiDAR Frame 바이너리를 브라우저에서 비동기로 읽어 기존 Promise 공유·LRU 캐시에 연결한다.
-- 아직 구현하지 않은 것: 실제 파일 브라우저 로딩·파싱, 실제 데이터 Viewer 연결, 로딩 실패 처리, 배포와 데모 영상
+- 아직 구현하지 않은 것: 실제 파일 브라우저 로딩·파싱, 실제 데이터 Viewer 연결, 로딩 실패 처리, 실제 데이터 상태를 반영한 최종 디자인 마감, 배포와 데모 영상
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
 ## 다른 컴퓨터에서 이어서 시작하기
@@ -19,6 +19,16 @@
 5. Python 변환기는 브라우저 런타임이나 API 요청마다 실행하지 않는다. 개발 시 원본 로그를 한 번 전처리해 `manifest.json`, `camera/*`, `lidar/*.bin`을 만드는 축소된 ingestion pipeline이다.
 6. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 7. 실제 LiDAR·카메라 연결과 오류 처리가 안정된 직후 Viewer 디자인을 마감하고, 이후 README·배포·1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### Viewer UI 셸 1차 리뉴얼 (2026-09-30)
+
+- 기본 문서형 세로 배치였던 Viewer를 3D LiDAR 장면과 타임라인이 중심이 되고 전방 카메라·선택 객체·센서 동기화가 분석 rail에 모이는 어두운 워크스테이션으로 재구성했다.
+- 넓은 화면에서는 3D 장면과 분석 rail을 나란히 비교하고, `1023px` 이하에서는 같은 DOM 순서를 한 열로 쌓는다. `720px` 이하에서는 성능 지표를 Canvas 위 고정 오버레이가 아니라 정적 2열 grid로 바꿔 장면을 가리지 않게 했다.
+- 색상·간격·테두리·타이포그래피를 공통 시각 체계로 정리하고 전역 reset으로 생긴 홈 화면 회귀도 별도 홈 셸로 보완했다. 성공 상태는 실제 Frame 존재 여부와 구분하고 데이터가 없는 센서에는 중립 상태를 표시한다.
+- `usePlayback`, 센서 Frame 선택, LiDAR Promise 공유·LRU 캐시와 `useThreeViewer`의 Three.js 리소스 생명주기는 변경하지 않았다. Canvas 객체 선택은 기존처럼 포인터 입력을 사용하며 키보드 객체 선택은 이번 표시 계층 작업에 포함하지 않았다.
+- Chrome에서 `1440×1200` 데스크톱과 `390×844` 모바일 viewport를 캡처했다. 모바일 문서 `scrollWidth`와 `clientWidth`가 같고 viewport를 벗어난 자식이 없음을 확인했다.
+- 브라우저 회귀 검사에서 재생 버튼이 `0ms`에서 약 `600ms`로 진행한 뒤 정지했고, `12,000ms` seek에서 Camera·LiDAR·Object Detection이 모두 `12.0초` Frame으로 바뀌었다. 투영된 보행자 박스를 선택했을 때 ID `pedestrian-1`, 보행자, 신뢰도 `96%`, 인식 시각 `12.0초`가 표시됐다.
+- `pnpm.cmd exec tsc --noEmit --incremental false`, `pnpm.cmd build`와 `git diff --check`가 통과했다.
 
 ### Phase 7: 실제 ego vehicle 궤적과 디스크 포맷 v2 (2026-09-30)
 

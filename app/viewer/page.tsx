@@ -1,13 +1,35 @@
 import Link from "next/link";
 import ViewerCanvas from "./viewer-canvas";
+import styles from "./viewer-canvas.module.css";
 
 export default function ViewerPage() {
   return (
-    <main>
-      <h1>DriveScope Viewer</h1>
-      <p>공통 시간축에 동기화된 가상 LiDAR Frame을 표시합니다.</p>
-      <ViewerCanvas />
-      <Link href="/">홈으로 돌아가기</Link>
+    <main className={styles.page}>
+      <header className={styles.appHeader}>
+        <div className={styles.appHeaderInner}>
+          <Link href="/" className={styles.brand} aria-label="DriveScope 홈">
+            <span className={styles.brandMark} aria-hidden="true">
+              <span className={styles.brandMarkCore} />
+            </span>
+            <span className={styles.brandCopy}>
+              <strong>DriveScope</strong>
+              <span>Scenario intelligence</span>
+            </span>
+          </Link>
+
+          <div className={styles.appHeaderStatus}>
+            <span className={styles.environmentBadge}>
+              <span className={styles.statusDot} aria-hidden="true" />
+              Simulation
+            </span>
+            <span className={styles.phaseBadge}>Phase 07</span>
+          </div>
+        </div>
+      </header>
+
+      <div className={styles.pageContent}>
+        <ViewerCanvas />
+      </div>
     </main>
   );
 }

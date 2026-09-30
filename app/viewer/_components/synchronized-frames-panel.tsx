@@ -46,27 +46,45 @@ export function SynchronizedFramesPanel({
   ];
 
   return (
-    <dl className={styles.synchronizedFrames} aria-label="동기화된 Frame">
-      {frames.map(({ label, frame, detail }) => (
-        <div key={label} className={styles.synchronizedFrame}>
-          <dt>{label}</dt>
-          <dd>
-            {frame === null ? (
-              "Frame 없음"
-            ) : (
-              <>
-                <span className={styles.frameTimestamp}>
-                  {(frame.timestampMs / 1_000).toFixed(1)}초
-                  <span className={styles.timestampDifference}>
-                    {formatTimestampDifference(frame.timestampMs - currentTimeMs)}
-                  </span>
-                </span>
-                <span className={styles.frameDetail}>{detail}</span>
-              </>
-            )}
-          </dd>
+    <section className={styles.syncPanel} aria-labelledby="sync-title">
+      <div className={styles.railPanelHeading}>
+        <div>
+          <p>04 · Sensor timing</p>
+          <h2 id="sync-title">Frame 동기화</h2>
         </div>
-      ))}
-    </dl>
+        <span className={styles.frameBadge}>
+          {(currentTimeMs / 1_000).toFixed(1)}초
+        </span>
+      </div>
+      <dl className={styles.synchronizedFrames} aria-label="동기화된 Frame">
+        {frames.map(({ label, frame, detail }) => (
+          <div
+            key={label}
+            className={styles.synchronizedFrame}
+            data-available={frame !== null}
+          >
+            <dt>
+              <span aria-hidden="true" />
+              {label}
+            </dt>
+            <dd>
+              {frame === null ? (
+                "Frame 없음"
+              ) : (
+                <>
+                  <span className={styles.frameTimestamp}>
+                    {(frame.timestampMs / 1_000).toFixed(1)}초
+                    <span className={styles.timestampDifference}>
+                      {formatTimestampDifference(frame.timestampMs - currentTimeMs)}
+                    </span>
+                  </span>
+                  <span className={styles.frameDetail}>{detail}</span>
+                </>
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   );
 }

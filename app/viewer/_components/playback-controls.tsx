@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import type { ScenarioEvent } from "../_data/frame-types";
 import { PLAYBACK_STEP_MS } from "../_hooks/use-playback";
 import styles from "../viewer-canvas.module.css";
@@ -15,6 +16,13 @@ const EVENT_TYPE_LABELS: Record<ScenarioEvent["type"], string> = {
   "emergency-braking": "급제동",
 };
 
+const formatPlaybackTime = (timeMs: number) => {
+  const minutes = Math.floor(timeMs / 60_000);
+  const seconds = ((timeMs % 60_000) / 1_000).toFixed(1).padStart(4, "0");
+
+  return `${minutes.toString().padStart(2, "0")}:${seconds}`;
+};
+
 export function PlaybackControls({
   currentTimeMs,
   durationMs,
@@ -23,6 +31,8 @@ export function PlaybackControls({
   onSeek,
   onTogglePlayback,
 }: PlaybackControlsProps) {
+  const progressPercent = (currentTimeMs / durationMs) * 100;
+
   return (
     <div className={styles.controls}>
       <button
@@ -31,13 +41,33 @@ export function PlaybackControls({
         aria-pressed={isPlaying}
         onClick={onTogglePlayback}
       >
+        <span className={styles.playbackIcon} aria-hidden="true">
+          {isPlaying ? "Ⅱ" : "▶"}
+        </span>
         {isPlaying ? "정지" : "재생"}
       </button>
       <div className={styles.timelineControl}>
-        <label htmlFor="viewer-timeline" className={styles.timelineLabel}>
-          타임라인
-        </label>
-        <div className={styles.timelineTrack}>
+        <div className={styles.timelineMeta}>
+          <label htmlFor="viewer-timeline" className={styles.timelineLabel}>
+            Timeline
+          </label>
+          <output
+            htmlFor="viewer-timeline"
+            className={styles.timelineTime}
+            aria-live="off"
+          >
+            <strong>{formatPlaybackTime(currentTimeMs)}</strong>
+            <span>/ {formatPlaybackTime(durationMs)}</span>
+          </output>
+        </div>
+        <div
+          className={styles.timelineTrack}
+          style={
+            {
+              "--timeline-progress": `${progressPercent}%`,
+            } as CSSProperties
+          }
+        >
           <input
             id="viewer-timeline"
             type="range"

@@ -11,21 +11,31 @@ export function CameraPanel({ frame }: CameraPanelProps) {
     : null;
 
   return (
-    <section className={styles.cameraPanel} aria-label="전방 카메라">
+    <section className={styles.cameraPanel} aria-labelledby="camera-title">
       <div className={styles.cameraPanelHeading}>
-        <h2>전방 카메라 · 가상 장면</h2>
-        <span>{frame ? `촬영 ${timestampSeconds}초` : "Frame 없음"}</span>
+        <div>
+          <p>02 · Camera feed</p>
+          <h2 id="camera-title">전방 카메라</h2>
+        </div>
+        <span className={styles.frameBadge}>
+          {frame ? `${timestampSeconds}초` : "Frame 없음"}
+        </span>
       </div>
       {frame ? (
-        <img
-          className={styles.cameraImage}
-          src={frame.imageUrl}
-          alt={`가상 전방 카메라 ${timestampSeconds}초 장면`}
-          width={640}
-          height={360}
-        />
+        <div className={styles.cameraViewport}>
+          <img
+            className={styles.cameraImage}
+            src={frame.imageUrl}
+            alt={`가상 전방 카메라 ${timestampSeconds}초 장면`}
+            width={640}
+            height={360}
+          />
+          <span className={styles.cameraChannel}>CAM_FRONT · MOCK</span>
+        </div>
       ) : (
-        <p>표시할 카메라 Frame이 없습니다.</p>
+        <p className={styles.panelEmptyState}>
+          표시할 카메라 Frame이 없습니다.
+        </p>
       )}
     </section>
   );

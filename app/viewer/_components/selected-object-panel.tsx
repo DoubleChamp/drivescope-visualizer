@@ -11,8 +11,16 @@ export function SelectedObjectPanel({
   frame,
 }: SelectedObjectPanelProps) {
   return (
-    <section className={styles.selectedObject} aria-label="선택한 객체 정보">
-      <h2>선택한 객체</h2>
+    <section className={styles.selectedObject} aria-labelledby="object-title">
+      <div className={styles.railPanelHeading}>
+        <div>
+          <p>03 · Inspection</p>
+          <h2 id="object-title">선택 객체</h2>
+        </div>
+        <span className={styles.selectionStatus}>
+          {object ? "선택됨" : "선택 대기"}
+        </span>
+      </div>
       {object ? (
         <dl className={styles.selectedObjectDetails}>
           <div>
@@ -37,7 +45,13 @@ export function SelectedObjectPanel({
           </div>
         </dl>
       ) : (
-        <p>3D 장면에서 보행자 박스를 클릭하세요.</p>
+        <div className={styles.objectEmptyState}>
+          <span className={styles.crosshair} aria-hidden="true" />
+          <div>
+            <strong>분석할 객체를 선택하세요</strong>
+            <p>3D 장면에서 보행자 박스를 클릭하면 세부 정보가 표시됩니다.</p>
+          </div>
+        </div>
       )}
     </section>
   );
