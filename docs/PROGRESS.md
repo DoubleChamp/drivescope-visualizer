@@ -5,19 +5,30 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: Python 변환기와 TypeScript 로더가 공유할 DriveScope 디스크 포맷 v1을 정의하고 가상 manifest로 검증했다.
-- 다음 한 단계: 포맷 v1에 맞춰 nuScenes mini의 첫 scene을 변환하는 Python 변환기를 만든다.
-- 아직 구현하지 않은 것: nuScenes 변환기, 실제 파일 로딩·파싱, 실제 데이터 Viewer 연결, 배포와 데모 영상
+- 현재 작업: 공식 nuScenes devkit을 사용하는 Python CLI로 mini 첫 scene을 DriveScope 디스크 포맷 v1로 변환하고 실제 산출물을 검증했다.
+- 다음 한 단계: 변환한 manifest와 현재 LiDAR Frame 바이너리를 브라우저에서 비동기로 읽어 기존 Promise 공유·LRU 캐시에 연결한다.
+- 아직 구현하지 않은 것: 실제 파일 브라우저 로딩·파싱, 실제 데이터 Viewer 연결, 로딩 실패 처리, 배포와 데모 영상
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다.
 
 ## 다른 컴퓨터에서 이어서 시작하기
 
 1. GitHub Desktop에서 `main`의 원격 변경을 먼저 확인하고 pull한다.
 2. `pnpm validate:manifest`와 `pnpm build`로 현재 기준선을 확인한다.
-3. [DATA_FORMAT.md](./DATA_FORMAT.md)의 포맷 v1에 맞춰 nuScenes mini 첫 scene을 변환하는 Python CLI를 다음 한 단계로 구현한다.
+3. [DATA_FORMAT.md](./DATA_FORMAT.md)의 명령으로 nuScenes mini 첫 scene을 다시 변환하고 실제 산출물을 검증할 수 있다.
 4. Python 변환기는 브라우저 런타임이나 API 요청마다 실행하지 않는다. 개발 시 원본 로그를 한 번 전처리해 `manifest.json`, `camera/*`, `lidar/*.bin`을 만드는 축소된 ingestion pipeline이다.
 5. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 6. 실제 LiDAR·카메라 연결과 오류 처리가 안정된 직후 Viewer 디자인을 마감하고, 이후 README·배포·1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### Phase 7: nuScenes mini 첫 scene 변환기 (2026-09-30)
+
+- Python 3.12와 공식 `nuscenes-devkit 1.2.0`을 프로젝트 전용 `.venv`에서 사용하고, `requirements-converter.txt`로 변환 의존성을 고정했다.
+- `scripts/convert_nuscenes_mini.py`는 mini의 sample 연결 목록을 따라 첫 scene의 `LIDAR_TOP`과 `CAM_FRONT` keyframe만 변환한다. 전체 sweep 집계와 다른 카메라·레이더는 이번 범위에 포함하지 않았다.
+- sensor 좌표를 calibrated sensor로 ego 좌표에 놓고 각 Frame의 ego pose로 global에 옮긴 뒤, 첫 LiDAR keyframe의 ego pose 역변환으로 시나리오 좌표를 만든다. 마지막으로 nuScenes의 `x=앞, y=왼쪽, z=위`를 Viewer의 `X=오른쪽, Y=위, Z=앞`으로 바꾼다.
+- 두 센서 Frame 중 가장 이른 원본 timestamp를 origin으로 사용한다. 실제 첫 scene에서는 Camera가 `0ms`, 첫 LiDAR가 `35ms`이고 마지막 Frame까지의 `durationMs`는 `19,185ms`였다.
+- `scene-0061`에서 LiDAR 39개·Camera 39개를 출력했다. LiDAR 총 1,354,112포인트는 XYZ Float32 16,249,344바이트이며 카메라 복사본 총크기는 5,709,718바이트였다.
+- 출력은 임시 디렉터리에 완성한 뒤 최종 scene 디렉터리로 이동하고, 같은 이름의 기존 결과가 있으면 덮어쓰지 않고 중단한다. 원본 nuScenes와 생성 결과는 Git에 추가하지 않는다.
+- manifest validator가 선택적 실제 manifest 경로를 받아 모든 카메라 파일의 존재와 각 LiDAR 파일의 `pointCount × 12`바이트를 검사하도록 확장됐다. 실제 결과는 schema·timestamp·안전한 상대 경로 검증과 자산 크기 검증을 통과했고, 모든 LiDAR 좌표가 유한값임을 확인했다. 카메라 39장도 이미지로 디코딩했으며 첫 복사본의 SHA-256이 원본과 일치했다.
+- Python 단위 테스트에서 microsecond 차이의 millisecond 내림, origin 이전 timestamp 거부와 축 기저 변환을 확인했다. TypeScript 검사와 production build도 통과했다.
 
 ### Phase 7: DriveScope 디스크 포맷 v1 (2026-09-29)
 

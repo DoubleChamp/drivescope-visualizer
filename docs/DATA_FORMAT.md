@@ -72,8 +72,36 @@ nuScenes ego 좌표의 `x=앞, y=왼쪽, z=위`를 Viewer 축으로 옮길 때�
 
 ## 검증
 
+### nuScenes mini 첫 scene 변환
+
+Python 3.12 환경에서 공식 devkit을 프로젝트 가상환경에 설치한다.
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-converter.txt
+```
+
+원본 데이터 루트와 변환 결과를 둘 출력 루트를 지정한다. 기본 `scene-index`는 첫 scene인 `0`이며 출력 루트 아래에 nuScenes scene 이름의 디렉터리를 만든다. 같은 scene 디렉터리가 이미 있으면 기존 결과를 덮어쓰지 않는다.
+
+```powershell
+.\.venv\Scripts\python.exe scripts\convert_nuscenes_mini.py `
+  --dataroot "<nuScenes mini 루트>" `
+  --output-root "<DriveScope 변환 출력 루트>" `
+  --scene-index 0
+```
+
+현재 변환기는 scene의 sample keyframe `LIDAR_TOP`과 `CAM_FRONT`만 출력하며 중간 sweep은 포함하지 않는다. 좌표 기준은 첫 sample의 LiDAR ego pose이고 timestamp origin은 포함한 LiDAR·Camera Frame 중 가장 이른 원본 timestamp다.
+
+### 산출물 검증
+
 ```bash
 pnpm validate:manifest
 ```
 
 이 명령은 fixture JSON을 실제로 읽고 `parseDriveScopeManifest()`로 검사한다. TypeScript 타입은 컴파일 시 코드만 검사하므로, Python이 만든 외부 JSON에는 같은 런타임 검증이 필요하다.
+
+실제 변환 결과는 manifest 경로를 추가로 넘긴다. schema와 timestamp·경로에 더해 카메라 파일 존재 여부와 LiDAR 바이너리 크기를 검증한다.
+
+```powershell
+pnpm validate:manifest -- "<변환 scene 디렉터리>\manifest.json"
+```

@@ -526,13 +526,21 @@
 - 정적 배포 파일도 첫 접근에는 HTTP 로딩이 있다. DriveScope CPU Frame 캐시, 브라우저 HTTP cache, CDN cache, 원본 서버 순서의 여러 캐시 계층 가운데 먼저 hit한 위치에서 데이터를 얻는다.
 - 카메라와 LiDAR의 timestamp 선택과 네트워크 준비 완료는 서로 다른 문제다. 연속 재생에서는 센서를 독립적으로 갱신하고, 정지·seek 분석에서는 센서별 timestamp와 loading 상태를 함께 보여주는 방향으로 설계한다.
 
+### nuScenes mini 첫 scene 변환 (2026-09-30, 사용자 이해 확인 대기)
+
+- 실무에서도 원본 로그의 복잡한 테이블·좌표·파일 형식을 서비스 내부 계약으로 정규화하는 오프라인 ingestion/ETL 변환기를 둔다. 공식 devkit은 nuScenes를 읽는 책임을 맡고 DriveScope Python CLI는 제품 전용 manifest·축·바이너리 계약으로 바꾸는 얇은 어댑터다.
+- 첫 scene은 sample 39개이며 각 sample의 keyframe `LIDAR_TOP`과 `CAM_FRONT`만 변환했다. `sweeps`에는 중간 센서 Frame이 더 많지만, 첫 실제 연결에서 시간·메모리 범위를 작게 유지하려고 아직 집계하지 않았다.
+- 점 하나는 `sensor → 현재 ego → global → 첫 LiDAR ego` 순서로 이동한다. 행렬을 코드에 쓰면 오른쪽의 sensor 변환부터 점에 적용되므로 `scenarioFromGlobal @ globalFromCurrentEgo @ currentEgoFromSensor` 순서가 된다.
+- 첫 Camera timestamp가 첫 LiDAR보다 35ms 빠르므로 공통 origin은 Camera가 되고 LiDAR 배열은 `35ms`부터 시작한다. 공통 시간축의 origin과 좌표계 원점으로 선택한 센서 pose는 서로 다른 개념이다.
+- 실제 `scene-0061`은 LiDAR 39개·Camera 39개, 총 1,354,112 LiDAR 포인트와 `19,185ms` 길이로 변환됐다. TypeScript parser가 manifest를 검증하고 각 LiDAR 파일 크기가 `pointCount × 12`인지, 모든 카메라 파일이 존재하는지 교차 확인했다.
+- 생성 결과는 원본 데이터와 마찬가지로 개발용 대용량 자산이므로 Git 소스에 포함하지 않는다. 저장소에는 재현 가능한 변환 코드·의존성·포맷·검증 절차만 남긴다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 7의 디스크 포맷 v1을 고정했으며, 다음에는 nuScenes mini 첫 scene에서 이 포맷을 실제로 출력하는 Python 변환 경로를 확인한다.
+Phase 7의 디스크 포맷 v1과 nuScenes mini 첫 scene 변환을 완료했으며, 다음에는 실제 manifest와 필요한 LiDAR 바이너리를 브라우저에서 비동기로 읽어 기존 캐시 경계에 연결한다.
 
 - Canvas DOM 좌표를 NDC로 변환하는 식과 Y 부호를 뒤집는 이유
 - Camera 광선과 Mesh 삼각형의 교차, `visible`과 wireframe이 선택 판정에 미치는 영향
 - React의 객체 ID 선택 state와 Three.js Material 시각 피드백의 책임 분리
 - `ViewerCanvas`, Custom Hook, 표시 컴포넌트와 Three.js 런타임 Hook 사이의 책임 분리
-- nuScenes sensor calibration·ego pose를 시나리오 좌표로 합성하는 순서
 - Python이 쓴 little-endian Float32 바이너리를 브라우저가 `ArrayBuffer`로 읽는 경계

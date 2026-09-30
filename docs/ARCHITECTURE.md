@@ -57,6 +57,10 @@ Phase 7의 실제 데이터 경계는 [DATA_FORMAT.md](./DATA_FORMAT.md)의 Driv
 
 원본 nuScenes timestamp는 microsecond 정수지만 시나리오 내부 시간은 가장 이른 변환 대상 센서 Frame을 `0ms`로 삼는다. Python 변환기는 `floor((sourceTimestampUs - timestampOriginUs) / 1000)`으로 상대 정수 밀리초를 만든다. 모든 위치는 변환 단계에서 현재 Viewer의 `X=오른쪽, Y=위, Z=앞, meter`인 첫 sample 기준 좌표계로 맞춘다. 따라서 브라우저와 Three.js는 nuScenes 보정 행렬이나 절대 시각 변환을 다시 수행하지 않는다.
 
+구현된 `scripts/convert_nuscenes_mini.py`는 공식 nuScenes devkit으로 선택 scene의 sample 연결 목록을 순회하며 `LIDAR_TOP`·`CAM_FRONT` keyframe을 읽는다. LiDAR 점에는 `scenarioFromGlobal × globalFromCurrentEgo × currentEgoFromSensor` 순서의 동차 변환을 적용한다. 여기서 scenario 기준은 첫 sample의 `LIDAR_TOP` ego pose이며, 그 뒤 `viewerX = -sourceY`, `viewerY = sourceZ`, `viewerZ = sourceX`로 축을 바꾼다. 변환 결과는 기존 출력에 덮어쓰지 않고 임시 디렉터리에서 완성한 뒤 scene 디렉터리로 이동한다.
+
+첫 mini scene `scene-0061`의 실제 결과는 LiDAR·Camera keyframe이 각각 39개이고 시간 범위는 `0~19,185ms`다. 가장 이른 Camera Frame이 origin이고 첫 LiDAR Frame은 `35ms`이므로 모든 센서의 첫 Frame이 반드시 `0ms`일 필요는 없다. 현재 실제 산출물은 브라우저에 아직 연결하지 않았으며 다음 로더 단계에서 manifest를 먼저 읽고 필요한 LiDAR 바이너리만 기존 Promise 공유·LRU 캐시에 공급한다.
+
 현재 `LidarFrame`은 측정 시점인 `timestampMs`와 `[x, y, z, ...]` 순서의 `Float32Array`인 `positions`만 보관한다. 포인트 수는 중복 필드로 저장하지 않고 `positions.length / 3`으로 계산한다. intensity처럼 아직 사용하지 않는 값은 미리 추가하지 않는다.
 
 `LidarFrame`에는 Three.js의 `BufferAttribute`, `BufferGeometry`나 `Points`를 넣지 않는다. 데이터 계층은 CPU의 순수 좌표를 제공하고, Three.js 런타임이 좌표 해석과 GPU 전송 상태를 관리할 `BufferAttribute`를 소유한다. CPU 배열을 바꾼 뒤에는 Attribute의 `needsUpdate`를 설정해야 다음 `renderer.render()`에서 변경 데이터가 GPU로 전송되고 새 화면에 사용된다.

@@ -22,8 +22,8 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 - **Phase 4 — 완료:** 현재 재생 시간 state, 재생·정지, 타임라인 드래그, Frame 선택·센서 동기화와 급제동 이벤트 마커를 추가하고 선택된 Camera·LiDAR·Object Detection Frame을 화면에 반영했다.
 - **Phase 5 — 기능 구현과 구조 정리 완료, 이해 확인 대기:** 보행자·차량 박스, 예상 경로와 충돌 구간, 객체 선택·기본 정보와 같은 시간축의 가상 전방 카메라 패널을 구현했다. 이어서 Viewer를 재생·선택·Three.js 런타임 Hook과 표시 컴포넌트로 책임별 분리했다.
 - **Phase 6 — 기능 구현 완료, Frame 로딩 시간 이해 확인 대기:** LiDAR Frame의 CPU 캐시·prefetch·최대 5개 LRU 축출과 모의 로더 실행 시간 표시를 연결했다. 현재 측정에서는 Worker를 도입할 병목이 확인되지 않았다.
-- **Phase 7 — 진행 중:** Python 변환기와 TypeScript 로더가 공유할 DriveScope manifest·LiDAR 바이너리 포맷을 먼저 고정한다.
-- **다음 단계:** 고정한 포맷에 맞춰 nuScenes mini의 첫 scene을 변환하는 Python 변환기를 만든다.
+- **Phase 7 — 진행 중:** DriveScope 디스크 포맷 v1을 고정하고 nuScenes mini 첫 scene을 실제 manifest·카메라 이미지·LiDAR 바이너리로 변환했다.
+- **다음 단계:** 변환 결과의 manifest와 현재 LiDAR Frame 파일을 브라우저에서 필요할 때 불러오는 실제 로더를 기존 캐시 경계에 연결한다.
 
 ---
 
@@ -169,7 +169,7 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 상태: **진행 중**
 
 1. [x] Python 변환기와 TypeScript 로더가 공유할 manifest·LiDAR 바이너리 포맷을 정의하고 가상 manifest로 검증한다.
-2. [ ] Python으로 nuScenes mini를 DriveScope Frame 형식으로 변환한다.
+2. [x] Python으로 nuScenes mini 첫 scene을 DriveScope Frame 형식으로 변환한다.
 3. [ ] 실제 LiDAR와 전방 카메라 데이터를 뷰어에 연결한다.
 4. [ ] 누락 파일, 잘못된 timestamp와 로딩 실패를 처리한다.
 5. [ ] 가상 데이터와 실제 데이터의 성능을 같은 기준으로 비교한다.
