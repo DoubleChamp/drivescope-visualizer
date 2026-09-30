@@ -12,6 +12,7 @@ import { useLidarFrameCache } from "./_hooks/use-lidar-frame-cache";
 import { useObjectSelection } from "./_hooks/use-object-selection";
 import { usePlayback } from "./_hooks/use-playback";
 import { useThreeViewer } from "./_hooks/use-three-viewer";
+import { formatSeconds } from "./_utils/format-time";
 import styles from "./viewer-canvas.module.css";
 
 export default function ViewerCanvas() {
@@ -71,7 +72,7 @@ export default function ViewerCanvas() {
         <dl className={styles.scenarioSummary} aria-label="시나리오 요약">
           <div>
             <dt>재생 구간</dt>
-            <dd>{(mockScenario.durationMs / 1_000).toFixed(1)}초</dd>
+            <dd>{formatSeconds(mockScenario.durationMs)}초</dd>
           </div>
           <div>
             <dt>LiDAR Frame</dt>
@@ -81,7 +82,7 @@ export default function ViewerCanvas() {
             <dt>급제동 이벤트</dt>
             <dd>
               {primaryEvent
-                ? `${(primaryEvent.timestampMs / 1_000).toFixed(1)}초`
+                ? `${formatSeconds(primaryEvent.timestampMs)}초`
                 : "없음"}
             </dd>
           </div>

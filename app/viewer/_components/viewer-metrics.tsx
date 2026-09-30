@@ -1,5 +1,6 @@
 import styles from "../viewer-canvas.module.css";
 import type { LidarCacheStatus } from "../_hooks/use-lidar-frame-cache";
+import { formatSeconds } from "../_utils/format-time";
 
 type ViewerMetricsProps = {
   pointCount: number;
@@ -51,8 +52,7 @@ export function ViewerMetrics({
       <div className={styles.metric}>
         <dt>재생 시간</dt>
         <dd>
-          {(currentTimeMs / 1_000).toFixed(1)} /{" "}
-          {(durationMs / 1_000).toFixed(1)}초
+          {formatSeconds(currentTimeMs)} / {formatSeconds(durationMs)}초
         </dd>
       </div>
       <div className={styles.metric}>

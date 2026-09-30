@@ -1,4 +1,5 @@
 import type { ObjectDetection, ObjectDetectionFrame } from "../_data/frame-types";
+import { formatSeconds } from "../_utils/format-time";
 import styles from "../viewer-canvas.module.css";
 
 type SelectedObjectPanelProps = {
@@ -41,7 +42,7 @@ export function SelectedObjectPanel({
           </div>
           <div>
             <dt>인식 시각</dt>
-            <dd>{((frame?.timestampMs ?? 0) / 1_000).toFixed(1)}초</dd>
+            <dd>{formatSeconds(frame?.timestampMs ?? 0)}초</dd>
           </div>
         </dl>
       ) : (

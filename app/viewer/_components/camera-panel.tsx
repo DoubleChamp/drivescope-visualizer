@@ -1,4 +1,5 @@
 import type { CameraFrame } from "../_data/frame-types";
+import { formatSeconds } from "../_utils/format-time";
 import styles from "../viewer-canvas.module.css";
 
 type CameraPanelProps = {
@@ -6,9 +7,7 @@ type CameraPanelProps = {
 };
 
 export function CameraPanel({ frame }: CameraPanelProps) {
-  const timestampSeconds = frame
-    ? (frame.timestampMs / 1_000).toFixed(1)
-    : null;
+  const timestampSeconds = frame ? formatSeconds(frame.timestampMs) : null;
 
   return (
     <section className={styles.cameraPanel} aria-labelledby="camera-title">

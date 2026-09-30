@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import type { ScenarioEvent } from "../_data/frame-types";
 import { PLAYBACK_STEP_MS } from "../_hooks/use-playback";
+import { formatSeconds } from "../_utils/format-time";
 import styles from "../viewer-canvas.module.css";
 
 type PlaybackControlsProps = {
@@ -18,7 +19,7 @@ const EVENT_TYPE_LABELS: Record<ScenarioEvent["type"], string> = {
 
 const formatPlaybackTime = (timeMs: number) => {
   const minutes = Math.floor(timeMs / 60_000);
-  const seconds = ((timeMs % 60_000) / 1_000).toFixed(1).padStart(4, "0");
+  const seconds = formatSeconds(timeMs % 60_000).padStart(4, "0");
 
   return `${minutes.toString().padStart(2, "0")}:${seconds}`;
 };
@@ -76,13 +77,13 @@ export function PlaybackControls({
             max={durationMs}
             step={PLAYBACK_STEP_MS}
             value={currentTimeMs}
-            aria-valuetext={`${(currentTimeMs / 1_000).toFixed(1)}초`}
+            aria-valuetext={`${formatSeconds(currentTimeMs)}초`}
             onChange={(event) => onSeek(event.currentTarget.valueAsNumber)}
           />
           <div className={styles.timelineEvents}>
             {events.map((event) => {
               const eventLabel = EVENT_TYPE_LABELS[event.type];
-              const eventTimeSeconds = (event.timestampMs / 1_000).toFixed(1);
+              const eventTimeSeconds = formatSeconds(event.timestampMs);
               const positionPercent = (event.timestampMs / durationMs) * 100;
               const accessibleLabel = `${eventLabel} ${eventTimeSeconds}초`;
 

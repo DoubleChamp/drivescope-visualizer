@@ -3,6 +3,7 @@ import type {
   LidarFrame,
   ObjectDetectionFrame,
 } from "../_data/frame-types";
+import { formatSeconds } from "../_utils/format-time";
 import styles from "../viewer-canvas.module.css";
 
 type SynchronizedFramesPanelProps = {
@@ -53,7 +54,7 @@ export function SynchronizedFramesPanel({
           <h2 id="sync-title">Frame 동기화</h2>
         </div>
         <span className={styles.frameBadge}>
-          {(currentTimeMs / 1_000).toFixed(1)}초
+          {formatSeconds(currentTimeMs)}초
         </span>
       </div>
       <dl className={styles.synchronizedFrames} aria-label="동기화된 Frame">
@@ -73,7 +74,7 @@ export function SynchronizedFramesPanel({
               ) : (
                 <>
                   <span className={styles.frameTimestamp}>
-                    {(frame.timestampMs / 1_000).toFixed(1)}초
+                    {formatSeconds(frame.timestampMs)}초
                     <span className={styles.timestampDifference}>
                       {formatTimestampDifference(frame.timestampMs - currentTimeMs)}
                     </span>

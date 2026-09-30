@@ -5,7 +5,7 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: 기존 Viewer 기능과 Three.js 런타임을 유지한 채 정보 위계와 반응형 배치를 정리하는 Viewer UI 셸 1차 리뉴얼을 완료했다.
+- 현재 작업: Viewer UI 셸 리뉴얼 뒤 여러 표시 컴포넌트에 반복되던 밀리초→초 변환을 공통 `formatSeconds()` 유틸로 정리했다.
 - 다음 한 단계: 변환한 manifest와 현재 LiDAR Frame 바이너리를 브라우저에서 비동기로 읽어 기존 Promise 공유·LRU 캐시에 연결한다.
 - 아직 구현하지 않은 것: 실제 파일 브라우저 로딩·파싱, 실제 데이터 Viewer 연결, 로딩 실패 처리, 실제 데이터 상태를 반영한 최종 디자인 마감, 배포와 데모 영상
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
@@ -19,6 +19,12 @@
 5. Python 변환기는 브라우저 런타임이나 API 요청마다 실행하지 않는다. 개발 시 원본 로그를 한 번 전처리해 `manifest.json`, `camera/*`, `lidar/*.bin`을 만드는 축소된 ingestion pipeline이다.
 6. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 7. 실제 LiDAR·카메라 연결과 오류 처리가 안정된 직후 Viewer 디자인을 마감하고, 이후 README·배포·1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### Viewer 시간 표시 유틸 정리 (2026-09-30)
+
+- 시나리오 요약, 카메라, 타임라인, 선택 객체, 센서 동기화와 성능 지표에서 반복하던 `(timeMs / 1_000).toFixed(1)` 표시 규칙을 `_utils/format-time.ts`의 `formatSeconds()`로 모았다.
+- 실제 객체 위치 계산처럼 숫자 연산이 필요한 시간 변환은 표시 포맷과 책임이 다르므로 변경하지 않았다. 재생·Frame 선택·캐시·Three.js 로직에도 변경이 없다.
+- 대표값 `0ms`, `12,400ms`, `15,000ms`의 결과를 확인했고 TypeScript 검사와 production build가 통과했다.
 
 ### Viewer UI 셸 1차 리뉴얼 (2026-09-30)
 
