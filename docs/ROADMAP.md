@@ -196,3 +196,4 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 3. [ ] 학습·비교용 Web Worker 파싱 버전을 만들고 transferable `ArrayBuffer`로 결과를 전달한다.
 4. [ ] 메인 스레드 버전과 Worker 버전의 수치를 비교해 Worker 유지 여부와 효과를 문서화한다.
 5. [ ] 실제 데이터에서 Frame 선택 비용을 측정한 뒤, 순차 재생은 현재 인덱스 cursor로 전진하고 임의 seek는 정렬된 timestamp 배열의 이진 탐색을 사용해 매번 수행하는 `O(n)` 선형 탐색을 제거한다.
+6. [ ] keyframe 실제 로더가 안정된 뒤 nuScenes 중간 `sweeps`를 센서 원래 timestamp의 개별 Frame으로 재생할지, 여러 LiDAR sweep을 기준 시점 좌표로 보정해 누적할지 비교한다. 시간 해상도·점 밀도·네트워크·캐시·움직이는 객체 잔상을 측정해 포함 여부를 결정한다.

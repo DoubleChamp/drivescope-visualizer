@@ -8,7 +8,7 @@
 - 현재 작업: 공식 nuScenes devkit을 사용하는 Python CLI로 mini 첫 scene을 DriveScope 디스크 포맷 v1로 변환하고 실제 산출물을 검증했다.
 - 다음 한 단계: 변환한 manifest와 현재 LiDAR Frame 바이너리를 브라우저에서 비동기로 읽어 기존 Promise 공유·LRU 캐시에 연결한다.
 - 아직 구현하지 않은 것: 실제 파일 브라우저 로딩·파싱, 실제 데이터 Viewer 연결, 로딩 실패 처리, 배포와 데모 영상
-- 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다.
+- 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
 ## 다른 컴퓨터에서 이어서 시작하기
 
