@@ -5,9 +5,9 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: 로컬 v2 `scene-0061` manifest와 필요한 LiDAR 바이너리를 Next.js Route Handler로 제공하고, 브라우저의 실제 파일 로더를 기존 Promise 공유·prefetch·5개 LRU 캐시에 연결했다.
+- 현재 작업: 실제 `egoVehicle.frames`를 차량 Mesh에 연결하고, 고정된 시나리오 좌표 안에서 가상 Three.js Camera가 현재 차량의 위치와 yaw를 따라가도록 했다.
 - 다음 한 단계: manifest의 `CAM_FRONT` Frame을 같은 HTTP 경계로 제공하고, 공통 재생 시각에서 선택한 실제 전방 카메라 이미지를 패널에 연결한다.
-- 아직 구현하지 않은 것: 실제 전방 카메라·ego vehicle pose 연결, 누락 파일·잘못된 timestamp·로딩 실패 UI, 실제 데이터 상태를 반영한 최종 디자인 마감, 배포용 데이터 호스팅과 데모 영상
+- 아직 구현하지 않은 것: 실제 전방 카메라 연결, ego pose 보간과 Camera 이동 smoothing, 누락 파일·잘못된 timestamp·로딩 실패 UI, 실제 데이터 상태를 반영한 최종 디자인 마감, 배포용 데이터 호스팅과 데모 영상
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
 ## 다른 컴퓨터에서 이어서 시작하기
@@ -22,6 +22,14 @@
 8. 현재 Route Handler는 로컬 개발용이다. 배포에서는 로컬 C 드라이브를 읽을 수 없으므로 같은 scene 디렉터리를 정적 파일 서버·CDN·오브젝트 스토리지에 올리고 로더의 기준 URL을 바꿔야 한다.
 9. 실제 LiDAR·카메라 연결과 오류 처리가 안정된 직후 Viewer 디자인을 마감하고, 이후 README·배포·1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
 
+### Phase 7: 실제 ego 차량과 추적 Camera (2026-10-01)
+
+- manifest의 실제 ego pose와 속도·가속도를 가진 가상 `VehicleStateFrame`을 구분했다. 공통 위치·yaw 계약은 `EgoPoseFrame`으로 두고 가상 Vehicle State가 이를 확장하므로, 실제 데이터에 근거 없는 속도·가속도를 채우지 않는다.
+- 공통 재생 시각 이하의 최신 `egoVehicle.frames`를 선택해 기존 차량 wireframe Mesh의 위치와 yaw에 반영했다. 실제 LiDAR 점군과 차량은 변환기에서 만든 동일한 첫 LiDAR ego 기준의 시나리오 좌표를 사용한다.
+- 실제 모드에서는 시나리오 좌표와 점군을 움직이지 않고 Three.js `PerspectiveCamera`만 차량 뒤 18m·위 12m로 옮기고 차량 진행 방향 12m 앞을 바라보게 했다. yaw에서 진행 벡터 `[sin(yaw), 0, cos(yaw)]`를 만들며, Frame 사이 pose 보간과 Camera smoothing은 아직 하지 않는다.
+- 실제 소스를 기다리는 상태와 로딩 실패 뒤 mock fallback을 분리했다. manifest 로딩 중에는 mock 차량·카메라·객체·경로·이벤트를 잠깐 표시하지 않고 명시적인 연결 중 문구와 빈 센서 상태를 유지한다.
+- TypeScript 검사가 통과했다. 브라우저에서 `12.4초`와 `19.1초`로 seek했을 때 각각 약 34,752개·34,720개의 실제 LiDAR 포인트가 계속 화면에 남았고, 두 시점 모두 차량 wireframe의 WebGL draw call을 확인했다. 초기 manifest 준비 중에는 mock Frame이 나타나지 않았다.
+
 ### Phase 7: 실제 LiDAR 브라우저 로더 (2026-10-01)
 
 - 브라우저는 로컬 `C:\...` 파일을 직접 읽지 않는다. 서버 전용 `DRIVESCOPE_DATA_ROOT`를 읽는 `/api/drivescope-data/[...assetPath]` Route Handler가 manifest와 `lidar/*.bin`만 same-origin HTTP로 제공하도록 경계를 만들었다.
@@ -29,7 +37,7 @@
 - 브라우저 로더는 `fetch → response.json() → parseDriveScopeManifest()` 순서로 manifest를 검증하고, 선택한 Frame의 상대 경로만 요청한다. 응답 크기가 `pointCount × 12`바이트인지 확인한 뒤 little-endian `Float32Array`로 해석한다.
 - `useLidarFrameCache` 안의 mock 로더 직접 의존을 `LidarFrameSource.loadFrame()` 주입으로 바꿔, 기존 timestamp별 진행 중 Promise 공유·양옆 prefetch·최대 5개 LRU 규칙을 실제 파일에도 그대로 적용했다.
 - manifest의 최대 `pointCount`로 Three.js 재사용 Buffer 용량을 한 번 준비한다. 각 Frame은 새 Geometry를 만들지 않고 기존 Attribute 배열에 복사한 뒤 `needsUpdate`와 `drawRange`만 갱신한다.
-- 실제 소스가 준비되면 가상 Camera·Object Detection·Trajectory·Vehicle State를 숨겨 서로 다른 장면이 한 Canvas에 섞이지 않게 했다. 실제 카메라와 ego pose는 다음 단계에서 연결한다.
+- 실제 소스가 준비되면 가상 Camera·Object Detection·Trajectory·Vehicle State를 숨겨 서로 다른 장면이 한 Canvas에 섞이지 않게 했다. 이후 실제 ego pose는 차량 Mesh와 추적 Camera에 연결했으며 실제 전방 카메라는 아직 대기 중이다.
 - production 서버 HTTP 검사에서 manifest 200, schema v2, LiDAR 39개를 확인했다. 첫 Frame은 34,688포인트·416,256바이트로 `pointCount × 12`와 일치했고 허용하지 않은 Camera 경로는 404를 반환했다.
 - TypeScript 검사와 production build는 통과했다. Windows headless Chrome·Edge가 DOM·스크린샷 결과를 만들지 않아 이번 단계에서 WebGL 화면 자동 캡처는 검증하지 못했다.
 

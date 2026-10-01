@@ -21,11 +21,11 @@ import {
 } from "three";
 import { findAxisAlignedTrajectoryCollisionSegments } from "../_analysis/find-axis-aligned-trajectory-collision-segments";
 import type {
+  EgoPoseFrame,
   LidarFrame,
   ObjectDetection,
   ScenarioData,
   TrajectoryFrame,
-  VehicleStateFrame,
 } from "../_data/frame-types";
 
 const FPS_SAMPLE_INTERVAL_MS = 1_000;
@@ -33,13 +33,20 @@ const TRAJECTORY_RENDER_HEIGHT = 0.05;
 const COLLISION_RENDER_HEIGHT = TRAJECTORY_RENDER_HEIGHT + 0.02;
 const PEDESTRIAN_DEFAULT_COLOR = 0xf97316;
 const PEDESTRIAN_SELECTED_COLOR = 0xe879f9;
+const DEFAULT_CAMERA_POSITION = [30, 25, -30] as const;
+const DEFAULT_CAMERA_TARGET = [0, 0, -10] as const;
+const FOLLOW_CAMERA_DISTANCE = 18;
+const FOLLOW_CAMERA_HEIGHT = 12;
+const FOLLOW_CAMERA_LOOK_AHEAD = 12;
+const FOLLOW_CAMERA_TARGET_HEIGHT = 1.5;
 
 type UseThreeViewerOptions = {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   scenario: ScenarioData;
   lidarFrame: LidarFrame | null;
   pedestrian: ObjectDetection | null;
-  vehicleStateFrame: VehicleStateFrame | null;
+  egoPoseFrame: EgoPoseFrame | null;
+  followEgoVehicle: boolean;
   trajectoryFrame: TrajectoryFrame | null;
   selectedObjectId: string | null;
   setSelectedObjectId: Dispatch<SetStateAction<string | null>>;
@@ -51,7 +58,8 @@ export function useThreeViewer({
   scenario,
   lidarFrame,
   pedestrian,
-  vehicleStateFrame,
+  egoPoseFrame,
+  followEgoVehicle,
   trajectoryFrame,
   selectedObjectId,
   setSelectedObjectId,
@@ -59,6 +67,7 @@ export function useThreeViewer({
 }: UseThreeViewerOptions) {
   const lidarGeometryRef = useRef<BufferGeometry | null>(null);
   const lidarPositionAttributeRef = useRef<BufferAttribute | null>(null);
+  const cameraRef = useRef<PerspectiveCamera | null>(null);
   const pedestrianBoxRef = useRef<Mesh | null>(null);
   const pedestrianMaterialRef = useRef<MeshBasicMaterial | null>(null);
   const vehicleBoxRef = useRef<Mesh | null>(null);
@@ -159,8 +168,9 @@ export function useThreeViewer({
     collisionGeometryRef.current = collisionGeometry;
     collisionPositionAttributeRef.current = collisionPositionAttribute;
 
-    camera.position.set(30, 25, -30);
-    camera.lookAt(0, 0, -10);
+    camera.position.set(...DEFAULT_CAMERA_POSITION);
+    camera.lookAt(...DEFAULT_CAMERA_TARGET);
+    cameraRef.current = camera;
 
     const renderer = new WebGLRenderer({ canvas });
     const raycaster = new Raycaster();
@@ -226,6 +236,7 @@ export function useThreeViewer({
       canvas.removeEventListener("click", handleCanvasClick);
       lidarGeometryRef.current = null;
       lidarPositionAttributeRef.current = null;
+      cameraRef.current = null;
       pedestrianBoxRef.current = null;
       pedestrianMaterialRef.current = null;
       vehicleBoxRef.current = null;
@@ -296,22 +307,51 @@ export function useThreeViewer({
     );
   }, [pedestrian?.id, selectedObjectId]);
 
-  // Vehicle State의 지면 기준 위치를 3D 박스 중심 위치로 변환한다.
+  // Ego pose의 지면 기준 위치를 3D 박스 중심 위치로 변환한다.
   useEffect(() => {
     const vehicleBox = vehicleBoxRef.current;
     if (!vehicleBox) return;
-    if (!vehicleStateFrame) {
+    if (!egoPoseFrame) {
       vehicleBox.visible = false;
       return;
     }
 
-    const [positionX, groundY, positionZ] = vehicleStateFrame.position;
+    const [positionX, groundY, positionZ] = egoPoseFrame.position;
     const [width, length, height] = scenario.egoVehicleSize;
     vehicleBox.position.set(positionX, groundY + height / 2, positionZ);
     vehicleBox.scale.set(width, height, length);
-    vehicleBox.rotation.set(0, vehicleStateFrame.yawRadians, 0);
+    vehicleBox.rotation.set(0, egoPoseFrame.yawRadians, 0);
     vehicleBox.visible = true;
-  }, [scenario.egoVehicleSize, vehicleStateFrame]);
+  }, [egoPoseFrame, scenario.egoVehicleSize]);
+
+  // 실제 데이터에서는 월드 좌표를 바꾸지 않고 가상 카메라만 ego 뒤·위에서 따라간다.
+  useEffect(() => {
+    const camera = cameraRef.current;
+    if (!camera) return;
+
+    if (!followEgoVehicle || !egoPoseFrame) {
+      camera.position.set(...DEFAULT_CAMERA_POSITION);
+      camera.lookAt(...DEFAULT_CAMERA_TARGET);
+      camera.updateMatrixWorld();
+      return;
+    }
+
+    const [positionX, groundY, positionZ] = egoPoseFrame.position;
+    const sinYaw = Math.sin(egoPoseFrame.yawRadians);
+    const cosYaw = Math.cos(egoPoseFrame.yawRadians);
+
+    camera.position.set(
+      positionX - sinYaw * FOLLOW_CAMERA_DISTANCE,
+      groundY + FOLLOW_CAMERA_HEIGHT,
+      positionZ - cosYaw * FOLLOW_CAMERA_DISTANCE,
+    );
+    camera.lookAt(
+      positionX + sinYaw * FOLLOW_CAMERA_LOOK_AHEAD,
+      groundY + FOLLOW_CAMERA_TARGET_HEIGHT,
+      positionZ + cosYaw * FOLLOW_CAMERA_LOOK_AHEAD,
+    );
+    camera.updateMatrixWorld();
+  }, [egoPoseFrame, followEgoVehicle]);
 
   // Planning Frame이 바뀔 때만 예상 경로의 재사용 Buffer를 갱신한다.
   useEffect(() => {

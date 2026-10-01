@@ -40,6 +40,9 @@ export default function ViewerCanvas() {
     actualDataSource ??
     (actualDataError === null ? LOADING_LIDAR_SOURCE : MOCK_LIDAR_SOURCE);
   const isActualData = actualDataSource !== null;
+  const isActualDataLoading =
+    actualDataSource === null && actualDataError === null;
+  const isMockFallback = actualDataError !== null;
   const durationMs =
     actualDataSource?.manifest.durationMs ?? mockScenario.durationMs;
   const { currentTimeMs, isPlaying, seek, togglePlayback } = usePlayback(
@@ -63,7 +66,7 @@ export default function ViewerCanvas() {
     targetTimestampMs: lidarFrameMetadata?.timestampMs ?? null,
   });
   const currentPedestrian =
-    !isActualData
+    isMockFallback
       ? (frames.objectDetection?.objects.find(
           (object) => object.category === "pedestrian",
         ) ?? null)
@@ -77,7 +80,15 @@ export default function ViewerCanvas() {
         : 0,
     ),
   );
-  const objectDetectionFrame = isActualData ? null : frames.objectDetection;
+  const objectDetectionFrame = isMockFallback ? frames.objectDetection : null;
+  const egoPoseFrame = isActualData
+    ? findLatestFrameAtOrBefore(
+        actualDataSource.manifest.egoVehicle.frames,
+        currentTimeMs,
+      )
+    : isMockFallback
+      ? frames.vehicleState
+      : null;
   const { selectedObject, selectedObjectId, setSelectedObjectId } =
     useObjectSelection(objectDetectionFrame);
   const { framesPerSecond } = useThreeViewer({
@@ -85,19 +96,20 @@ export default function ViewerCanvas() {
     scenario: mockScenario,
     lidarFrame,
     pedestrian: currentPedestrian,
-    vehicleStateFrame: isActualData ? null : frames.vehicleState,
-    trajectoryFrame: isActualData ? null : frames.trajectory,
+    egoPoseFrame,
+    followEgoVehicle: isActualData,
+    trajectoryFrame: isMockFallback ? frames.trajectory : null,
     selectedObjectId,
     setSelectedObjectId,
     lidarPositionCapacity,
   });
   const primaryEvent =
-    !isActualData
+    isMockFallback
       ? (mockScenario.events.find(
           (event) => event.type === "emergency-braking",
         ) ?? null)
       : null;
-  const timelineEvents = isActualData ? [] : mockScenario.events;
+  const timelineEvents = isMockFallback ? mockScenario.events : [];
 
   return (
     <div className={styles.viewer}>
@@ -105,15 +117,23 @@ export default function ViewerCanvas() {
         <div className={styles.viewerHeading}>
           <p className={styles.eyebrow}>
             <span aria-hidden="true" />
-            {isActualData
+            {isActualDataLoading
+              ? "nuScenes mini · 연결 중"
+              : isActualData
               ? `nuScenes mini · ${actualDataSource.manifest.scenarioId}`
               : "Incident review · Demo 01"}
           </p>
           <h1>
-            {isActualData ? "실제 LiDAR 주행 장면" : "보행자 급제동 시나리오"}
+            {isActualDataLoading
+              ? "실제 데이터 불러오는 중"
+              : isActualData
+                ? "실제 LiDAR 주행 장면"
+                : "보행자 급제동 시나리오"}
           </h1>
           <p>
-            {isActualData
+            {isActualDataLoading
+              ? "manifest를 검증하고 실제 LiDAR 데이터 소스를 준비하고 있습니다."
+              : isActualData
               ? "nuScenes 변환 산출물의 LiDAR Frame을 필요한 시점에만 읽어 공통 시간축에서 재생합니다."
               : "센서가 포착한 순간부터 차량이 반응하기까지, 모든 Frame을 하나의 시간축에서 추적합니다."}
           </p>
@@ -211,14 +231,14 @@ export default function ViewerCanvas() {
         </section>
 
         <aside className={styles.analysisRail} aria-label="센서 분석 패널">
-          <CameraPanel frame={isActualData ? null : frames.camera} />
+          <CameraPanel frame={isMockFallback ? frames.camera : null} />
           <SelectedObjectPanel
             object={selectedObject}
             frame={objectDetectionFrame}
           />
           <SynchronizedFramesPanel
             currentTimeMs={currentTimeMs}
-            cameraFrame={isActualData ? null : frames.camera}
+            cameraFrame={isMockFallback ? frames.camera : null}
             lidarFrame={lidarFrame}
             objectDetectionFrame={objectDetectionFrame}
           />

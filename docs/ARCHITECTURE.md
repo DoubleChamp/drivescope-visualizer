@@ -65,6 +65,12 @@ Phase 7의 실제 데이터 경계는 [DATA_FORMAT.md](./DATA_FORMAT.md)의 Driv
 
 로컬 산출물은 JavaScript bundle이나 Git에 넣지 않는다. `.env.local`의 서버 전용 `DRIVESCOPE_DATA_ROOT`는 scene 디렉터리를 가리키고, `/api/drivescope-data/[...assetPath]` Route Handler가 manifest와 LiDAR 바이너리만 same-origin HTTP로 제공한다. 브라우저는 로컬 절대 경로를 알지 못하며 `fetch()`로 manifest를 검증한 뒤 현재·양옆 LiDAR Frame만 요청한다. 응답 바이트는 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 경계에서 `LidarFrame` 객체로 바뀐다. 배포 환경은 개발자 PC의 로컬 디스크를 읽을 수 없으므로 이 산출물을 정적 파일 서버·CDN·오브젝트 스토리지로 옮기고 같은 상대 경로 계약을 유지한다.
 
+실제 Viewer는 공통 재생 시각 이하의 최신 `egoVehicle.frames`를 선택해 차량 Mesh의 위치와 yaw를 갱신한다. 실제 pose의 최소 계약은 `EgoPoseFrame`이며, 가상 `VehicleStateFrame`은 이를 확장해 속도와 가속도를 추가한다. 이 분리는 실제 manifest에 존재하지 않는 동역학 값을 임의로 채우지 않으면서 같은 차량 Mesh 갱신 경계를 재사용하게 한다.
+
+실제 데이터 모드의 가상 Three.js Camera는 고정된 시나리오 좌표 안에서 ego 차량을 따라간다. yaw의 진행 벡터 `[sin(yaw), 0, cos(yaw)]`를 기준으로 차량 뒤 18m·위 12m에 Camera를 놓고 진행 방향 12m 앞·높이 1.5m를 바라본다. LiDAR 좌표나 Scene 자체를 매 Frame 차량 원점으로 옮기지 않으므로 첫 LiDAR ego 기준의 실제 차량 궤적과 정적 환경 관계가 유지된다. 현재는 keyframe pose를 보간하지 않고 Camera도 즉시 이동하며, 보간과 smoothing은 실제 카메라 연결 뒤 별도 판단한다.
+
+실제 소스 상태는 로딩 중, 준비 완료, 실패 후 mock fallback으로 구분한다. 로딩 중에는 mock Camera·Object Detection·Trajectory·Vehicle State·Event를 표시하지 않아 서로 다른 장면의 일시적인 혼합을 막는다. 실제 첫 ego pose보다 이른 시각에는 미래 pose를 당겨 쓰지 않고 차량 Mesh를 숨긴 채 기본 Camera를 유지한다.
+
 현재 `LidarFrame`은 측정 시점인 `timestampMs`와 `[x, y, z, ...]` 순서의 `Float32Array`인 `positions`만 보관한다. 포인트 수는 중복 필드로 저장하지 않고 `positions.length / 3`으로 계산한다. intensity처럼 아직 사용하지 않는 값은 미리 추가하지 않는다.
 
 `LidarFrame`에는 Three.js의 `BufferAttribute`, `BufferGeometry`나 `Points`를 넣지 않는다. 데이터 계층은 CPU의 순수 좌표를 제공하고, Three.js 런타임이 좌표 해석과 GPU 전송 상태를 관리할 `BufferAttribute`를 소유한다. CPU 배열을 바꾼 뒤에는 Attribute의 `needsUpdate`를 설정해야 다음 `renderer.render()`에서 변경 데이터가 GPU로 전송되고 새 화면에 사용된다.
@@ -85,7 +91,7 @@ DriveScope가 과거 로그를 재생하는 현재 시점에서는 Trajectory �
 
 가상 시나리오의 Trajectory 5개는 실제 Planning 주기를 표현하지 않고 경로가 의미 있게 달라지는 핵심 시점만 남긴 최소 스냅샷이다. 실제 Planning은 더 짧은 주기로 경로를 다시 계산하며, 이 축약 데이터에서는 선택한 Trajectory timestamp와 재생 시각의 차이가 커질 수 있다.
 
-현재 `VehicleStateFrame`은 실제 상태를 측정한 `timestampMs`, 차량의 `position`과 `yawRadians`, 실제 속도 `speedMetersPerSecond`와 진행 방향 기준 가속도 `accelerationMetersPerSecondSquared`를 보관한다. 가속도는 가속할 때 양수, 속도를 유지할 때 0, 감속할 때 음수로 해석한다.
+현재 `EgoPoseFrame`은 실제 상태를 측정한 `timestampMs`, 차량의 `position`과 `yawRadians`를 보관한다. 가상 `VehicleStateFrame`은 이 타입을 확장해 실제 속도 `speedMetersPerSecond`와 진행 방향 기준 가속도 `accelerationMetersPerSecondSquared`를 보관한다. 가속도는 가속할 때 양수, 속도를 유지할 때 0, 감속할 때 음수로 해석한다.
 
 Trajectory의 예상 위치와 실제 위치를 비교할 때는 `TrajectoryFrame.timestampMs + TrajectoryPoint.offsetMs`로 예상 시각을 구하고, 시나리오 공통 시간축에서 같거나 가장 가까운 `VehicleStateFrame.timestampMs`를 선택한다. 급제동 발생 여부는 물리 상태에 boolean으로 중복 저장하지 않고 별도의 Event로 표현한다.
 
@@ -111,7 +117,7 @@ Canvas click 좌표는 `getBoundingClientRect()`로 구한 CSS 영역 안의 비
 
 차량 크기 `[1.8, 4.5, 1.5]`는 Frame마다 변하지 않으므로 각 `VehicleStateFrame`에 반복하지 않고 `ScenarioData.egoVehicleSize`에 한 번 저장한다. Vehicle State의 `position`은 지면 위 차량 footprint 중심을 나타내므로 차량 Mesh의 중심 Y에는 `groundY + height / 2`를 사용한다. 보행자 Detection의 `center`는 이미 3D 박스 중심이어서 같은 보정을 하지 않는다. 두 박스 모두 Y가 수직축이므로 `yawRadians`는 `rotation.y`에 적용한다.
 
-현재 차량 박스는 `findLatestFrameAtOrBefore`로 선택한 Vehicle State의 기록 위치로 즉시 이동한다. 두 Vehicle State 사이의 위치나 yaw 중간값은 아직 계산하지 않으므로 기록 간격 사이에서는 같은 위치를 유지하다 다음 Frame 시각에 이동한다. 이후 보간을 도입한다면 목표 재생 시각이 이전·다음 Frame 사이에서 차지하는 비율로 위치와 yaw를 계산하며, 부드러운 움직임은 그 계산 결과다.
+현재 차량 박스는 `findLatestFrameAtOrBefore`로 선택한 가상 Vehicle State 또는 실제 Ego Pose의 기록 위치로 즉시 이동한다. 두 Frame 사이의 위치나 yaw 중간값은 아직 계산하지 않으므로 기록 간격 사이에서는 같은 위치를 유지하다 다음 Frame 시각에 이동한다. 이후 보간을 도입한다면 목표 재생 시각이 이전·다음 Frame 사이에서 차지하는 비율로 위치와 yaw를 계산하며, 부드러운 움직임은 그 계산 결과다.
 
 예상 주행 경로도 `findLatestFrameAtOrBefore`로 현재 재생 시각에 이미 생성돼 있던 최신 `TrajectoryFrame`을 선택한다. `timestampMs`는 계획을 생성한 시각이고 각 `TrajectoryPoint.offsetMs`는 그 계획 안의 미래 시간이다. 점의 `position`은 이미 공통 시나리오 좌표계의 절대 위치이므로 선의 좌표를 만들 때 offset을 더하지 않는다. 각 점이 의미하는 예상 시각은 분석할 때 `timestampMs + offsetMs`로 계산한다.
 

@@ -22,7 +22,7 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 - **Phase 4 — 완료:** 현재 재생 시간 state, 재생·정지, 타임라인 드래그, Frame 선택·센서 동기화와 급제동 이벤트 마커를 추가하고 선택된 Camera·LiDAR·Object Detection Frame을 화면에 반영했다.
 - **Phase 5 — 기능 구현과 구조 정리 완료, 이해 확인 대기:** 보행자·차량 박스, 예상 경로와 충돌 구간, 객체 선택·기본 정보와 같은 시간축의 가상 전방 카메라 패널을 구현했다. 이어서 Viewer를 재생·선택·Three.js 런타임 Hook과 표시 컴포넌트로 책임별 분리했다.
 - **Phase 6 — 기능 구현 완료, Frame 로딩 시간 이해 확인 대기:** LiDAR Frame의 CPU 캐시·prefetch·최대 5개 LRU 축출과 모의 로더 실행 시간 표시를 연결했다. 현재 측정에서는 Worker를 도입할 병목이 확인되지 않았다.
-- **Phase 7 — 진행 중:** DriveScope 디스크 포맷 v2에 실제 ego vehicle 궤적을 포함하고 nuScenes mini 첫 scene을 manifest·카메라 이미지·LiDAR 바이너리로 변환했다.
+- **Phase 7 — 진행 중:** DriveScope 디스크 포맷 v2의 실제 LiDAR를 브라우저 캐시에 연결하고, 실제 ego vehicle 궤적과 이를 따라가는 Three.js Camera까지 연결했다. 전방 카메라 이미지는 다음 단계다.
 - **Viewer UI 셸 1차 리뉴얼 — 완료:** 사용자 요청으로 실제 데이터 연결 전에 화면의 정보 구조를 먼저 정리했다. 기존 표시 컴포넌트를 어두운 분석 워크스페이스와 반응형 레이아웃으로 재배치했으며 재생·Frame 선택·캐시·Three.js 런타임 로직은 변경하지 않았다. 실제 로딩·오류 상태를 반영한 최종 디자인 마감은 Phase 7의 기존 6번 항목에 남겨 둔다.
 - **다음 단계:** 변환 결과의 manifest와 현재 LiDAR Frame 파일을 브라우저에서 필요할 때 불러오는 실제 로더를 기존 캐시 경계에 연결한다.
 
@@ -171,7 +171,7 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 
 1. [x] Python 변환기와 TypeScript 로더가 공유할 manifest·LiDAR 바이너리 포맷을 정의하고 가상 manifest로 검증한다.
 2. [x] Python으로 nuScenes mini 첫 scene을 DriveScope Frame 형식으로 변환한다.
-3. [ ] 실제 LiDAR와 전방 카메라 데이터를 뷰어에 연결한다. (LiDAR 연결 완료, 전방 카메라 대기)
+3. [ ] 실제 LiDAR와 전방 카메라 데이터를 뷰어에 연결한다. (LiDAR·ego 차량·추적 Camera 연결 완료, 전방 카메라 대기)
 4. [ ] 누락 파일, 잘못된 timestamp와 로딩 실패를 처리한다.
 5. [ ] 가상 데이터와 실제 데이터의 성능을 같은 기준으로 비교한다.
 6. [ ] 실제 데이터 흐름이 안정된 뒤 분석 목적과 핵심 지표가 바로 보이도록 Viewer 디자인을 마감한다.

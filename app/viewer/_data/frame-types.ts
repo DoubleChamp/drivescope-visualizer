@@ -34,10 +34,13 @@ export type TrajectoryFrame = {
   points: TrajectoryPoint[];
 };
 
-export type VehicleStateFrame = {
+export type EgoPoseFrame = {
   timestampMs: number;
   position: [x: number, y: number, z: number];
   yawRadians: number;
+};
+
+export type VehicleStateFrame = EgoPoseFrame & {
   speedMetersPerSecond: number;
   accelerationMetersPerSecondSquared: number;
 };
