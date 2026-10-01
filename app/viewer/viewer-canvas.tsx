@@ -6,23 +6,52 @@ import { PlaybackControls } from "./_components/playback-controls";
 import { SelectedObjectPanel } from "./_components/selected-object-panel";
 import { SynchronizedFramesPanel } from "./_components/synchronized-frames-panel";
 import { ViewerMetrics } from "./_components/viewer-metrics";
+import { findLatestFrameAtOrBefore } from "./_data/find-latest-frame-at-or-before";
+import { loadMockLidarFrame } from "./_data/load-mock-lidar-frame";
 import { mockScenario } from "./_data/mock-scenario";
 import { selectScenarioFrames } from "./_data/select-scenario-frames";
+import { useDriveScopeDataSource } from "./_hooks/use-drivescope-data-source";
 import { useLidarFrameCache } from "./_hooks/use-lidar-frame-cache";
+import type { LidarFrameSource } from "./_hooks/use-lidar-frame-cache";
 import { useObjectSelection } from "./_hooks/use-object-selection";
 import { usePlayback } from "./_hooks/use-playback";
 import { useThreeViewer } from "./_hooks/use-three-viewer";
 import { formatSeconds } from "./_utils/format-time";
 import styles from "./viewer-canvas.module.css";
 
+const MOCK_LIDAR_SOURCE: LidarFrameSource = {
+  id: "mock:emergency-braking",
+  frames: mockScenario.lidarFrames,
+  loadFrame: (timestampMs) =>
+    loadMockLidarFrame(mockScenario.lidarFrames, timestampMs),
+};
+
+const LOADING_LIDAR_SOURCE: LidarFrameSource = {
+  id: "loading:drivescope-manifest",
+  frames: [],
+  loadFrame: async () => null,
+};
+
 export default function ViewerCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { source: actualDataSource, error: actualDataError } =
+    useDriveScopeDataSource();
+  const lidarSource =
+    actualDataSource ??
+    (actualDataError === null ? LOADING_LIDAR_SOURCE : MOCK_LIDAR_SOURCE);
+  const isActualData = actualDataSource !== null;
+  const durationMs =
+    actualDataSource?.manifest.durationMs ?? mockScenario.durationMs;
   const { currentTimeMs, isPlaying, seek, togglePlayback } = usePlayback(
-    mockScenario.durationMs,
+    durationMs,
   );
 
   // 모든 센서가 같은 currentTimeMs를 입력으로 사용하되 각자의 주기대로 Frame을 선택한다.
   const frames = selectScenarioFrames(mockScenario, currentTimeMs);
+  const lidarFrameMetadata = findLatestFrameAtOrBefore(
+    lidarSource.frames,
+    currentTimeMs,
+  );
   const {
     frame: lidarFrame,
     status: lidarCacheStatus,
@@ -30,29 +59,45 @@ export default function ViewerCanvas() {
     capacity: lidarCacheCapacity,
     loadDurationMs: lidarLoadDurationMs,
   } = useLidarFrameCache({
-    sourceFrames: mockScenario.lidarFrames,
-    targetTimestampMs: frames.lidar?.timestampMs ?? null,
+    source: lidarSource,
+    targetTimestampMs: lidarFrameMetadata?.timestampMs ?? null,
   });
   const currentPedestrian =
-    frames.objectDetection?.objects.find(
-      (object) => object.category === "pedestrian",
-    ) ?? null;
+    !isActualData
+      ? (frames.objectDetection?.objects.find(
+          (object) => object.category === "pedestrian",
+        ) ?? null)
+      : null;
   const lidarPointCount = lidarFrame ? lidarFrame.positions.length / 3 : 0;
+  const lidarPositionCapacity = Math.max(
+    0,
+    ...lidarSource.frames.map((frame) =>
+      "pointCount" in frame && typeof frame.pointCount === "number"
+        ? frame.pointCount * 3
+        : 0,
+    ),
+  );
+  const objectDetectionFrame = isActualData ? null : frames.objectDetection;
   const { selectedObject, selectedObjectId, setSelectedObjectId } =
-    useObjectSelection(frames.objectDetection);
+    useObjectSelection(objectDetectionFrame);
   const { framesPerSecond } = useThreeViewer({
     canvasRef,
     scenario: mockScenario,
     lidarFrame,
     pedestrian: currentPedestrian,
-    vehicleStateFrame: frames.vehicleState,
-    trajectoryFrame: frames.trajectory,
+    vehicleStateFrame: isActualData ? null : frames.vehicleState,
+    trajectoryFrame: isActualData ? null : frames.trajectory,
     selectedObjectId,
     setSelectedObjectId,
+    lidarPositionCapacity,
   });
   const primaryEvent =
-    mockScenario.events.find((event) => event.type === "emergency-braking") ??
-    null;
+    !isActualData
+      ? (mockScenario.events.find(
+          (event) => event.type === "emergency-braking",
+        ) ?? null)
+      : null;
+  const timelineEvents = isActualData ? [] : mockScenario.events;
 
   return (
     <div className={styles.viewer}>
@@ -60,23 +105,28 @@ export default function ViewerCanvas() {
         <div className={styles.viewerHeading}>
           <p className={styles.eyebrow}>
             <span aria-hidden="true" />
-            Incident review · Demo 01
+            {isActualData
+              ? `nuScenes mini · ${actualDataSource.manifest.scenarioId}`
+              : "Incident review · Demo 01"}
           </p>
-          <h1>보행자 급제동 시나리오</h1>
+          <h1>
+            {isActualData ? "실제 LiDAR 주행 장면" : "보행자 급제동 시나리오"}
+          </h1>
           <p>
-            센서가 포착한 순간부터 차량이 반응하기까지, 모든 Frame을 하나의
-            시간축에서 추적합니다.
+            {isActualData
+              ? "nuScenes 변환 산출물의 LiDAR Frame을 필요한 시점에만 읽어 공통 시간축에서 재생합니다."
+              : "센서가 포착한 순간부터 차량이 반응하기까지, 모든 Frame을 하나의 시간축에서 추적합니다."}
           </p>
         </div>
 
         <dl className={styles.scenarioSummary} aria-label="시나리오 요약">
           <div>
             <dt>재생 구간</dt>
-            <dd>{formatSeconds(mockScenario.durationMs)}초</dd>
+            <dd>{formatSeconds(durationMs)}초</dd>
           </div>
           <div>
             <dt>LiDAR Frame</dt>
-            <dd>{mockScenario.lidarFrames.length}개</dd>
+            <dd>{lidarSource.frames.length}개</dd>
           </div>
           <div className={styles.incidentSummary}>
             <dt>급제동 이벤트</dt>
@@ -112,7 +162,7 @@ export default function ViewerCanvas() {
               pointCount={lidarPointCount}
               framesPerSecond={framesPerSecond}
               currentTimeMs={currentTimeMs}
-              durationMs={mockScenario.durationMs}
+              durationMs={durationMs}
               lidarCacheStatus={lidarCacheStatus}
               cachedLidarFrameCount={cachedLidarFrameCount}
               lidarCacheCapacity={lidarCacheCapacity}
@@ -152,8 +202,8 @@ export default function ViewerCanvas() {
 
           <PlaybackControls
             currentTimeMs={currentTimeMs}
-            durationMs={mockScenario.durationMs}
-            events={mockScenario.events}
+            durationMs={durationMs}
+            events={timelineEvents}
             isPlaying={isPlaying}
             onSeek={seek}
             onTogglePlayback={togglePlayback}
@@ -161,16 +211,16 @@ export default function ViewerCanvas() {
         </section>
 
         <aside className={styles.analysisRail} aria-label="센서 분석 패널">
-          <CameraPanel frame={frames.camera} />
+          <CameraPanel frame={isActualData ? null : frames.camera} />
           <SelectedObjectPanel
             object={selectedObject}
-            frame={frames.objectDetection}
+            frame={objectDetectionFrame}
           />
           <SynchronizedFramesPanel
             currentTimeMs={currentTimeMs}
-            cameraFrame={frames.camera}
+            cameraFrame={isActualData ? null : frames.camera}
             lidarFrame={lidarFrame}
-            objectDetectionFrame={frames.objectDetection}
+            objectDetectionFrame={objectDetectionFrame}
           />
         </aside>
       </div>

@@ -171,7 +171,7 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 
 1. [x] Python 변환기와 TypeScript 로더가 공유할 manifest·LiDAR 바이너리 포맷을 정의하고 가상 manifest로 검증한다.
 2. [x] Python으로 nuScenes mini 첫 scene을 DriveScope Frame 형식으로 변환한다.
-3. [ ] 실제 LiDAR와 전방 카메라 데이터를 뷰어에 연결한다.
+3. [ ] 실제 LiDAR와 전방 카메라 데이터를 뷰어에 연결한다. (LiDAR 연결 완료, 전방 카메라 대기)
 4. [ ] 누락 파일, 잘못된 timestamp와 로딩 실패를 처리한다.
 5. [ ] 가상 데이터와 실제 데이터의 성능을 같은 기준으로 비교한다.
 6. [ ] 실제 데이터 흐름이 안정된 뒤 분석 목적과 핵심 지표가 바로 보이도록 Viewer 디자인을 마감한다.

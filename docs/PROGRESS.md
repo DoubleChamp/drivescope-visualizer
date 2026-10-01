@@ -1,13 +1,13 @@
 # DriveScope 진행 상황
 
-마지막 갱신: 2026-09-30
+마지막 갱신: 2026-10-01
 
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: Viewer UI 셸 리뉴얼 뒤 여러 표시 컴포넌트에 반복되던 밀리초→초 변환을 공통 `formatSeconds()` 유틸로 정리했다.
-- 다음 한 단계: 변환한 manifest와 현재 LiDAR Frame 바이너리를 브라우저에서 비동기로 읽어 기존 Promise 공유·LRU 캐시에 연결한다.
-- 아직 구현하지 않은 것: 실제 파일 브라우저 로딩·파싱, 실제 데이터 Viewer 연결, 로딩 실패 처리, 실제 데이터 상태를 반영한 최종 디자인 마감, 배포와 데모 영상
+- 현재 작업: 로컬 v2 `scene-0061` manifest와 필요한 LiDAR 바이너리를 Next.js Route Handler로 제공하고, 브라우저의 실제 파일 로더를 기존 Promise 공유·prefetch·5개 LRU 캐시에 연결했다.
+- 다음 한 단계: manifest의 `CAM_FRONT` Frame을 같은 HTTP 경계로 제공하고, 공통 재생 시각에서 선택한 실제 전방 카메라 이미지를 패널에 연결한다.
+- 아직 구현하지 않은 것: 실제 전방 카메라·ego vehicle pose 연결, 누락 파일·잘못된 timestamp·로딩 실패 UI, 실제 데이터 상태를 반영한 최종 디자인 마감, 배포용 데이터 호스팅과 데모 영상
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
 ## 다른 컴퓨터에서 이어서 시작하기
@@ -17,8 +17,21 @@
 3. 현재 컴퓨터의 `drivescope-output-v2/scene-0061` 디렉터리 전체를 개인 저장장치로 다른 컴퓨터에 복사하면 nuScenes 원본 다운로드와 Python 변환을 반복할 필요가 없다. v1 출력이 아니라 `schemaVersion: 2`인 v2 출력을 사용한다.
 4. v2 산출물을 복사하지 않을 때만 nuScenes mini 원본을 다른 컴퓨터에 내려받고 [DATA_FORMAT.md](./DATA_FORMAT.md)의 명령으로 첫 scene을 다시 변환한다. `.venv`는 Git에 없으므로 이 경우 새로 만들고 의존성을 설치한다.
 5. Python 변환기는 브라우저 런타임이나 API 요청마다 실행하지 않는다. 개발 시 원본 로그를 한 번 전처리해 `manifest.json`, `camera/*`, `lidar/*.bin`을 만드는 축소된 ingestion pipeline이다.
-6. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
-7. 실제 LiDAR·카메라 연결과 오류 처리가 안정된 직후 Viewer 디자인을 마감하고, 이후 README·배포·1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+6. 로컬에서는 산출물 scene 디렉터리를 `.env.local`의 `DRIVESCOPE_DATA_ROOT`로 지정한다. 절대 경로는 Git과 브라우저 bundle에 포함되지 않는다.
+7. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
+8. 현재 Route Handler는 로컬 개발용이다. 배포에서는 로컬 C 드라이브를 읽을 수 없으므로 같은 scene 디렉터리를 정적 파일 서버·CDN·오브젝트 스토리지에 올리고 로더의 기준 URL을 바꿔야 한다.
+9. 실제 LiDAR·카메라 연결과 오류 처리가 안정된 직후 Viewer 디자인을 마감하고, 이후 README·배포·1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### Phase 7: 실제 LiDAR 브라우저 로더 (2026-10-01)
+
+- 브라우저는 로컬 `C:\...` 파일을 직접 읽지 않는다. 서버 전용 `DRIVESCOPE_DATA_ROOT`를 읽는 `/api/drivescope-data/[...assetPath]` Route Handler가 manifest와 `lidar/*.bin`만 same-origin HTTP로 제공하도록 경계를 만들었다.
+- Route Handler는 manifest와 LiDAR 바이너리 패턴만 허용하고 결과 경로가 설정 루트 안인지 다시 확인한다. 카메라와 기타 파일은 아직 404로 차단한다.
+- 브라우저 로더는 `fetch → response.json() → parseDriveScopeManifest()` 순서로 manifest를 검증하고, 선택한 Frame의 상대 경로만 요청한다. 응답 크기가 `pointCount × 12`바이트인지 확인한 뒤 little-endian `Float32Array`로 해석한다.
+- `useLidarFrameCache` 안의 mock 로더 직접 의존을 `LidarFrameSource.loadFrame()` 주입으로 바꿔, 기존 timestamp별 진행 중 Promise 공유·양옆 prefetch·최대 5개 LRU 규칙을 실제 파일에도 그대로 적용했다.
+- manifest의 최대 `pointCount`로 Three.js 재사용 Buffer 용량을 한 번 준비한다. 각 Frame은 새 Geometry를 만들지 않고 기존 Attribute 배열에 복사한 뒤 `needsUpdate`와 `drawRange`만 갱신한다.
+- 실제 소스가 준비되면 가상 Camera·Object Detection·Trajectory·Vehicle State를 숨겨 서로 다른 장면이 한 Canvas에 섞이지 않게 했다. 실제 카메라와 ego pose는 다음 단계에서 연결한다.
+- production 서버 HTTP 검사에서 manifest 200, schema v2, LiDAR 39개를 확인했다. 첫 Frame은 34,688포인트·416,256바이트로 `pointCount × 12`와 일치했고 허용하지 않은 Camera 경로는 404를 반환했다.
+- TypeScript 검사와 production build는 통과했다. Windows headless Chrome·Edge가 DOM·스크린샷 결과를 만들지 않아 이번 단계에서 WebGL 화면 자동 캡처는 검증하지 못했다.
 
 ### Viewer 시간 표시 유틸 정리 (2026-09-30)
 

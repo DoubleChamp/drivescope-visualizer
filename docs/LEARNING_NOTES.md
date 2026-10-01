@@ -554,12 +554,22 @@
 - 여러 컴포넌트가 같은 밀리초 값을 소수점 첫째 자리의 초 문자열로 보여준다면 변환 규칙을 공통 함수로 두어 정밀도와 표기를 한곳에서 유지할 수 있다.
 - 화면 표시용 문자열 변환과 위치·속도 등에 사용하는 숫자 계산은 책임이 다르다. 이번에는 표시 중복만 `formatSeconds()`로 모으고 시나리오 좌표 계산은 그대로 유지했다.
 
+### 로컬 산출물과 브라우저 사이의 HTTP 경계 (2026-10-01, 사용자 이해 확인 대기)
+
+- 웹 페이지의 JavaScript는 사용자 PC의 임의 `C:\...` 경로를 직접 읽지 못한다. 로컬 개발에서는 Next.js Route Handler가 서버 권한으로 파일을 읽고, 브라우저는 same-origin HTTP로만 요청하도록 나눈다.
+- `DRIVESCOPE_DATA_ROOT`는 `NEXT_PUBLIC_` 접두사가 없어 서버에서만 읽힌다. 개인 절대 경로는 `.env.local`에만 두고 Git과 브라우저 bundle에 넣지 않는다.
+- Route Handler가 설정 루트 아래의 manifest와 LiDAR 패턴만 허용하면 브라우저가 API 경로를 임의의 로컬 파일 읽기로 바꾸지 못하게 한다. 패턴 확인과 `path.relative()` 루트 내부 확인을 둘 다 적용했다.
+- manifest를 먼저 읽어야 각 Frame의 timestamp·상대 경로·포인트 수를 알 수 있다. 이 메타데이터로 재생 시각에 필요한 바이너리만 요청하면 전체 39개 Frame을 처음부터 메모리에 올리지 않는다.
+- `ArrayBuffer.byteLength === pointCount × 3 × 4`를 확인한 뒤에만 `Float32Array`로 바꾸면 잘못된 파일을 GPU Buffer에 전달하기 전에 중단할 수 있다. 현재 Windows 환경은 little-endian이므로 복사 없이 typed array view를 쓰고, 다른 endian은 `DataView.getFloat32(..., true)` 경로로 보정한다.
+- CPU Frame 캐시는 실제 파일 로더를 주입받아도 Promise 공유·prefetch·LRU 책임을 그대로 유지할 수 있다. 캐시가 데이터가 어디서 오는지까지 알면 모의·HTTP 로더마다 중복 구현하게 된다.
+- 배포된 Next.js 서버는 개발자 PC의 디스크를 볼 수 없다. 배포에서는 산출물을 정적 파일 서버·CDN·오브젝트 스토리지에 두고 같은 manifest 상대 경로 계약을 유지해야 한다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 7의 디스크 포맷 v2와 nuScenes mini 첫 scene·ego 궤적 변환을 완료했으며, 다음에는 실제 manifest와 필요한 LiDAR 바이너리를 브라우저에서 비동기로 읽어 기존 캐시 경계에 연결한다.
+Phase 7의 실제 manifest·LiDAR HTTP 로더와 캐시 연결을 완료했으며, 다음에는 같은 공통 시간축에서 실제 `CAM_FRONT` 이미지를 선택하고 카메라 패널에 연결한다.
 
 - Canvas DOM 좌표를 NDC로 변환하는 식과 Y 부호를 뒤집는 이유
 - Camera 광선과 Mesh 삼각형의 교차, `visible`과 wireframe이 선택 판정에 미치는 영향
 - React의 객체 ID 선택 state와 Three.js Material 시각 피드백의 책임 분리
 - `ViewerCanvas`, Custom Hook, 표시 컴포넌트와 Three.js 런타임 Hook 사이의 책임 분리
-- Python이 쓴 little-endian Float32 바이너리를 브라우저가 `ArrayBuffer`로 읽는 경계
+- manifest 상대 카메라 경로를 same-origin HTTP URL로 바꾸는 경계

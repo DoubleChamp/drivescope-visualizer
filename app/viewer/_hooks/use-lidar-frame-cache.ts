@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FrameCache } from "../_data/frame-cache";
 import type { LidarFrame } from "../_data/frame-types";
-import { loadMockLidarFrame } from "../_data/load-mock-lidar-frame";
 
 const LIDAR_FRAME_CACHE_CAPACITY = 5;
 
@@ -20,22 +19,30 @@ type LidarFrameLoadResult = {
   loadDurationMs: number | null;
 };
 
+export type LidarFrameSource = {
+  id: string;
+  frames: readonly { timestampMs: number }[];
+  loadFrame: (timestampMs: number) => Promise<LidarFrame | null>;
+};
+
 type UseLidarFrameCacheOptions = {
-  sourceFrames: readonly LidarFrame[];
+  source: LidarFrameSource;
   targetTimestampMs: number | null;
 };
 
 export function useLidarFrameCache({
-  sourceFrames,
+  source,
   targetTimestampMs,
 }: UseLidarFrameCacheOptions) {
   // Map 변경은 화면 자체가 아니므로 React state가 아닌 장기 생존 객체에 보관한다.
-  const [cache] = useState(
+  const cache = useMemo(
     () => new FrameCache<LidarFrame>(LIDAR_FRAME_CACHE_CAPACITY),
+    [source],
   );
   // 완료되기 전 요청도 timestamp별로 공유해 현재 로딩과 prefetch가 중복되지 않게 한다.
-  const [inFlightLoads] = useState(
+  const inFlightLoads = useMemo(
     () => new Map<number, Promise<LidarFrameLoadResult>>(),
+    [source],
   );
   const [state, setState] = useState<CachedFrameState>({
     timestampMs: null,
@@ -61,7 +68,8 @@ export function useLidarFrameCache({
       if (inFlightLoad) return inFlightLoad;
 
       const loadStartedAt = performance.now();
-      const load = loadMockLidarFrame(sourceFrames, timestampMs)
+      const load = source
+        .loadFrame(timestampMs)
         .then((frame) => {
           if (frame) cache.set(frame);
           return {
@@ -78,14 +86,14 @@ export function useLidarFrameCache({
     };
 
     const prefetchNeighborFrames = async () => {
-      const targetIndex = sourceFrames.findIndex(
+      const targetIndex = source.frames.findIndex(
         (frame) => frame.timestampMs === targetTimestampMs,
       );
       if (targetIndex === -1) return;
 
       const neighborTimestamps = [
-        sourceFrames[targetIndex - 1]?.timestampMs,
-        sourceFrames[targetIndex + 1]?.timestampMs,
+        source.frames[targetIndex - 1]?.timestampMs,
+        source.frames[targetIndex + 1]?.timestampMs,
       ].filter(
         (timestampMs): timestampMs is number => timestampMs !== undefined,
       );
@@ -154,7 +162,7 @@ export function useLidarFrameCache({
     return () => {
       ignoreResult = true;
     };
-  }, [cache, inFlightLoads, sourceFrames, targetTimestampMs]);
+  }, [cache, inFlightLoads, source, targetTimestampMs]);
 
   useEffect(
     () => () => {

@@ -17,7 +17,7 @@ const CACHE_STATUS_LABELS: Record<LidarCacheStatus, string> = {
   empty: "Frame 없음",
   loading: "로딩 중",
   hit: "hit · 재사용",
-  miss: "miss · 모의 로딩",
+  miss: "miss · 새로 로딩",
 };
 
 export function ViewerMetrics({

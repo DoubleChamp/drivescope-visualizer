@@ -43,6 +43,7 @@ type UseThreeViewerOptions = {
   trajectoryFrame: TrajectoryFrame | null;
   selectedObjectId: string | null;
   setSelectedObjectId: Dispatch<SetStateAction<string | null>>;
+  lidarPositionCapacity: number;
 };
 
 export function useThreeViewer({
@@ -54,6 +55,7 @@ export function useThreeViewer({
   trajectoryFrame,
   selectedObjectId,
   setSelectedObjectId,
+  lidarPositionCapacity,
 }: UseThreeViewerOptions) {
   const lidarGeometryRef = useRef<BufferGeometry | null>(null);
   const lidarPositionAttributeRef = useRef<BufferAttribute | null>(null);
@@ -72,6 +74,7 @@ export function useThreeViewer({
     if (!canvas) return;
 
     const lidarBufferLength = Math.max(
+      lidarPositionCapacity,
       0,
       ...scenario.lidarFrames.map((frame) => frame.positions.length),
     );
@@ -245,7 +248,7 @@ export function useThreeViewer({
       scene.clear();
       renderer.dispose();
     };
-  }, [canvasRef, scenario, setSelectedObjectId]);
+  }, [canvasRef, lidarPositionCapacity, scenario, setSelectedObjectId]);
 
   // LiDAR Frame을 새 Geometry로 교체하지 않고 마운트 때 만든 위치 Buffer에 복사한다.
   useEffect(() => {

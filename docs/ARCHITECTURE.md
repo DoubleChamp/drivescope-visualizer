@@ -61,7 +61,9 @@ Phase 7의 실제 데이터 경계는 [DATA_FORMAT.md](./DATA_FORMAT.md)의 Driv
 
 같은 `scenarioFromGlobal × globalFromCurrentEgo` 행렬에서 ego vehicle의 위치와 진행 방향도 추출해 manifest v2의 `egoVehicle.frames`에 저장한다. 점군 변환에 pose를 잠깐 사용하는 것만으로는 Viewer가 차량의 실제 위치를 알 수 없으므로, LiDAR keyframe과 같은 timestamp의 `position`·`yawRadians`를 별도 데이터로 보존한다. 속도·가속도는 현재 원본에서 직접 읽지 않았으므로 추정해 넣지 않는다.
 
-첫 mini scene `scene-0061`의 실제 v2 결과는 LiDAR·Camera keyframe이 각각 39개이고 ego vehicle pose도 39개이며 시간 범위는 `0~19,185ms`다. 가장 이른 Camera Frame이 origin이고 첫 LiDAR·ego Frame은 `35ms`이므로 모든 스트림의 첫 Frame이 반드시 `0ms`일 필요는 없다. 첫 ego pose는 시나리오 원점과 yaw 0이고 마지막 위치는 약 `[-35.00, 1.48, 68.41]m`, 첫 위치로부터의 직선 이동 거리는 약 `76.86m`다. 현재 실제 산출물은 브라우저에 아직 연결하지 않았으며 다음 로더 단계에서 manifest를 먼저 읽고 필요한 LiDAR 바이너리만 기존 Promise 공유·LRU 캐시에 공급한다.
+첫 mini scene `scene-0061`의 실제 v2 결과는 LiDAR·Camera keyframe이 각각 39개이고 ego vehicle pose도 39개이며 시간 범위는 `0~19,185ms`다. 가장 이른 Camera Frame이 origin이고 첫 LiDAR·ego Frame은 `35ms`이므로 모든 스트림의 첫 Frame이 반드시 `0ms`일 필요는 없다. 첫 ego pose는 시나리오 원점과 yaw 0이고 마지막 위치는 약 `[-35.00, 1.48, 68.41]m`, 첫 위치로부터의 직선 이동 거리는 약 `76.86m`다.
+
+로컬 산출물은 JavaScript bundle이나 Git에 넣지 않는다. `.env.local`의 서버 전용 `DRIVESCOPE_DATA_ROOT`는 scene 디렉터리를 가리키고, `/api/drivescope-data/[...assetPath]` Route Handler가 manifest와 LiDAR 바이너리만 same-origin HTTP로 제공한다. 브라우저는 로컬 절대 경로를 알지 못하며 `fetch()`로 manifest를 검증한 뒤 현재·양옆 LiDAR Frame만 요청한다. 응답 바이트는 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 경계에서 `LidarFrame` 객체로 바뀐다. 배포 환경은 개발자 PC의 로컬 디스크를 읽을 수 없으므로 이 산출물을 정적 파일 서버·CDN·오브젝트 스토리지로 옮기고 같은 상대 경로 계약을 유지한다.
 
 현재 `LidarFrame`은 측정 시점인 `timestampMs`와 `[x, y, z, ...]` 순서의 `Float32Array`인 `positions`만 보관한다. 포인트 수는 중복 필드로 저장하지 않고 `positions.length / 3`으로 계산한다. intensity처럼 아직 사용하지 않는 값은 미리 추가하지 않는다.
 
