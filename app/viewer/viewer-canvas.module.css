@@ -557,15 +557,34 @@
 .cameraViewport {
   position: relative;
   overflow: hidden;
+  aspect-ratio: 16 / 9;
   background: #05080d;
 }
 
 .cameraImage {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
-  height: auto;
-  aspect-ratio: 16 / 9;
+  height: 100%;
   object-fit: cover;
+}
+
+.cameraImage[data-active="false"] {
+  visibility: hidden;
+}
+
+.cameraStatus {
+  position: absolute;
+  top: 0.625rem;
+  left: 0.625rem;
+  right: 0.625rem;
+  margin: 0;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.375rem;
+  background: rgb(5 8 13 / 85%);
+  color: #d5dde9;
+  font-size: 0.75rem;
 }
 
 .cameraChannel {

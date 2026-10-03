@@ -1,6 +1,6 @@
-# DriveScope 디스크 포맷 v2
+# DriveScope 디스크 포맷 v3
 
-이 문서는 nuScenes mini를 변환하는 Python 코드와 브라우저의 TypeScript 로더가 공유할 현재 디스크 계약을 정의한다. v2는 LiDAR·Camera만 있던 v1에 실제 ego vehicle pose를 추가한다.
+이 문서는 nuScenes mini를 변환하는 Python 코드와 브라우저의 TypeScript 로더가 공유할 현재 디스크 계약을 정의한다. v2는 실제 ego vehicle pose를 추가했고, v3는 좌우 반전을 일으키던 축 변환을 오른손 좌표계로 수정한다. v2와 파일 구조는 같지만 좌표와 yaw의 의미가 다르므로 v2 파일의 버전 숫자만 바꾸면 안 된다. 원본에서 다시 변환하거나 v3 산출물을 복사해야 한다. 현재 로더는 v3만 허용한다.
 
 ## 디렉터리 구조
 
@@ -25,7 +25,8 @@ TypeScript 계약과 런타임 검증 함수는 `app/viewer/_data/drivescope-man
 
 주요 필드는 다음과 같다.
 
-- `schemaVersion`: 현재 포맷 버전 `2`
+- `schemaVersion`: 현재 포맷 버전 `3`
+- `coordinateSystem`: `x-right-y-up-z-backward-meters`
 - `scenarioId`: DriveScope에서 사용할 시나리오 ID
 - `durationMs`: 마지막으로 재생할 수 있는 상대 시각
 - `source.timestampOriginUs`: 시나리오 시작에 해당하는 원본 nuScenes timestamp. JSON 정밀도와 언어별 정수 처리 차이를 피하려고 문자열로 저장한다.
@@ -55,10 +56,10 @@ timestampMs = floor((sourceTimestampUs - timestampOriginUs) / 1000)
 - 포인트 하나는 `x`, `y`, `z` 순서의 little-endian IEEE 754 Float32 세 개다.
 - 포인트 하나의 크기는 12바이트다.
 - 파일 크기는 반드시 `pointCount × 3 × 4`바이트여야 한다.
-- intensity, ring index와 원본 nuScenes의 추가 성분은 v2에 저장하지 않는다.
+- intensity, ring index와 원본 nuScenes의 추가 성분은 v3에 저장하지 않는다.
 - JSON에 좌표를 펼치지 않아 JSON 파싱 비용과 문자열 크기를 피한다.
 
-브라우저 로더는 `ArrayBuffer`의 바이트 길이를 먼저 검사한 뒤 Float32 좌표로 해석한다. 실제 파일 로더와 이 검사는 다음 Phase 7 단계에서 연결한다.
+브라우저 로더는 `ArrayBuffer`의 바이트 길이를 먼저 검사한 뒤 Float32 좌표로 해석하며 실제 HTTP 로더에 이 검사가 연결되어 있다.
 
 ## 좌표계
 
@@ -66,15 +67,19 @@ timestampMs = floor((sourceTimestampUs - timestampOriginUs) / 1000)
 
 - X: 오른쪽
 - Y: 위
-- Z: 앞
+- Z: 뒤 (전방은 -Z)
 - 거리 단위: meter
 - 원점: 시나리오 첫 sample의 ego vehicle 위치
 
-nuScenes ego 좌표의 `x=앞, y=왼쪽, z=위`를 Viewer 축으로 옮길 때는 먼저 센서 보정과 ego pose를 적용하고, 첫 sample 기준 시나리오 좌표로 바꾼 뒤 `viewerX = -sourceY`, `viewerY = sourceZ`, `viewerZ = sourceX` 규칙을 적용한다. 이 변환은 Python 변환기의 책임이며 브라우저는 manifest의 좌표를 다시 회전하지 않는다.
+nuScenes ego 좌표의 `x=앞, y=왼쪽, z=위`를 Viewer 축으로 옮길 때는 먼저 센서 보정과 ego pose를 적용하고, 첫 sample 기준 시나리오 좌표로 바꾼 뒤 `viewerX = -sourceY`, `viewerY = sourceZ`, `viewerZ = -sourceX` 규칙을 적용한다. 변환 행렬의 determinant는 +1이며 오른손성을 유지한다. v2의 Z 부호는 +였고 determinant가 -1인 반사 변환이었다. 이 변환은 Python 변환기의 책임이며 브라우저는 manifest의 좌표를 다시 회전하지 않는다. 카메라 JPEG는 원본 그대로 복사하며 이미지를 뒤집지 않는다.
+
+이 계약은 실제 디스크 데이터에 적용한다. 기존 가상 시나리오는 +Z 전방 규칙과 고정 Camera를 그대로 사용하므로 실제 v3 데이터와 섞지 않는다.
 
 ## Ego vehicle pose
 
 LiDAR 점을 공통 시나리오 좌표로 옮길 때 사용한 각 시점의 `ego_pose`를 버리지 않고 `egoVehicle.frames`에도 기록한다. 첫 LiDAR ego pose의 역변환을 적용하므로 첫 ego Frame의 위치와 yaw는 부동소수점 오차 범위에서 `[0, 0, 0]`, `0`이다. 이후 Frame의 위치와 yaw는 첫 차량 기준으로 얼마나 이동하고 회전했는지를 뜻한다.
+
+v3의 yaw 0은 -Z 전방이다. 변환된 전방 벡터에서 `atan2(-forwardX, -forwardZ)`로 yaw를 구하면 Three.js의 `rotation.y`에 직접 사용할 수 있다. yaw에서 재구성한 수평 전방 벡터는 `[-sin(yaw), 0, -cos(yaw)]`이며 추적 Camera도 같은 벡터를 사용한다.
 
 현재 포맷은 nuScenes에서 직접 확인한 pose만 저장한다. 속도와 가속도는 별도 CAN bus 원본이나 명시적인 계산 규칙 없이 추정하지 않는다. Viewer 연결 단계에서는 위치와 yaw로 실제 차량 Mesh를 움직이고, 속도·가속도가 필요해질 때 데이터 출처와 계산 기준을 먼저 정한다.
 
@@ -111,5 +116,5 @@ pnpm validate:manifest
 실제 변환 결과는 manifest 경로를 추가로 넘긴다. schema와 timestamp·경로에 더해 카메라 파일 존재 여부와 LiDAR 바이너리 크기를 검증한다.
 
 ```powershell
-pnpm validate:manifest -- "<변환 scene 디렉터리>\manifest.json"
+pnpm validate:manifest "<변환 scene 디렉터리>\manifest.json"
 ```

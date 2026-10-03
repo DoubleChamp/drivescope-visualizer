@@ -10,6 +10,7 @@ import { findLatestFrameAtOrBefore } from "./_data/find-latest-frame-at-or-befor
 import { loadMockLidarFrame } from "./_data/load-mock-lidar-frame";
 import { mockScenario } from "./_data/mock-scenario";
 import { selectScenarioFrames } from "./_data/select-scenario-frames";
+import { useBufferedCameraFrame } from "./_hooks/use-buffered-camera-frame";
 import { useDriveScopeDataSource } from "./_hooks/use-drivescope-data-source";
 import { useLidarFrameCache } from "./_hooks/use-lidar-frame-cache";
 import type { LidarFrameSource } from "./_hooks/use-lidar-frame-cache";
@@ -86,6 +87,7 @@ export default function ViewerCanvas() {
     : isMockFallback
       ? frames.camera
       : null;
+  const bufferedCamera = useBufferedCameraFrame(cameraFrame, lidarSource.id);
   const egoPoseFrame = isActualData
     ? findLatestFrameAtOrBefore(
         actualDataSource.manifest.egoVehicle.frames,
@@ -236,14 +238,14 @@ export default function ViewerCanvas() {
         </section>
 
         <aside className={styles.analysisRail} aria-label="센서 분석 패널">
-          <CameraPanel frame={cameraFrame} isActualData={isActualData} />
+          <CameraPanel camera={bufferedCamera} isActualData={isActualData} />
           <SelectedObjectPanel
             object={selectedObject}
             frame={objectDetectionFrame}
           />
           <SynchronizedFramesPanel
             currentTimeMs={currentTimeMs}
-            cameraFrame={cameraFrame}
+            cameraFrame={bufferedCamera.frame}
             lidarFrame={lidarFrame}
             objectDetectionFrame={objectDetectionFrame}
           />

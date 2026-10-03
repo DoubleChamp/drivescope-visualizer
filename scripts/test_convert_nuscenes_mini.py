@@ -25,11 +25,19 @@ class ConvertNuScenesMiniTest(unittest.TestCase):
             viewer_points,
             np.array(
                 [
-                    [0.0, 0.0, 1.0],
+                    [0.0, 0.0, -1.0],
                     [-1.0, 0.0, 0.0],
                     [0.0, 1.0, 0.0],
                 ]
             ),
+        )
+
+    def test_axis_mapping_preserves_handedness(self) -> None:
+        viewer_basis = source_xyz_to_viewer_xyz(np.eye(3))
+
+        self.assertAlmostEqual(float(np.linalg.det(viewer_basis)), 1.0)
+        np.testing.assert_allclose(
+            np.cross(viewer_basis[0], viewer_basis[1]), viewer_basis[2]
         )
 
     def test_first_ego_pose_becomes_viewer_origin(self) -> None:
@@ -52,8 +60,19 @@ class ConvertNuScenesMiniTest(unittest.TestCase):
             scenario_from_ego
         )
 
-        np.testing.assert_allclose(position, [-2.0, 1.0, 10.0])
-        self.assertAlmostEqual(yaw_radians, -np.pi / 2)
+        np.testing.assert_allclose(position, [-2.0, 1.0, -10.0])
+        self.assertAlmostEqual(yaw_radians, np.pi / 2)
+
+    def test_yaw_forward_matches_transformed_source_forward(self) -> None:
+        for source_yaw in [0.0, np.pi / 2, -np.pi / 2, np.pi, 0.7]:
+            with self.subTest(source_yaw=source_yaw):
+                cosine, sine = np.cos(source_yaw), np.sin(source_yaw)
+                pose = np.eye(4)
+                pose[:3, :3] = [[cosine, -sine, 0], [sine, cosine, 0], [0, 0, 1]]
+                _, viewer_yaw = scenario_ego_matrix_to_viewer_pose(pose)
+                viewer_forward = [-np.sin(viewer_yaw), 0, -np.cos(viewer_yaw)]
+                expected = source_xyz_to_viewer_xyz(pose[:3, 0].reshape(3, 1))[0]
+                np.testing.assert_allclose(viewer_forward, expected, atol=1e-12)
 
 
 if __name__ == "__main__":

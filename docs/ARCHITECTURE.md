@@ -51,25 +51,25 @@ React Three Fiber는 사용하지 않는다. Three.js 객체의 생성, 변경, 
 
 데이터 계층은 UI 표현이나 Three.js 객체를 직접 소유하지 않는다.
 
-Phase 7의 실제 데이터 경계는 [DATA_FORMAT.md](./DATA_FORMAT.md)의 DriveScope 디스크 포맷 v2를 따른다. Python 변환기는 `manifest.json`, 전방 카메라 이미지와 LiDAR Float32 바이너리를 시나리오 디렉터리에 출력한다. manifest에는 파일 자체가 아니라 manifest 기준 상대 경로, timestamp·포인트 수와 ego vehicle pose 같은 메타데이터만 둔다. LiDAR 좌표는 `x, y, z` little-endian Float32 연속 배열로 저장해 JSON 문자열 파싱을 피한다.
+Phase 7의 실제 데이터 경계는 [DATA_FORMAT.md](./DATA_FORMAT.md)의 DriveScope 디스크 포맷 v3를 따른다. Python 변환기는 `manifest.json`, 전방 카메라 이미지와 LiDAR Float32 바이너리를 시나리오 디렉터리에 출력한다. manifest에는 파일 자체가 아니라 manifest 기준 상대 경로, timestamp·포인트 수와 ego vehicle pose 같은 메타데이터만 둔다. LiDAR 좌표는 `x, y, z` little-endian Float32 연속 배열로 저장해 JSON 문자열 파싱을 피한다. v3는 v2의 반사 축 변환을 수정한 계약이며 로더는 v2를 거부한다.
 
 외부 JSON은 TypeScript 타입 선언만으로 검증되지 않는다. 브라우저 로더는 JSON을 `unknown`으로 받은 뒤 `parseDriveScopeManifest()`에서 schema version, 필드 타입, 정수 timestamp, Frame 순서와 안전한 상대 경로를 확인하고 나서 `DriveScopeManifest`로 사용한다. 검증된 manifest의 LiDAR 바이너리를 읽어 만든 `Float32Array`가 기존 `LidarFrame.positions` 경계로 들어가며, manifest 타입에 Three.js 객체를 넣지 않는다.
 
-원본 nuScenes timestamp는 microsecond 정수지만 시나리오 내부 시간은 가장 이른 변환 대상 센서 Frame을 `0ms`로 삼는다. Python 변환기는 `floor((sourceTimestampUs - timestampOriginUs) / 1000)`으로 상대 정수 밀리초를 만든다. 모든 위치는 변환 단계에서 현재 Viewer의 `X=오른쪽, Y=위, Z=앞, meter`인 첫 sample 기준 좌표계로 맞춘다. 따라서 브라우저와 Three.js는 nuScenes 보정 행렬이나 절대 시각 변환을 다시 수행하지 않는다.
+원본 nuScenes timestamp는 microsecond 정수지만 시나리오 내부 시간은 가장 이른 변환 대상 센서 Frame을 `0ms`로 삼는다. Python 변환기는 `floor((sourceTimestampUs - timestampOriginUs) / 1000)`으로 상대 정수 밀리초를 만든다. 모든 실제 위치는 변환 단계에서 `X=오른쪽, Y=위, Z=뒤, meter`인 첫 sample 기준 오른손 좌표계로 맞춘다. 실제 전방은 -Z이며 기존 mock의 +Z 전방과 구분한다. 따라서 브라우저와 Three.js는 nuScenes 보정 행렬이나 절대 시각 변환을 다시 수행하지 않는다.
 
-구현된 `scripts/convert_nuscenes_mini.py`는 공식 nuScenes devkit으로 선택 scene의 sample 연결 목록을 순회하며 `LIDAR_TOP`·`CAM_FRONT` keyframe을 읽는다. LiDAR 점에는 `scenarioFromGlobal × globalFromCurrentEgo × currentEgoFromSensor` 순서의 동차 변환을 적용한다. 여기서 scenario 기준은 첫 sample의 `LIDAR_TOP` ego pose이며, 그 뒤 `viewerX = -sourceY`, `viewerY = sourceZ`, `viewerZ = sourceX`로 축을 바꾼다. 변환 결과는 기존 출력에 덮어쓰지 않고 임시 디렉터리에서 완성한 뒤 scene 디렉터리로 이동한다.
+구현된 `scripts/convert_nuscenes_mini.py`는 공식 nuScenes devkit으로 선택 scene의 sample 연결 목록을 순회하며 `LIDAR_TOP`·`CAM_FRONT` keyframe을 읽는다. LiDAR 점에는 `scenarioFromGlobal × globalFromCurrentEgo × currentEgoFromSensor` 순서의 동차 변환을 적용한다. 여기서 scenario 기준은 첫 sample의 `LIDAR_TOP` ego pose이며, 그 뒤 `viewerX = -sourceY`, `viewerY = sourceZ`, `viewerZ = -sourceX`로 축을 바꾼다. 변환 결과는 기존 출력에 덮어쓰지 않고 임시 디렉터리에서 완성한 뒤 scene 디렉터리로 이동한다.
 
-같은 `scenarioFromGlobal × globalFromCurrentEgo` 행렬에서 ego vehicle의 위치와 진행 방향도 추출해 manifest v2의 `egoVehicle.frames`에 저장한다. 점군 변환에 pose를 잠깐 사용하는 것만으로는 Viewer가 차량의 실제 위치를 알 수 없으므로, LiDAR keyframe과 같은 timestamp의 `position`·`yawRadians`를 별도 데이터로 보존한다. 속도·가속도는 현재 원본에서 직접 읽지 않았으므로 추정해 넣지 않는다.
+같은 `scenarioFromGlobal × globalFromCurrentEgo` 행렬에서 ego vehicle의 위치와 진행 방향도 추출해 manifest v3의 `egoVehicle.frames`에 저장한다. 점군 변환에 pose를 잠깐 사용하는 것만으로는 Viewer가 차량의 실제 위치를 알 수 없으므로, LiDAR keyframe과 같은 timestamp의 `position`·`yawRadians`를 별도 데이터로 보존한다. yaw는 변환된 전방 벡터의 `atan2(-forwardX, -forwardZ)`로 계산하며 Three.js Y축 회전에 직접 대응한다. 속도·가속도는 현재 원본에서 직접 읽지 않았으므로 추정해 넣지 않는다.
 
-첫 mini scene `scene-0061`의 실제 v2 결과는 LiDAR·Camera keyframe이 각각 39개이고 ego vehicle pose도 39개이며 시간 범위는 `0~19,185ms`다. 가장 이른 Camera Frame이 origin이고 첫 LiDAR·ego Frame은 `35ms`이므로 모든 스트림의 첫 Frame이 반드시 `0ms`일 필요는 없다. 첫 ego pose는 시나리오 원점과 yaw 0이고 마지막 위치는 약 `[-35.00, 1.48, 68.41]m`, 첫 위치로부터의 직선 이동 거리는 약 `76.86m`다.
+첫 mini scene `scene-0061`의 실제 v3 결과는 LiDAR·Camera keyframe이 각각 39개이고 ego vehicle pose도 39개이며 시간 범위는 `0~19,185ms`다. 가장 이른 Camera Frame이 origin이고 첫 LiDAR·ego Frame은 `35ms`이므로 모든 스트림의 첫 Frame이 반드시 `0ms`일 필요는 없다. 첫 ego pose는 시나리오 원점과 yaw 0이고 마지막 위치는 약 `[-35.00, 1.48, -68.41]m`, 첫 위치로부터의 직선 이동 거리는 약 `76.86m`다.
 
 로컬 산출물은 JavaScript bundle이나 Git에 넣지 않는다. `.env.local`의 서버 전용 `DRIVESCOPE_DATA_ROOT`는 scene 디렉터리를 가리키고, `/api/drivescope-data/[...assetPath]` Route Handler가 manifest·LiDAR 바이너리·전방 JPEG 이미지를 same-origin HTTP로 제공한다. 브라우저는 로컬 절대 경로를 알지 못하며 `fetch()`로 manifest를 검증한 뒤 현재·양옆 LiDAR Frame만 요청한다. 응답 바이트는 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 경계에서 `LidarFrame` 객체로 바뀐다. 배포 환경은 개발자 PC의 로컬 디스크를 읽을 수 없으므로 이 산출물을 정적 파일 서버·CDN·오브젝트 스토리지로 옮기고 같은 상대 경로 계약을 유지한다.
 
-데이터 소스의 `cameraFrames`는 검증된 manifest의 상대 이미지 경로를 manifest 응답 URL 기준으로 해석한 `CameraFrame` 목록이다. Viewer는 같은 재생 시각에서 최신 과거 카메라 Frame을 선택해 카메라 패널과 동기화 패널에 전달한다. React는 선택 URL과 촬영 시각을 표시하고 이미지 HTTP 요청·디코딩은 브라우저가 담당한다. LiDAR CPU 캐시는 이미지 데이터를 소유하지 않는다. 실제 이미지와 mock 이미지는 채널 표시와 alt로 구분하며, 이미지 로딩 실패 안내·재시도는 다음 오류 처리 단계에 남긴다.
+데이터 소스의 `cameraFrames`는 검증된 manifest의 상대 이미지 경로를 manifest 응답 URL 기준으로 해석한 `CameraFrame` 목록이다. Viewer는 같은 재생 시각에서 최신 과거 카메라 Frame을 선택한다. `useBufferedCameraFrame`은 패널에 유지되는 img 두 개 중 숨겨진 쪽에 URL을 지정하고 `decode()`가 완료된 뒤 표시 슬롯과 촬영 시각을 함께 바꾼다. 다운로드·디코딩 중과 이미지 실패 시에는 이전 사진을 유지하고 상태 문구를 표시한다. 동기화 패널도 목표 Frame이 아니라 실제 표시 중인 Frame의 timestamp를 사용하며, 뒤로 seek하는 동안에는 잠시 목표보다 늦은 이전 사진이 남을 수 있다. effect cleanup은 폐기된 요청의 완료 결과와 unmount 후 state 갱신을 차단한다. 소스 변경·빈 Frame에는 이전 소스 사진을 숨긴다. img DOM은 슬롯별로 재사용하며 URL별 key로 교체하지 않는다. LiDAR CPU 캐시와 Three.js 런타임은 이미지 버퍼를 소유하지 않는다. 수동 재시도와 다른 데이터 오류의 복구 UI는 다음 단계다.
 
 실제 Viewer는 공통 재생 시각 이하의 최신 `egoVehicle.frames`를 선택해 차량 Mesh의 위치와 yaw를 갱신한다. 실제 pose의 최소 계약은 `EgoPoseFrame`이며, 가상 `VehicleStateFrame`은 이를 확장해 속도와 가속도를 추가한다. 이 분리는 실제 manifest에 존재하지 않는 동역학 값을 임의로 채우지 않으면서 같은 차량 Mesh 갱신 경계를 재사용하게 한다.
 
-실제 데이터 모드의 가상 Three.js Camera는 고정된 시나리오 좌표 안에서 ego 차량을 따라간다. yaw의 진행 벡터 `[sin(yaw), 0, cos(yaw)]`를 기준으로 차량 뒤 18m·위 12m에 Camera를 놓고 진행 방향 12m 앞·높이 1.5m를 바라본다. LiDAR 좌표나 Scene 자체를 매 Frame 차량 원점으로 옮기지 않으므로 첫 LiDAR ego 기준의 실제 차량 궤적과 정적 환경 관계가 유지된다. 현재는 keyframe pose를 보간하지 않고 Camera도 즉시 이동하며, 보간과 smoothing은 실제 카메라 연결 뒤 별도 판단한다.
+실제 데이터 모드의 가상 Three.js Camera는 고정된 시나리오 좌표 안에서 ego 차량을 따라간다. v3 yaw의 진행 벡터 `[-sin(yaw), 0, -cos(yaw)]`를 기준으로 차량 뒤 18m·위 12m에 Camera를 놓고 진행 방향 12m 앞·높이 1.5m를 바라본다. LiDAR 좌표나 Scene 자체를 매 Frame 차량 원점으로 옮기지 않으므로 첫 LiDAR ego 기준의 실제 차량 궤적과 정적 환경 관계가 유지된다. 현재는 keyframe pose를 보간하지 않고 Camera도 즉시 이동하며, 보간과 smoothing은 별도 판단한다.
 
 실제 소스 상태는 로딩 중, 준비 완료, 실패 후 mock fallback으로 구분한다. 로딩 중에는 mock Camera·Object Detection·Trajectory·Vehicle State·Event를 표시하지 않아 서로 다른 장면의 일시적인 혼합을 막는다. 실제 첫 ego pose보다 이른 시각에는 미래 pose를 당겨 쓰지 않고 차량 Mesh를 숨긴 채 기본 Camera를 유지한다.
 
@@ -192,7 +192,7 @@ range의 실제 값은 밀리초지만 `aria-valuetext`는 이를 `12.4초`처�
 
 `findNearestFrame`은 그대로 유지한다. Trajectory가 예상한 미래 시각과 이후 실제 Vehicle State처럼 과거와 미래 양쪽 후보 중 시간상 가장 가까운 관측값을 비교할 때 사용할 수 있다. 즉 기본 재생의 인과적 선택과 예측 평가의 최근접 선택은 목적이 다른 정책이다.
 
-Viewer는 Camera, LiDAR와 Object Detection의 선택 결과를 별도 React state에 복제하지 않고 `currentTimeMs`에서 파생한다. 현재 배열은 작으므로 렌더링 중 선형 탐색을 수행한다. 실제 데이터에서 비용이 병목으로 측정될 때만 `currentTimeMs` 기준 `useMemo`와 정렬된 배열의 이진 탐색을 검토하도록 코드에 `TODO`를 남겼다.
+Viewer는 Camera, LiDAR와 Object Detection의 목표 Frame을 `currentTimeMs`에서 파생한다. 비동기 로딩을 마친 실제 표시 Frame은 LiDAR 캐시 Hook과 카메라 버퍼 Hook이 별도로 보관한다. 현재 배열은 작으므로 렌더링 중 선형 탐색을 수행한다. 실제 데이터에서 비용이 병목으로 측정될 때만 `currentTimeMs` 기준 `useMemo`와 정렬된 배열의 이진 탐색을 검토하도록 코드에 `TODO`를 남겼다.
 
 ## 시간 동기화 흐름
 

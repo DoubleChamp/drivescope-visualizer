@@ -29,7 +29,7 @@ if (requestedPath) {
     assert.equal(statSync(imagePath).isFile(), true);
   }
 } else {
-  assert.equal(manifest.schemaVersion, 2);
+  assert.equal(manifest.schemaVersion, 3);
   assert.equal(
     manifest.lidar.frames[0].pointCount *
       3 *
@@ -38,15 +38,22 @@ if (requestedPath) {
   );
   assert.equal(manifest.camera.frames[1].timestampMs, 500);
   assert.deepEqual(manifest.egoVehicle.frames[0].position, [0, 0, 0]);
-  assert.equal(manifest.egoVehicle.frames[1].position[2], 2);
+  assert.equal(manifest.egoVehicle.frames[1].position[2], -2);
   assert.throws(
     () =>
       parseDriveScopeManifest({
         ...manifest,
-        schemaVersion: 1,
-        egoVehicle: undefined,
+        schemaVersion: 2,
       }),
-    /schemaVersion.*2/,
+    /schemaVersion.*3/,
+  );
+  assert.throws(
+    () =>
+      parseDriveScopeManifest({
+        ...manifest,
+        coordinateSystem: "x-right-y-up-z-forward-meters",
+      }),
+    /coordinateSystem.*z-backward/,
   );
   assert.throws(
     () =>

@@ -1,10 +1,10 @@
-export const DRIVE_SCOPE_MANIFEST_VERSION = 2 as const;
+export const DRIVE_SCOPE_MANIFEST_VERSION = 3 as const;
 
 export type DriveScopeManifest = {
   schemaVersion: typeof DRIVE_SCOPE_MANIFEST_VERSION;
   scenarioId: string;
   durationMs: number;
-  coordinateSystem: "x-right-y-up-z-forward-meters";
+  coordinateSystem: "x-right-y-up-z-backward-meters";
   source: {
     dataset: "nuScenes";
     sceneToken: string;
@@ -241,7 +241,7 @@ export function parseDriveScopeManifest(value: unknown): DriveScopeManifest {
     durationMs,
     coordinateSystem: readLiteral(
       manifest.coordinateSystem,
-      "x-right-y-up-z-forward-meters",
+      "x-right-y-up-z-backward-meters",
       "manifest.coordinateSystem",
     ),
     source: {

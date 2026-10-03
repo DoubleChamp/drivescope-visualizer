@@ -5,22 +5,33 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: 실제 `CAM_FRONT` 이미지를 HTTP로 제공하고 공통 재생 시각에 맞춰 카메라 패널과 센서 동기화 정보에 연결했다.
-- 다음 한 단계: 누락 파일·잘못된 timestamp·로딩 실패를 사용자에게 표시하고 복구 흐름을 연결한다.
-- 아직 구현하지 않은 것: ego pose 보간과 Camera 이동 smoothing, 누락 파일·잘못된 timestamp·로딩 실패 UI, 실제 데이터 상태를 반영한 최종 디자인 마감, 배포용 데이터 호스팅과 데모 영상
+- 현재 작업: 실제 LiDAR 좌우 반전을 v3 좌표 계약으로 수정하고, 전방 이미지를 두 img 버퍼로 디코딩 완료 후 교체해 프레임 이동 깜빡임을 수정했다.
+- 다음 한 단계: 이번 축·yaw·이미지 버퍼 원리의 이해를 확인한 뒤 누락 파일·잘못된 timestamp·로딩 실패의 전체 안내와 복구 흐름을 연결한다.
+- 아직 구현하지 않은 것: ego pose 보간과 Camera 이동 smoothing, 이미지 수동 재시도·manifest/LiDAR 오류 복구 UI, 실제 데이터 상태를 반영한 최종 디자인 마감, 배포용 데이터 호스팅과 데모 영상
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
 ## 다른 컴퓨터에서 이어서 시작하기
 
 1. GitHub Desktop에서 `main`의 원격 변경을 먼저 확인하고 pull한다.
 2. `pnpm validate:manifest`와 `pnpm build`로 현재 기준선을 확인한다.
-3. 현재 컴퓨터의 `drivescope-output-v2/scene-0061` 디렉터리 전체를 개인 저장장치로 다른 컴퓨터에 복사하면 nuScenes 원본 다운로드와 Python 변환을 반복할 필요가 없다. v1 출력이 아니라 `schemaVersion: 2`인 v2 출력을 사용한다.
-4. v2 산출물을 복사하지 않을 때만 nuScenes mini 원본을 다른 컴퓨터에 내려받고 [DATA_FORMAT.md](./DATA_FORMAT.md)의 명령으로 첫 scene을 다시 변환한다. `.venv`는 Git에 없으므로 이 경우 새로 만들고 의존성을 설치한다.
+3. 현재 컴퓨터의 `drivescope-output-v3/scene-0061` 디렉터리 전체를 개인 저장장치로 다른 컴퓨터에 복사하면 nuScenes 원본 다운로드와 Python 변환을 반복할 필요가 없다. 현재 로더는 `schemaVersion: 3`인 v3만 허용한다. 이전 v2 결과의 버전 숫자만 바꾸면 안 된다.
+4. v3 산출물을 복사하지 않을 때만 nuScenes mini 원본과 [DATA_FORMAT.md](./DATA_FORMAT.md)의 명령으로 첫 scene을 다시 변환한다. 원본이 있으면 다시 다운로드할 필요는 없다. `.venv`는 Git에 없으므로 필요하면 새로 만들고 의존성을 설치한다.
 5. Python 변환기는 브라우저 런타임이나 API 요청마다 실행하지 않는다. 개발 시 원본 로그를 한 번 전처리해 `manifest.json`, `camera/*`, `lidar/*.bin`을 만드는 축소된 ingestion pipeline이다.
 6. 로컬에서는 산출물 scene 디렉터리를 `.env.local`의 `DRIVESCOPE_DATA_ROOT`로 지정한다. 절대 경로는 Git과 브라우저 bundle에 포함되지 않는다.
 7. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 8. 현재 Route Handler는 로컬 개발용이다. 배포에서는 로컬 C 드라이브를 읽을 수 없으므로 같은 scene 디렉터리를 정적 파일 서버·CDN·오브젝트 스토리지에 올리고 로더의 기준 URL을 바꿔야 한다.
 9. 실제 LiDAR·카메라 연결과 오류 처리가 안정된 직후 Viewer 디자인을 마감하고, 이후 README·배포·1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### Phase 7: LiDAR 좌우 반전·이미지 깜빡임 수정 (2026-10-03)
+
+- 사용자 승인 범위는 기존 실제 센서 연결의 좌우 방향과 프레임 이동 시 검은 이미지 flash 수정이다. 재생 시계, 최신 과거 Frame 선택, LiDAR LRU·prefetch와 GPU 리소스 생성·cleanup 구조는 유지했다.
+- v2의 `[-y, z, x]` 축 변환은 determinant -1인 반사였다. v3는 `[-y, z, -x]`로 오른손성을 유지하고 실제 전방을 -Z로 정했다. ego yaw는 `atan2(-forwardX, -forwardZ)`, 추적 Camera 진행 벡터는 `[-sin(yaw), 0, -cos(yaw)]`로 함께 수정했다. 기존 mock의 +Z 전방·고정 Camera는 변경하지 않았다.
+- 기존 v2 결과는 보존하고 새 v3 scene을 별도 출력 루트에 생성해 `.env.local`로 연결했다. LiDAR·Camera·ego pose는 각각 39개다. TypeScript parser·fixture·validator는 v3 계약을 사용하며 v2와 잘못된 좌표 계약을 거부한다. 다른 컴퓨터는 v3 디렉터리를 복사하거나 원본에서 다시 변환해야 한다.
+- `useBufferedCameraFrame`은 두 img DOM을 고정 슬롯으로 재사용한다. 숨겨진 슬롯의 `decode()` 완료 후 사진·timestamp를 함께 교체하고 다운로드 중에는 이전 사진을 유지한다. 빠른 seek와 unmount는 cleanup으로 폐기된 비동기 결과를 차단한다. 실패 시 이전 사진과 실패 문구를 남기며 다음 정상 Frame으로 복구한다. 동기화 패널도 실제 표시 사진의 timestamp를 사용한다.
+- 검증 명령: `.\.venv\Scripts\python.exe -m unittest discover -s scripts -p test_convert_nuscenes_mini.py` 7개 통과, `pnpm.cmd validate:manifest`와 실제 v3 manifest 자산 검증 통과, `pnpm.cmd exec tsc --noEmit --incremental false`와 `pnpm.cmd build` 통과.
+- Three.js 투영 검사에서 yaw 0·±π/2·0.7 모두 차량 오른쪽 점의 NDC X가 약 +0.096, 왼쪽이 -0.096이었다. Python 테스트는 축 기저·determinant +1·cross product 보존과 다섯 방향의 yaw 재구성을 확인한다.
+- Chrome에서 JPEG 요청 600ms 보류, 250ms 지연 반복 탐색·재생, 느린 이전 요청 폐기, 이미지 실패 후 복구를 검사했다. 최종 검사에서 첫 사진 준비 이후 rAF 샘플 453회 중 빈/미디코딩 active 이미지와 img DOM 교체는 각각 0회였다. 초기 이미지 실패 후 정상 Frame 복구와 manifest 실패 뒤 mock SVG 재생도 통과했다. 표시 timestamp, 실제 점군·차량 화면과 모바일 가로 overflow 없음도 확인했다. 이 수치는 이번 테스트 조건의 결과이며 전체 환경에서의 성능 보장은 아니다.
+- 전체 오류 복구 단계는 아직 완료하지 않았으며 수동 재시도·manifest/LiDAR 오류 안내는 다음 단계다. 축과 비동기 표시 원리의 사용자 이해 확인도 대기 중이다.
 
 ### Phase 7: 실제 전방 카메라 연결 (2026-10-03)
 

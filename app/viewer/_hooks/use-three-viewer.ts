@@ -337,18 +337,19 @@ export function useThreeViewer({
     }
 
     const [positionX, groundY, positionZ] = egoPoseFrame.position;
-    const sinYaw = Math.sin(egoPoseFrame.yawRadians);
-    const cosYaw = Math.cos(egoPoseFrame.yawRadians);
+    // 실제 v3 데이터의 로컬 전방 -Z를 Three.js Y축 yaw로 회전한 벡터다.
+    const forwardX = -Math.sin(egoPoseFrame.yawRadians);
+    const forwardZ = -Math.cos(egoPoseFrame.yawRadians);
 
     camera.position.set(
-      positionX - sinYaw * FOLLOW_CAMERA_DISTANCE,
+      positionX - forwardX * FOLLOW_CAMERA_DISTANCE,
       groundY + FOLLOW_CAMERA_HEIGHT,
-      positionZ - cosYaw * FOLLOW_CAMERA_DISTANCE,
+      positionZ - forwardZ * FOLLOW_CAMERA_DISTANCE,
     );
     camera.lookAt(
-      positionX + sinYaw * FOLLOW_CAMERA_LOOK_AHEAD,
+      positionX + forwardX * FOLLOW_CAMERA_LOOK_AHEAD,
       groundY + FOLLOW_CAMERA_TARGET_HEIGHT,
-      positionZ + cosYaw * FOLLOW_CAMERA_LOOK_AHEAD,
+      positionZ + forwardZ * FOLLOW_CAMERA_LOOK_AHEAD,
     );
     camera.updateMatrixWorld();
   }, [egoPoseFrame, followEgoVehicle]);

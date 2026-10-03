@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 
 NUSCENES_VERSION = "v1.0-mini"
-DRIVESCOPE_SCHEMA_VERSION = 2
+DRIVESCOPE_SCHEMA_VERSION = 3
 LIDAR_CHANNEL = "LIDAR_TOP"
 CAMERA_CHANNEL = "CAM_FRONT"
 
@@ -39,8 +39,8 @@ def source_xyz_to_viewer_xyz(source_xyz: np.ndarray) -> np.ndarray:
     if source_xyz.ndim != 2 or source_xyz.shape[0] != 3:
         raise ValueError("source_xyz는 3×N 좌표 배열이어야 합니다.")
 
-    # nuScenes ego 축(x=앞, y=왼쪽, z=위)을 Viewer 축(X=오른쪽, Y=위, Z=앞)으로 바꾼다.
-    return np.column_stack((-source_xyz[1], source_xyz[2], source_xyz[0]))
+    # 오른손 좌표계를 유지한다. Viewer의 전방은 -Z, 오른쪽은 +X다.
+    return np.column_stack((-source_xyz[1], source_xyz[2], -source_xyz[0]))
 
 
 def pose_matrix(record: dict[str, Any], *, inverse: bool = False) -> np.ndarray:
@@ -73,8 +73,8 @@ def scenario_ego_matrix_to_viewer_pose(
 
     position = [float(value) for value in viewer_position]
     yaw_radians = math.atan2(
-        float(viewer_forward[0]),
-        float(viewer_forward[2]),
+        -float(viewer_forward[0]),
+        -float(viewer_forward[2]),
     )
     if not all(math.isfinite(value) for value in [*position, yaw_radians]):
         raise ValueError("유한하지 않은 ego vehicle pose가 있습니다.")
@@ -261,7 +261,7 @@ def convert_scene(
             "schemaVersion": DRIVESCOPE_SCHEMA_VERSION,
             "scenarioId": scenario_id,
             "durationMs": duration_ms,
-            "coordinateSystem": "x-right-y-up-z-forward-meters",
+            "coordinateSystem": "x-right-y-up-z-backward-meters",
             "source": {
                 "dataset": "nuScenes",
                 "sceneToken": scene["token"],
@@ -296,7 +296,7 @@ def convert_scene(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="nuScenes mini scene을 DriveScope 디스크 포맷 v2로 변환합니다."
+        description="nuScenes mini scene을 DriveScope 디스크 포맷 v3로 변환합니다."
     )
     parser.add_argument(
         "--dataroot",
