@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import type { CameraFrame } from "../_data/frame-types";
 import type { BufferedCameraFrame } from "../_hooks/use-buffered-camera-frame";
 import { formatSeconds } from "../_utils/format-time";
 import styles from "../viewer-canvas.module.css";
@@ -8,17 +10,35 @@ type CameraPanelProps = {
   onRetry: () => void;
 };
 
+const CAMERA_DELAY_NOTICE_MS = 500;
+
 export function CameraPanel({
   camera,
   isActualData = false,
   onRetry,
 }: CameraPanelProps) {
   const { frame, activeSlot, imageRefs, status } = camera;
+  const [delayedFrame, setDelayedFrame] = useState<CameraFrame | null>(null);
+
+  useEffect(() => {
+    setDelayedFrame(null);
+    if (status !== "loading" || frame === null) return;
+
+    // 같은 사진이 계속 표시되는 동안만 지연을 알린다. 목표 Frame 변경으로 타이머를 재시작하지 않는다.
+    const timeoutId = window.setTimeout(() => {
+      setDelayedFrame(frame);
+    }, CAMERA_DELAY_NOTICE_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [status, frame]);
+
+  const showDelayNotice =
+    status === "loading" && frame !== null && delayedFrame === frame;
   const timestampSeconds = frame ? formatSeconds(frame.timestampMs) : null;
   const statusMessage =
     status === "loading"
       ? frame
-        ? "다음 이미지 준비 중 · 이전 Frame 표시"
+        ? null
         : "이미지 불러오는 중"
       : status === "error"
         ? frame
@@ -35,9 +55,18 @@ export function CameraPanel({
           <p>02 · Camera feed</p>
           <h2 id="camera-title">전방 카메라</h2>
         </div>
-        <span className={styles.frameBadge}>
-          {frame ? `${timestampSeconds}초` : "Frame 없음"}
-        </span>
+        <div className={styles.cameraHeaderStatus}>
+          <span
+            className={styles.cameraDelayNotice}
+            data-delayed={showDelayNotice}
+            role="status"
+          >
+            {showDelayNotice ? "이미지 지연" : ""}
+          </span>
+          <span className={styles.frameBadge}>
+            {frame ? `${timestampSeconds}초` : "Frame 없음"}
+          </span>
+        </div>
       </div>
       <div className={styles.cameraViewport} aria-busy={status === "loading"}>
         {([0, 1] as const).map((slot) => (

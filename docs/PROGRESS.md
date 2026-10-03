@@ -1,12 +1,12 @@
 # DriveScope 진행 상황
 
-마지막 갱신: 2026-10-03
+마지막 갱신: 2026-10-04
 
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: 실제·가상·연결 중 상태에 맞춰 Viewer 제목·요약·범례·빈 상태와 분석 패널을 마감하고 브라우저에서 검증했다.
-- 다음 한 단계: 이번 표시 분기의 원리를 확인한 뒤 설치·실행·사용법과 두 데모의 범위를 README에 정리한다.
+- 현재 작업: 정상 이미지 교체의 반복 안내를 없애고 장시간 지연만 헤더에 표시한다. Viewer의 제목·요약과 3D 표시 마크업을 분리해 메인 조합 파일을 정리하고 검증했다.
+- 다음 한 단계: 카메라 지연 안내의 타이머·cleanup과 표시 컴포넌트 분리 원리를 확인한 뒤 설치·실행·사용법과 두 데모의 범위를 README에 정리한다.
 - 아직 구현하지 않은 것: ego pose 보간과 Camera 이동 smoothing, 최종 README·아키텍처 정리, 배포용 데이터 호스팅과 데모 영상
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
@@ -21,6 +21,18 @@
 7. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 8. 현재 Route Handler는 로컬 개발용이다. 배포에서는 로컬 C 드라이브를 읽을 수 없으므로 같은 scene 디렉터리를 정적 파일 서버·CDN·오브젝트 스토리지에 올리고 로더의 기준 URL을 바꿔야 한다.
 9. 실제 LiDAR·카메라 연결, 오류 처리와 Viewer 디자인 마감을 검증했다. 이후 README·최종 아키텍처·배포·1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### 카메라 교체 안내 개선과 Viewer 표시 코드 정리 (2026-10-04)
+
+- 사용자가 정상 Frame 교체 때 이미지 위에 나오는 준비 문구가 UX를 방해한다는 설명에 동의하고 수정을 요청했다. 함께 길어진 `viewer-canvas.tsx`를 읽고 찾기 쉽게 정리하도록 승인했으며, 학습을 위해 변경 위치와 이유를 설명하는 범위를 유지했다.
+- 시작 시 미커밋 변경이 없는 main에서 작업했고 기존 commit 6개가 origin/main보다 앞서 있었다. GitHub Desktop 내장 Git으로 원격 main이 기존 `eed3e94`와 같음을 읽기 전용으로 확인했다.
+- `CameraPanel`은 이미 표시할 사진이 있는 정상 loading에서 이미지 위 안내를 렌더링하지 않는다. 첫 이미지 로딩·빈 Frame·실패와 재시도는 기존 안내를 유지한다.
+- 같은 표시 사진이 loading 상태로 500ms 유지되면 헤더에 작은 `이미지 지연` 표시를 제공한다. 500ms는 현재 UX 기준값이며 센서 수집 주기나 성능 보장값이 아니다. effect는 표시 중인 Frame과 status에 의존해 준비 중 목표가 바뀌어도 타이머를 계속 유지하고, 상태·표시 Frame 변경과 unmount에서 timeout을 정리한다. 디코딩 완료 시 지연 표시를 즉시 숨긴다.
+- 헤더의 지연 표시 공간은 미리 확보해 문구 등장으로 이미지·헤더·촬영 시각 위치가 바뀌지 않게 했다. 사진과 timestamp는 기존 이미지 버퍼 Hook의 실제 표시 Frame을 계속 사용한다.
+- `ViewerHeader`에 제목·요약·소스 상태를, `ViewerScenePanel`과 `ViewerSceneStage`에 3D 패널 제목·상태·Canvas·빈 상태·범례를 옮겼다. 두 새 표시 파일은 필요한 props와 children만 받는다. `viewer-canvas.tsx`는 365줄에서 242줄로 줄었으며 소스·시계, 센서 선택·버퍼, Three.js 연결과 패널 조합 흐름을 남겼다. 기존 Object Detection Frame에서 보행자를 파생해 중복 모드 분기도 정리했다.
+- 검증 명령: `pnpm.cmd exec tsc --noEmit --incremental false`, `pnpm.cmd build`, `node node_modules/.cache/drivescope-browser-check/camera-ux-3100.mjs`, `node node_modules/.cache/drivescope-browser-check/ui-finalize.mjs`, `node node_modules/.cache/drivescope-browser-check/error-recovery-3100.mjs`. 별도 3100 production 서버에서 모두 통과했다.
+- 이미지 지연 검사에서 짧은 대기 안내 없음·긴 대기 헤더 표시·위치 유지·목표 변경에도 타이머 유지·완료/취소 후 표시 해제·첫 이미지 로딩·실패 복구·가상 재생을 확인했다. rAF 샘플 541회 중 빈 활성 이미지·img DOM 교체·이전 준비 오버레이·250ms 지연 교체/재생 중 지연 안내는 각각 0회였다. 화면 검사 6개와 오류 복구 10개도 통과했고 모바일 가로 overflow와 런타임 예외는 없었다. 이는 이번 검사 조건의 결과다.
+- 검증 스크립트·캡처는 Git 제외 캐시 디렉터리에 보관한다. 이번 코드 설명의 사용자 이해 확인은 대기 중이며 README 단계는 시작하지 않았다.
 
 ### Phase 7: 실제 데이터 상태를 반영한 Viewer 마감 (2026-10-03)
 

@@ -8,6 +8,11 @@ import { PlaybackControls } from "./_components/playback-controls";
 import { SelectedObjectPanel } from "./_components/selected-object-panel";
 import { SynchronizedFramesPanel } from "./_components/synchronized-frames-panel";
 import { ViewerMetrics } from "./_components/viewer-metrics";
+import { ViewerHeader } from "./_components/viewer-header";
+import {
+  ViewerScenePanel,
+  ViewerSceneStage,
+} from "./_components/viewer-scene-panel";
 import { findLatestFrameAtOrBefore } from "./_data/find-latest-frame-at-or-before";
 import { loadMockLidarFrame } from "./_data/load-mock-lidar-frame";
 import { mockScenario } from "./_data/mock-scenario";
@@ -36,6 +41,7 @@ const LOADING_LIDAR_SOURCE: LidarFrameSource = {
 };
 
 export default function ViewerCanvas() {
+  // 데이터 소스와 공통 재생 시계
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const {
     source: actualDataSource,
@@ -78,12 +84,6 @@ export default function ViewerCanvas() {
     source: lidarSource,
     targetTimestampMs: lidarFrameMetadata?.timestampMs ?? null,
   });
-  const currentPedestrian =
-    isMockFallback
-      ? (frames.objectDetection?.objects.find(
-          (object) => object.category === "pedestrian",
-        ) ?? null)
-      : null;
   const lidarPointCount = lidarFrame ? lidarFrame.positions.length / 3 : 0;
   const lidarPositionCapacity = Math.max(
     0,
@@ -94,6 +94,10 @@ export default function ViewerCanvas() {
     ),
   );
   const objectDetectionFrame = isMockFallback ? frames.objectDetection : null;
+  const currentPedestrian =
+    objectDetectionFrame?.objects.find(
+      (object) => object.category === "pedestrian",
+    ) ?? null;
   const cameraFrame = isActualData
     ? findLatestFrameAtOrBefore(actualDataSource.cameraFrames, currentTimeMs)
     : isMockFallback
@@ -108,6 +112,7 @@ export default function ViewerCanvas() {
     : isMockFallback
       ? frames.vehicleState
       : null;
+  // 선택 상태와 Three.js 런타임 연결
   const { selectedObject, selectedObjectId, setSelectedObjectId } =
     useObjectSelection(objectDetectionFrame);
   const { framesPerSecond } = useThreeViewer({
@@ -136,69 +141,14 @@ export default function ViewerCanvas() {
       data-source-state={sourceState}
       aria-busy={isActualDataLoading}
     >
-      <header className={styles.viewerHeader}>
-        <div className={styles.viewerHeading}>
-          <p className={styles.eyebrow}>
-            <span aria-hidden="true" />
-            {isActualDataLoading
-              ? "nuScenes mini · 연결 중"
-              : isActualData
-              ? `nuScenes mini · ${actualDataSource.manifest.scenarioId}`
-              : "가상 급제동 데모 · Demo 01"}
-          </p>
-          <h1>
-            {isActualDataLoading
-              ? "실제 데이터 불러오는 중"
-              : isActualData
-                ? "실제 센서 주행 장면"
-                : "보행자 급제동 시나리오"}
-          </h1>
-          <p>
-            {isActualDataLoading
-              ? "센서 로그를 준비하고 있습니다. 연결이 끝나면 재생과 탐색을 시작할 수 있습니다."
-              : isActualData
-              ? "점군과 전방 이미지를 같은 타임라인에서 살펴보고, 차량 위치와 센서 수집 시각을 비교하세요."
-              : "센서가 포착한 순간부터 차량이 반응하기까지, 모든 Frame을 하나의 시간축에서 추적합니다."}
-          </p>
-        </div>
-
-        <dl className={styles.scenarioSummary} aria-label="시나리오 요약">
-          <div>
-            <dt>재생 구간</dt>
-            <dd>{isActualDataLoading ? "확인 중" : `${formatSeconds(durationMs)}초`}</dd>
-          </div>
-          <div>
-            <dt>LiDAR Frame</dt>
-            <dd>{isActualDataLoading ? "확인 중" : `${lidarSource.frames.length}개`}</dd>
-          </div>
-          <div className={primaryEvent ? styles.incidentSummary : undefined}>
-            <dt>{isMockFallback ? "급제동 이벤트" : "전방 이미지"}</dt>
-            <dd>
-              {isActualDataLoading
-                ? "확인 중"
-                : isActualData
-                  ? `${actualDataSource.cameraFrames.length}장`
-                  : primaryEvent
-                    ? `${formatSeconds(primaryEvent.timestampMs)}초`
-                    : "없음"}
-            </dd>
-          </div>
-        </dl>
-      </header>
-
-      <div className={styles.sourceStrip}>
-        <span className={styles.sourceBadge} data-state={sourceState}>
-          <span aria-hidden="true" />
-          {isActualDataLoading ? "연결 중" : isActualData ? "실제 센서 로그" : "가상 데모"}
-        </span>
-        <p>
-          {isActualDataLoading
-            ? "LiDAR · 전방 이미지 · 차량 위치를 확인하고 있습니다."
-            : isActualData
-              ? "객체 인식·예상 경로·급제동 이벤트는 아직 연결되지 않았습니다."
-              : "보행자 등장부터 인식, 경로 충돌과 급제동까지 시간 순서를 살펴보세요."}
-        </p>
-      </div>
+      <ViewerHeader
+        sourceState={sourceState}
+        scenarioId={actualDataSource?.manifest.scenarioId ?? null}
+        durationMs={durationMs}
+        lidarFrameCount={lidarSource.frames.length}
+        cameraFrameCount={actualDataSource?.cameraFrames.length ?? 0}
+        primaryEvent={primaryEvent}
+      />
 
       {actualDataError && (
         <DataErrorNotice
@@ -214,33 +164,11 @@ export default function ViewerCanvas() {
       )}
 
       <div className={styles.workspaceGrid}>
-        <section className={styles.scenePanel} aria-labelledby="scene-title">
-          <header className={styles.panelHeader}>
-            <div className={styles.panelTitleGroup}>
-              <span className={styles.panelIndex} aria-hidden="true">
-                01
-              </span>
-              <div>
-                <p>Primary view</p>
-                <h2 id="scene-title">3D LiDAR 장면</h2>
-              </div>
-            </div>
-            <span
-              className={styles.synchronizedBadge}
-              data-state={lidarFrame ? "ready" : lidarCacheStatus === "error" ? "error" : "waiting"}
-            >
-              <span aria-hidden="true" />
-              {isActualDataLoading
-                ? "연결 중"
-                : lidarCacheStatus === "error"
-                  ? "LiDAR 로딩 실패"
-                  : lidarCacheStatus === "loading"
-                    ? "LiDAR 불러오는 중"
-                    : lidarFrame
-                      ? "공통 시간축"
-                      : "LiDAR Frame 대기"}
-            </span>
-          </header>
+        <ViewerScenePanel
+          sourceState={sourceState}
+          lidarCacheStatus={lidarCacheStatus}
+          hasLidarFrame={lidarFrame !== null}
+        >
 
           {lidarError && lidarFrameMetadata && (
             <DataErrorNotice
@@ -255,7 +183,12 @@ export default function ViewerCanvas() {
             />
           )}
 
-          <div className={styles.canvasStage}>
+          <ViewerSceneStage
+            canvasRef={canvasRef}
+            sourceState={sourceState}
+            lidarCacheStatus={lidarCacheStatus}
+            hasLidarFrames={lidarSource.frames.length > 0}
+          >
             <ViewerMetrics
               pointCount={lidarPointCount}
               framesPerSecond={framesPerSecond}
@@ -267,63 +200,7 @@ export default function ViewerCanvas() {
               lidarLoadDurationMs={lidarLoadDurationMs}
               isDataLoading={isActualDataLoading}
             />
-            <canvas
-              ref={canvasRef}
-              className={styles.canvas}
-              data-selectable={isMockFallback}
-              aria-label="DriveScope 3D 뷰어"
-              aria-describedby="scene-input-help"
-            >
-              {isMockFallback
-                ? "3D LiDAR 장면입니다. 객체 선택은 포인터 입력을 사용합니다."
-                : "3D LiDAR와 주행 차량 위치를 보여주는 장면입니다."}
-            </canvas>
-            <p id="scene-input-help" className={styles.visuallyHidden}>
-              {isMockFallback
-                ? "3D 장면에서 보행자 박스를 클릭하면 선택 객체 정보를 확인할 수 있습니다."
-                : "타임라인을 이동해 LiDAR와 전방 이미지, 차량 위치를 함께 확인하세요."}
-            </p>
-            {(isActualDataLoading || (isActualData && lidarCacheStatus === "empty")) && (
-              <div className={styles.canvasEmptyState} role="status">
-                <strong>{isActualDataLoading ? "센서 로그 연결 중" : "점군 표시 대기"}</strong>
-                <p>
-                  {isActualDataLoading
-                    ? "데이터가 준비되면 재생을 시작할 수 있습니다."
-                    : lidarSource.frames.length === 0
-                      ? "이 로그에는 LiDAR Frame이 없습니다."
-                      : "현재 시각 이전의 LiDAR Frame이 없습니다. 재생하거나 타임라인을 이동하세요."}
-                </p>
-              </div>
-            )}
-            <ul className={styles.sceneLegend} aria-label="3D 장면 범례">
-              <li>
-                <i className={styles.lidarLegend} aria-hidden="true" />
-                LiDAR
-              </li>
-              {!isActualDataLoading && (
-                <li>
-                  <i className={styles.objectLegend} aria-hidden="true" />
-                  주행 차량
-                </li>
-              )}
-              {isMockFallback && (
-                <>
-                  <li>
-                    <i className={styles.pedestrianLegend} aria-hidden="true" />
-                    보행자
-                  </li>
-                  <li>
-                    <i className={styles.trajectoryLegend} aria-hidden="true" />
-                    예상 경로
-                  </li>
-                  <li>
-                    <i className={styles.riskLegend} aria-hidden="true" />
-                    충돌 위험
-                  </li>
-                </>
-              )}
-            </ul>
-          </div>
+          </ViewerSceneStage>
 
           <PlaybackControls
             currentTimeMs={currentTimeMs}
@@ -334,7 +211,7 @@ export default function ViewerCanvas() {
             onTogglePlayback={togglePlayback}
             disabled={isActualDataLoading}
           />
-        </section>
+        </ViewerScenePanel>
 
         <aside className={styles.analysisRail} aria-label="센서 분석 패널">
           <CameraPanel

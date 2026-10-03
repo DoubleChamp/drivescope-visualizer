@@ -211,7 +211,9 @@ Viewer는 Camera, LiDAR와 Object Detection의 목표 Frame을 `currentTimeMs`�
 
 `useLidarFrameCache`는 현재 목표의 로딩 실패를 별도 `error` 상태로 보관한다. 실패한 Frame은 표시하지 않고 같은 timestamp를 재시도하거나 정상 시점으로 이동할 수 있다. 표시 state는 source 참조와 목표 timestamp가 모두 일치해야 사용한다. 완료 전 Promise는 실패해도 `finally`에서 Map에서 제거되므로 영구 실패 캐시가 되지 않는다. 주변 prefetch는 `Promise.allSettled`로 rejection을 처리하며 현재 Frame 상태를 바꾸지 않는다.
 
-`useBufferedCameraFrame`의 재시도도 요청 번호를 바꿔 같은 URL의 숨겨진 img 로드·decode를 다시 실행한다. 이전 사진과 timestamp는 성공할 때까지 유지한다. `CameraPanel`은 실패 문구와 재시도 입력만 담당하며, 재시도 시 Viewer가 재생을 정지해 목표 Frame을 유지한다.
+`useBufferedCameraFrame`의 재시도도 요청 번호를 바꿔 같은 URL의 숨겨진 img 로드·decode를 다시 실행한다. 이전 사진과 timestamp는 성공할 때까지 유지한다. `CameraPanel`은 초기·빈 상태·실패 문구와 재시도 입력을 담당하며, 재시도 시 Viewer가 재생을 정지해 목표 Frame을 유지한다.
+
+이미 표시할 사진이 있는 정상 교체에는 이미지 위 loading 문구를 표시하지 않는다. `CameraPanel`의 UI 타이머는 같은 표시 Frame이 loading으로 500ms 유지될 때만 헤더 지연 안내를 켠다. 목표 Frame이 계속 바뀌어도 표시 Frame이 같다면 지연을 누적한다. timer effect는 표시 Frame·status에 의존하고 cleanup에서 timeout을 취소한다. 지연을 기록한 Frame 참조가 현재 표시 Frame과 같고 status가 loading일 때만 안내를 보여 오래된 timer 결과가 다른 사진에 적용되지 않게 한다. 헤더 표시 공간은 미리 확보해 레이아웃 이동을 피한다. 500ms는 조정 가능한 UI 기준이며 이미지 로드·decode나 센서 timestamp 선택 규칙을 바꾸지 않는다.
 
 ### 데이터 상태에 따른 표시
 
@@ -229,6 +231,8 @@ Viewer는 Camera, LiDAR와 Object Detection의 목표 Frame을 `currentTimeMs`�
 - `_hooks/use-playback.ts`: 재생 시간, 재생 여부, 실제 경과 시간 기반 타이머, seek 동작을 소유
 - `_hooks/use-object-selection.ts`: React state에는 객체 ID만 저장하고 현재 Detection Frame에서 최신 객체를 파생
 - `_hooks/use-three-viewer.ts`: Scene·Camera·Renderer·Geometry·Material·Buffer·Raycaster와 DOM listener의 생성, 갱신, cleanup을 소유
+- `_components/viewer-header.tsx`: 소스 모드와 메타데이터를 받아 제목·요약·연결 범위를 표시
+- `_components/viewer-scene-panel.tsx`: `ViewerScenePanel`은 3D 패널 제목·상태와 children을, `ViewerSceneStage`는 기존 canvasRef의 Canvas·빈 상태·범례와 통계 children을 표시
 - `_components/`: 통계, 동기화 정보, 카메라, 선택 객체와 재생 컨트롤의 표시와 사용자 입력을 담당
 
 Three.js 런타임 Hook은 코드 줄 수만 기준으로 더 잘게 자르지 않는다. 하나의 초기화 effect에서 만든 리소스를 여러 Frame 갱신 effect가 ref로 재사용하고 같은 cleanup에서 해제하므로, 생성자와 소유자와 정리자를 한곳에서 추적할 수 있는 응집도가 더 중요하다. 순수 충돌 계산은 기존처럼 `_analysis`에 남겨 Three.js 렌더 책임과 분리한다.

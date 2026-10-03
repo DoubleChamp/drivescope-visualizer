@@ -683,6 +683,19 @@
   background: #05080d;
 }
 
+.cameraHeaderStatus {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.cameraDelayNotice {
+  min-width: 3.5rem;
+  color: #facc15;
+  font-size: 0.625rem;
+  white-space: nowrap;
+}
+
 .cameraImage {
   position: absolute;
   inset: 0;
