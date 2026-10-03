@@ -5,9 +5,9 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: 실제 `egoVehicle.frames`를 차량 Mesh에 연결하고, 고정된 시나리오 좌표 안에서 가상 Three.js Camera가 현재 차량의 위치와 yaw를 따라가도록 했다.
-- 다음 한 단계: manifest의 `CAM_FRONT` Frame을 같은 HTTP 경계로 제공하고, 공통 재생 시각에서 선택한 실제 전방 카메라 이미지를 패널에 연결한다.
-- 아직 구현하지 않은 것: 실제 전방 카메라 연결, ego pose 보간과 Camera 이동 smoothing, 누락 파일·잘못된 timestamp·로딩 실패 UI, 실제 데이터 상태를 반영한 최종 디자인 마감, 배포용 데이터 호스팅과 데모 영상
+- 현재 작업: 실제 `CAM_FRONT` 이미지를 HTTP로 제공하고 공통 재생 시각에 맞춰 카메라 패널과 센서 동기화 정보에 연결했다.
+- 다음 한 단계: 누락 파일·잘못된 timestamp·로딩 실패를 사용자에게 표시하고 복구 흐름을 연결한다.
+- 아직 구현하지 않은 것: ego pose 보간과 Camera 이동 smoothing, 누락 파일·잘못된 timestamp·로딩 실패 UI, 실제 데이터 상태를 반영한 최종 디자인 마감, 배포용 데이터 호스팅과 데모 영상
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
 ## 다른 컴퓨터에서 이어서 시작하기
@@ -21,6 +21,15 @@
 7. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 8. 현재 Route Handler는 로컬 개발용이다. 배포에서는 로컬 C 드라이브를 읽을 수 없으므로 같은 scene 디렉터리를 정적 파일 서버·CDN·오브젝트 스토리지에 올리고 로더의 기준 URL을 바꿔야 한다.
 9. 실제 LiDAR·카메라 연결과 오류 처리가 안정된 직후 Viewer 디자인을 마감하고, 이후 README·배포·1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### Phase 7: 실제 전방 카메라 연결 (2026-10-03)
+
+- Route Handler가 `camera/*.jpg`와 `camera/*.jpeg`를 `image/jpeg`로 제공한다. 기존 루트 내부 경로 검사와 허용 목록을 유지하고 다른 확장자·추가 경로는 차단한다.
+- 데이터 소스가 검증된 manifest의 카메라 상대 경로를 응답 URL 기준으로 해석해 `CameraFrame` 목록을 만든다. 이미지 전체를 미리 로딩하지 않고 선택된 URL을 React `<img>`에 전달하며 요청·디코딩은 브라우저가 담당한다.
+- 카메라와 LiDAR에 같은 `currentTimeMs`를 적용해 각각 최신 과거 Frame을 선택한다. 실제 모드에는 nuScenes 표시와 실제 이미지 alt를 사용하며 로딩 중 빈 상태와 실패 후 mock fallback은 유지한다.
+- TypeScript 검사와 production build가 통과했다. 첫 JPEG는 HTTP 200, `image/jpeg`, 131,197바이트와 JPEG 헤더를 확인했고 누락 파일·SVG·추가 경로·환경 파일 요청은 404였다.
+- Chrome에서 0초·12.4초·19.1초·뒤로 0.5초 탐색 시 예상 URL과 1600×900 이미지 디코딩을 확인했다. 12.4초에서는 Camera 12,050ms, LiDAR 12,085ms가 선택됐으며 재생도 0.5초에서 약 1.7초로 전진했다. 실제 점군과 전방 이미지가 함께 표시된 화면도 확인했다.
+- 이미지 실패 안내와 재시도 UI는 다음 오류 처리 단계에 남겨 둔다.
 
 ### 다른 컴퓨터의 로컬 데이터 환경 복원 (2026-10-03)
 

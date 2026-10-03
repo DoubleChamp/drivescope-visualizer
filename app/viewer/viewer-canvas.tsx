@@ -81,6 +81,11 @@ export default function ViewerCanvas() {
     ),
   );
   const objectDetectionFrame = isMockFallback ? frames.objectDetection : null;
+  const cameraFrame = isActualData
+    ? findLatestFrameAtOrBefore(actualDataSource.cameraFrames, currentTimeMs)
+    : isMockFallback
+      ? frames.camera
+      : null;
   const egoPoseFrame = isActualData
     ? findLatestFrameAtOrBefore(
         actualDataSource.manifest.egoVehicle.frames,
@@ -127,14 +132,14 @@ export default function ViewerCanvas() {
             {isActualDataLoading
               ? "실제 데이터 불러오는 중"
               : isActualData
-                ? "실제 LiDAR 주행 장면"
+                ? "실제 센서 주행 장면"
                 : "보행자 급제동 시나리오"}
           </h1>
           <p>
             {isActualDataLoading
               ? "manifest를 검증하고 실제 LiDAR 데이터 소스를 준비하고 있습니다."
               : isActualData
-              ? "nuScenes 변환 산출물의 LiDAR Frame을 필요한 시점에만 읽어 공통 시간축에서 재생합니다."
+              ? "nuScenes의 LiDAR와 전방 카메라를 공통 시간축에서 재생합니다."
               : "센서가 포착한 순간부터 차량이 반응하기까지, 모든 Frame을 하나의 시간축에서 추적합니다."}
           </p>
         </div>
@@ -231,14 +236,14 @@ export default function ViewerCanvas() {
         </section>
 
         <aside className={styles.analysisRail} aria-label="센서 분석 패널">
-          <CameraPanel frame={isMockFallback ? frames.camera : null} />
+          <CameraPanel frame={cameraFrame} isActualData={isActualData} />
           <SelectedObjectPanel
             object={selectedObject}
             frame={objectDetectionFrame}
           />
           <SynchronizedFramesPanel
             currentTimeMs={currentTimeMs}
-            cameraFrame={isMockFallback ? frames.camera : null}
+            cameraFrame={cameraFrame}
             lidarFrame={lidarFrame}
             objectDetectionFrame={objectDetectionFrame}
           />

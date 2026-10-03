@@ -574,9 +574,15 @@
 - 데이터 상태는 `로딩 중 / 실제 데이터 준비 / 실제 로딩 실패 후 mock fallback`의 세 가지다. `actualDataSource === null`만으로 mock을 표시하면 로딩 중 잠깐 가상 차량과 카메라가 나타나는 flash가 생기므로 실패가 확정된 경우에만 mock을 사용한다.
 - 브라우저 seek 검사에서 `12.4초`와 `19.1초`의 실제 점군이 모두 화면에 남았고 차량 wireframe draw call도 유지됐다. 현재 pose와 Camera는 keyframe마다 즉시 이동하며 보간과 smoothing은 별도 개선 항목이다.
 
+### 실제 전방 이미지와 센서별 시각 (2026-10-03, 사용자 이해 확인 대기)
+
+- manifest의 이미지 상대 경로를 응답 URL 기준으로 해석하면 서버 로컬 경로를 브라우저에 노출하지 않고 HTTP 이미지 URL을 만들 수 있다. React는 `<img>`의 URL을 지정하고 브라우저가 파일 요청과 디코딩을 담당한다.
+- 같은 재생 시각을 사용해도 센서 촬영 시각은 같지 않을 수 있다. 실제 12.4초 탐색에서 Camera는 12,050ms, LiDAR는 12,085ms였으며 각각 목표 시각 이전의 최신 Frame이었다.
+- 이미지 로딩은 Frame 선택과 별개인 비동기 작업이다. 선택 URL 확인과 실제 이미지 디코딩 확인을 함께 수행했으며, 다운로드 실패·재시도 상태는 별도로 처리해야 한다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 7의 실제 manifest·LiDAR HTTP 로더, ego 차량과 추적 Camera 연결을 완료했으며, 다음에는 같은 공통 시간축에서 실제 `CAM_FRONT` 이미지를 선택하고 카메라 패널에 연결한다.
+Phase 7의 실제 manifest·LiDAR HTTP 로더, ego 차량·추적 Camera와 실제 `CAM_FRONT` 연결을 완료했으며, 다음에는 로딩 실패 상태를 표시하고 복구 흐름을 연결한다.
 
 - Canvas DOM 좌표를 NDC로 변환하는 식과 Y 부호를 뒤집는 이유
 - Camera 광선과 Mesh 삼각형의 교차, `visible`과 wireframe이 선택 판정에 미치는 영향

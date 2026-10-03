@@ -2,7 +2,7 @@ import {
   parseDriveScopeManifest,
   type DriveScopeManifest,
 } from "./drivescope-manifest";
-import type { LidarFrame } from "./frame-types";
+import type { CameraFrame, LidarFrame } from "./frame-types";
 
 export const DRIVE_SCOPE_MANIFEST_URL = "/api/drivescope-data/manifest.json";
 
@@ -12,6 +12,7 @@ export type DriveScopeDataSource = {
   id: string;
   manifest: DriveScopeManifest;
   frames: readonly LidarManifestFrame[];
+  cameraFrames: readonly CameraFrame[];
   loadFrame: (timestampMs: number) => Promise<LidarFrame | null>;
 };
 
@@ -60,6 +61,10 @@ export async function loadDriveScopeDataSource(
     id: `drivescope:${manifest.scenarioId}`,
     manifest,
     frames: manifest.lidar.frames,
+    cameraFrames: manifest.camera.frames.map((frame) => ({
+      timestampMs: frame.timestampMs,
+      imageUrl: new URL(frame.imageFile, manifestBaseUrl).href,
+    })),
     async loadFrame(timestampMs) {
       const frameMetadata = framesByTimestamp.get(timestampMs);
       if (!frameMetadata) return null;

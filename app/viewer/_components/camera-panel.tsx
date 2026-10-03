@@ -4,9 +4,10 @@ import styles from "../viewer-canvas.module.css";
 
 type CameraPanelProps = {
   frame: CameraFrame | null;
+  isActualData?: boolean;
 };
 
-export function CameraPanel({ frame }: CameraPanelProps) {
+export function CameraPanel({ frame, isActualData = false }: CameraPanelProps) {
   const timestampSeconds = frame ? formatSeconds(frame.timestampMs) : null;
 
   return (
@@ -23,13 +24,16 @@ export function CameraPanel({ frame }: CameraPanelProps) {
       {frame ? (
         <div className={styles.cameraViewport}>
           <img
+            key={frame.imageUrl}
             className={styles.cameraImage}
             src={frame.imageUrl}
-            alt={`가상 전방 카메라 ${timestampSeconds}초 장면`}
+            alt={`${isActualData ? "실제" : "가상"} 전방 카메라 ${timestampSeconds}초 장면`}
             width={640}
             height={360}
           />
-          <span className={styles.cameraChannel}>CAM_FRONT · MOCK</span>
+          <span className={styles.cameraChannel}>
+            CAM_FRONT · {isActualData ? "nuScenes" : "MOCK"}
+          </span>
         </div>
       ) : (
         <p className={styles.panelEmptyState}>

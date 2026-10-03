@@ -11,7 +11,10 @@ const isAllowedAssetPath = (assetPath: readonly string[]) =>
   (assetPath.length === 1 && assetPath[0] === "manifest.json") ||
   (assetPath.length === 2 &&
     assetPath[0] === "lidar" &&
-    /^[\w.-]+\.bin$/.test(assetPath[1]));
+    /^[\w.-]+\.bin$/.test(assetPath[1])) ||
+  (assetPath.length === 2 &&
+    assetPath[0] === "camera" &&
+    /^[\w.-]+\.jpe?g$/.test(assetPath[1]));
 
 const jsonError = (message: string, status: number) =>
   Response.json({ error: message }, { status });
@@ -45,6 +48,7 @@ export async function GET(
   try {
     const contents = await readFile(assetFilePath);
     const isManifest = assetPath[0] === "manifest.json";
+    const isCamera = assetPath[0] === "camera";
 
     return new Response(contents, {
       headers: {
@@ -52,7 +56,9 @@ export async function GET(
         "Content-Length": contents.byteLength.toString(),
         "Content-Type": isManifest
           ? "application/json; charset=utf-8"
-          : "application/octet-stream",
+          : isCamera
+            ? "image/jpeg"
+            : "application/octet-stream",
       },
     });
   } catch (error) {
