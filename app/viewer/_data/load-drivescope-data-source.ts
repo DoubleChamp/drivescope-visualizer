@@ -46,8 +46,14 @@ export async function loadDriveScopeDataSource(
     signal,
   });
   if (!manifestResponse.ok) {
+    const reason =
+      manifestResponse.status === 404
+        ? "데이터 목록 파일(manifest.json)을 찾을 수 없습니다."
+        : manifestResponse.status === 503
+          ? "서버의 데이터 연결 설정을 확인하세요."
+          : "서버에서 데이터 목록 파일을 읽지 못했습니다.";
     throw new Error(
-      `DriveScope manifest 로딩 실패: HTTP ${manifestResponse.status}`,
+      `${reason} HTTP ${manifestResponse.status}`,
     );
   }
 

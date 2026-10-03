@@ -9,12 +9,14 @@ export type BufferedCameraFrame = {
   activeSlot: ImageSlot | null;
   imageRefs: RefObject<[HTMLImageElement | null, HTMLImageElement | null]>;
   status: "empty" | "loading" | "ready" | "error";
+  retry: () => void;
 };
 
 export function useBufferedCameraFrame(
   targetFrame: CameraFrame | null,
   sourceId: string,
 ): BufferedCameraFrame {
+  const [requestAttempt, setRequestAttempt] = useState(0);
   const imageRefs = useRef<[HTMLImageElement | null, HTMLImageElement | null]>([
     null,
     null,
@@ -58,7 +60,7 @@ export function useBufferedCameraFrame(
     return () => {
       cancelled = true;
     };
-  }, [sourceId, targetFrame]);
+  }, [sourceId, targetFrame, requestAttempt]);
 
   const currentDisplay =
     targetFrame && displayed?.sourceId === sourceId ? displayed : null;
@@ -78,5 +80,9 @@ export function useBufferedCameraFrame(
             currentDisplay.frame.timestampMs === targetFrame.timestampMs
           ? "ready"
           : "loading",
+    retry: () => {
+      setFailure(null);
+      setRequestAttempt((attempt) => attempt + 1);
+    },
   };
 }

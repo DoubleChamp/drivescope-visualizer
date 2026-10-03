@@ -589,9 +589,18 @@
 - effect cleanup의 `cancelled` 플래그는 네트워크 요청 전체를 반드시 취소하는 API가 아니라 폐기된 비동기 완료 결과가 state를 덮어쓰지 못하게 하는 장치다. 이 구현은 숨긴 img의 src 변경 시 브라우저의 기존 이미지 요청 취소도 이용한다. Chrome 지연·빠른 탐색·실패 재현에서 첫 표시 후 빈 active 이미지와 DOM 교체가 발생하지 않았다.
 - 의미가 달라진 바이너리에 기존 schema version을 유지하면 다른 컴퓨터의 오래된 산출물이 정상처럼 읽혀 잘못 렌더링될 수 있다. 좌표 계약을 v3로 구분하고 v2 결과를 보존하면서 다시 생성했다.
 
+### 비동기 로딩 오류와 수동 재시도 (2026-10-03, 사용자 이해 확인 대기)
+
+- 비동기 Promise의 실패는 error state로 옮겨야 화면에서 안내할 수 있다. 현재 LiDAR 요청에 catch를 연결해 누락 파일·잘린 바이너리를 실패 문구로 바꾸고 같은 시점 재시도와 다음 정상 Frame 복구를 Chrome에서 확인했다.
+- 같은 URL·timestamp를 유지한 채 effect를 다시 실행하려면 의존성으로 요청 번호를 사용할 수 있다. retry가 번호를 증가시키면 기존 effect cleanup 후 새 요청이 실행된다. manifest는 AbortController, LiDAR·이미지는 폐기 플래그로 오래된 결과의 표시를 차단한다.
+- 현재 Frame 로딩과 주변 prefetch는 실패가 화면에 미치는 영향이 다르다. Promise.allSettled로 주변 실패를 처리하면 현재 정상 Frame은 유지되며, 실패한 주변 Frame을 실제로 선택했을 때 현재 요청의 오류 안내를 표시한다.
+- 실패한 Promise를 finally에서 진행 중 요청 Map에서 지우면 다음 재시도가 실패 Promise를 계속 재사용하지 않는다. 실제 LiDAR 404를 두 번 받은 뒤 같은 timestamp에서 파일을 다시 받아 복구되는 것을 확인했다.
+- timestamp만 비교하면 소스 전환 중 같은 timestamp의 다른 데이터가 잠깐 표시될 수 있다. 캐시 표시 state에 source 참조도 저장해 같은 source·timestamp인 결과만 화면에 전달한다.
+- 이미지 decode 실패만으로 HTTP 상태나 정확한 파일 오류를 알 수는 없다. 화면에는 파일·연결 확인 안내를 제공하고, 재시도에서도 이전 img와 timestamp를 유지한 뒤 디코딩 완료 후 교체한다. manifest parser 오류는 검증 이유를 상세 영역에 표시한다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 7의 실제 manifest·LiDAR HTTP 로더, ego 차량·추적 Camera와 실제 `CAM_FRONT` 연결을 완료했으며, 다음에는 로딩 실패 상태를 표시하고 복구 흐름을 연결한다.
+Phase 7의 실제 센서 연결과 오류 안내·복구를 구현하고 검증했다. 오류 처리 원리의 이해를 확인한 뒤 가상 데이터와 실제 데이터의 성능을 같은 기준으로 비교한다.
 
 - Canvas DOM 좌표를 NDC로 변환하는 식과 Y 부호를 뒤집는 이유
 - Camera 광선과 Mesh 삼각형의 교차, `visible`과 wireframe이 선택 판정에 미치는 영향

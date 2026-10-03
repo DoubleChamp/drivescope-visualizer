@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import { CameraPanel } from "./_components/camera-panel";
+import { DataErrorNotice } from "./_components/data-error-notice";
 import { PlaybackControls } from "./_components/playback-controls";
 import { SelectedObjectPanel } from "./_components/selected-object-panel";
 import { SynchronizedFramesPanel } from "./_components/synchronized-frames-panel";
@@ -35,8 +36,11 @@ const LOADING_LIDAR_SOURCE: LidarFrameSource = {
 
 export default function ViewerCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { source: actualDataSource, error: actualDataError } =
-    useDriveScopeDataSource();
+  const {
+    source: actualDataSource,
+    error: actualDataError,
+    retry: retryActualData,
+  } = useDriveScopeDataSource();
   const lidarSource =
     actualDataSource ??
     (actualDataError === null ? LOADING_LIDAR_SOURCE : MOCK_LIDAR_SOURCE);
@@ -62,6 +66,8 @@ export default function ViewerCanvas() {
     entryCount: cachedLidarFrameCount,
     capacity: lidarCacheCapacity,
     loadDurationMs: lidarLoadDurationMs,
+    error: lidarError,
+    retry: retryLidar,
   } = useLidarFrameCache({
     source: lidarSource,
     targetTimestampMs: lidarFrameMetadata?.timestampMs ?? null,
@@ -166,6 +172,19 @@ export default function ViewerCanvas() {
         </dl>
       </header>
 
+      {actualDataError && (
+        <DataErrorNotice
+          title="실제 데이터에 연결하지 못했습니다"
+          message="데이터 목록 파일을 불러오거나 검증하지 못해 가상 데모를 표시하고 있습니다. 데이터 파일과 연결 상태를 확인한 뒤 다시 연결하세요."
+          error={actualDataError}
+          retryLabel="실제 데이터 다시 연결"
+          onRetry={() => {
+            seek(0);
+            retryActualData();
+          }}
+        />
+      )}
+
       <div className={styles.workspaceGrid}>
         <section className={styles.scenePanel} aria-labelledby="scene-title">
           <header className={styles.panelHeader}>
@@ -183,6 +202,19 @@ export default function ViewerCanvas() {
               공통 시간축
             </span>
           </header>
+
+          {lidarError && lidarFrameMetadata && (
+            <DataErrorNotice
+              title={`LiDAR ${formatSeconds(lidarFrameMetadata.timestampMs)}초 Frame 로딩 실패`}
+              message="해당 시점의 점군을 표시하지 못했습니다. 파일과 연결 상태를 확인해 다시 시도하거나 다른 시점으로 이동하세요."
+              error={lidarError}
+              retryLabel="LiDAR 다시 시도"
+              onRetry={() => {
+                seek(currentTimeMs);
+                retryLidar();
+              }}
+            />
+          )}
 
           <div className={styles.canvasStage}>
             <ViewerMetrics
@@ -238,7 +270,14 @@ export default function ViewerCanvas() {
         </section>
 
         <aside className={styles.analysisRail} aria-label="센서 분석 패널">
-          <CameraPanel camera={bufferedCamera} isActualData={isActualData} />
+          <CameraPanel
+            camera={bufferedCamera}
+            isActualData={isActualData}
+            onRetry={() => {
+              seek(currentTimeMs);
+              bufferedCamera.retry();
+            }}
+          />
           <SelectedObjectPanel
             object={selectedObject}
             frame={objectDetectionFrame}

@@ -87,6 +87,34 @@ if (requestedPath) {
     /숫자 3개의 좌표 배열/,
   );
 
+  for (const sensor of ["lidar", "camera"] as const) {
+    for (const timestampMs of [-1, 0.5, manifest.durationMs + 1]) {
+      assert.throws(() =>
+        parseDriveScopeManifest({
+          ...manifest,
+          [sensor]: {
+            ...manifest[sensor],
+            frames: [{ ...manifest[sensor].frames[0], timestampMs }],
+          },
+        }),
+      );
+    }
+    assert.throws(
+      () =>
+        parseDriveScopeManifest({
+          ...manifest,
+          [sensor]: {
+            ...manifest[sensor],
+            frames: [
+              { ...manifest[sensor].frames[0], timestampMs: 500 },
+              { ...manifest[sensor].frames[1], timestampMs: 0 },
+            ],
+          },
+        }),
+      /오름차순/,
+    );
+  }
+
   const sourceTimestampUs = 1_500_999;
   const timestampOriginUs = Number(manifest.source.timestampOriginUs);
   const relativeTimestampMs = Math.floor(

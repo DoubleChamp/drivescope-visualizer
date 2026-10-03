@@ -72,6 +72,8 @@
 
 .brand:focus-visible,
 .playbackButton:focus-visible,
+.retryButton:focus-visible,
+.errorDetails summary:focus-visible,
 .timeline:focus-visible {
   border-radius: 0.5rem;
   outline: 2px solid var(--accent);
@@ -186,6 +188,52 @@
 
 .viewer {
   min-width: 0;
+}
+
+.dataErrorNotice {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  color: var(--text);
+  background: rgb(251 113 133 / 8%);
+  border: 1px solid rgb(251 113 133 / 40%);
+  border-radius: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.dataErrorNotice p,
+.cameraStatus p {
+  margin: 0.375rem 0;
+}
+
+.dataErrorNotice p {
+  color: var(--muted);
+}
+
+.errorDetails {
+  margin: 0.625rem 0;
+  font-size: 0.8125rem;
+}
+
+.errorDetails summary {
+  width: fit-content;
+  cursor: pointer;
+}
+
+.retryButton {
+  margin-top: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+.retryButton:hover {
+  border-color: var(--accent);
 }
 
 .viewerHeader {

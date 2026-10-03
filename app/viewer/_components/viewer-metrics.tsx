@@ -18,6 +18,7 @@ const CACHE_STATUS_LABELS: Record<LidarCacheStatus, string> = {
   loading: "로딩 중",
   hit: "hit · 재사용",
   miss: "miss · 새로 로딩",
+  error: "로딩 실패",
 };
 
 export function ViewerMetrics({
@@ -35,9 +36,11 @@ export function ViewerMetrics({
       ? "캐시로 생략"
       : lidarCacheStatus === "loading"
         ? "측정 중"
-        : lidarLoadDurationMs === null
-          ? "Frame 없음"
-          : `${lidarLoadDurationMs.toFixed(2)}ms`;
+        : lidarCacheStatus === "error"
+          ? "로딩 실패"
+          : lidarLoadDurationMs === null
+            ? "Frame 없음"
+            : `${lidarLoadDurationMs.toFixed(2)}ms`;
 
   return (
     <dl className={styles.metrics} aria-label="뷰어 통계">

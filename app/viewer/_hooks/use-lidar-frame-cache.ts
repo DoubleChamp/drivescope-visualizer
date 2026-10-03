@@ -4,14 +4,16 @@ import type { LidarFrame } from "../_data/frame-types";
 
 const LIDAR_FRAME_CACHE_CAPACITY = 5;
 
-export type LidarCacheStatus = "empty" | "loading" | "hit" | "miss";
+export type LidarCacheStatus = "empty" | "loading" | "hit" | "miss" | "error";
 
 type CachedFrameState = {
+  source: LidarFrameSource;
   timestampMs: number | null;
   frame: LidarFrame | null;
   status: LidarCacheStatus;
   entryCount: number;
   loadDurationMs: number | null;
+  error: Error | null;
 };
 
 type LidarFrameLoadResult = {
@@ -34,6 +36,7 @@ export function useLidarFrameCache({
   source,
   targetTimestampMs,
 }: UseLidarFrameCacheOptions) {
+  const [requestAttempt, setRequestAttempt] = useState(0);
   // Map 변경은 화면 자체가 아니므로 React state가 아닌 장기 생존 객체에 보관한다.
   const cache = useMemo(
     () => new FrameCache<LidarFrame>(LIDAR_FRAME_CACHE_CAPACITY),
@@ -45,11 +48,13 @@ export function useLidarFrameCache({
     [source],
   );
   const [state, setState] = useState<CachedFrameState>({
+    source,
     timestampMs: null,
     frame: null,
     status: "empty",
     entryCount: 0,
     loadDurationMs: null,
+    error: null,
   });
 
   useEffect(() => {
@@ -98,7 +103,8 @@ export function useLidarFrameCache({
         (timestampMs): timestampMs is number => timestampMs !== undefined,
       );
 
-      await Promise.all(
+      // 주변 Frame 실패는 현재의 정상 Frame을 오류로 바꾸지 않는다.
+      await Promise.allSettled(
         neighborTimestamps.map((timestampMs) => getOrLoadFrame(timestampMs)),
       );
       if (ignoreResult) return;
@@ -112,11 +118,13 @@ export function useLidarFrameCache({
 
     if (targetTimestampMs === null) {
       setState({
+        source,
         timestampMs: null,
         frame: null,
         status: "empty",
         entryCount: cache.size,
         loadDurationMs: null,
+        error: null,
       });
       return;
     }
@@ -124,11 +132,13 @@ export function useLidarFrameCache({
     const cachedFrame = cache.get(targetTimestampMs);
     if (cachedFrame) {
       setState({
+        source,
         timestampMs: targetTimestampMs,
         frame: cachedFrame,
         status: "hit",
         entryCount: cache.size,
         loadDurationMs: null,
+        error: null,
       });
       void prefetchNeighborFrames();
 
@@ -138,31 +148,49 @@ export function useLidarFrameCache({
     }
 
     setState({
+      source,
       timestampMs: targetTimestampMs,
       frame: null,
       status: "loading",
       entryCount: cache.size,
       loadDurationMs: null,
+      error: null,
     });
 
-    void getOrLoadFrame(targetTimestampMs).then((result) => {
-      if (ignoreResult) return;
+    void getOrLoadFrame(targetTimestampMs)
+      .then((result) => {
+        if (ignoreResult) return;
+        if (!result.frame) throw new Error("선택한 LiDAR Frame을 찾을 수 없습니다.");
 
-      setState({
-        timestampMs: targetTimestampMs,
-        frame: result.frame,
-        status: "miss",
-        entryCount: cache.size,
-        loadDurationMs: result.loadDurationMs,
+        setState({
+          source,
+          timestampMs: targetTimestampMs,
+          frame: result.frame,
+          status: "miss",
+          entryCount: cache.size,
+          loadDurationMs: result.loadDurationMs,
+          error: null,
+        });
+        void prefetchNeighborFrames();
+      })
+      .catch((error: unknown) => {
+        if (ignoreResult) return;
+        setState({
+          source,
+          timestampMs: targetTimestampMs,
+          frame: null,
+          status: "error",
+          entryCount: cache.size,
+          loadDurationMs: null,
+          error: error instanceof Error ? error : new Error(String(error)),
+        });
       });
-      void prefetchNeighborFrames();
-    });
 
     // 빠른 seek로 목표가 바뀌면 이전 요청이 늦게 끝나도 현재 화면을 덮어쓰지 않는다.
     return () => {
       ignoreResult = true;
     };
-  }, [cache, inFlightLoads, source, targetTimestampMs]);
+  }, [cache, inFlightLoads, source, targetTimestampMs, requestAttempt]);
 
   useEffect(
     () => () => {
@@ -172,7 +200,8 @@ export function useLidarFrameCache({
     [cache],
   );
 
-  const stateMatchesTarget = state.timestampMs === targetTimestampMs;
+  const stateMatchesTarget =
+    state.source === source && state.timestampMs === targetTimestampMs;
 
   return {
     frame: stateMatchesTarget ? state.frame : null,
@@ -182,8 +211,17 @@ export function useLidarFrameCache({
         : stateMatchesTarget
           ? state.status
           : "loading",
-    entryCount: state.entryCount,
+    entryCount: state.source === source ? state.entryCount : 0,
     capacity: cache.capacity,
     loadDurationMs: stateMatchesTarget ? state.loadDurationMs : null,
+    error: stateMatchesTarget ? state.error : null,
+    retry: () => {
+      setState((currentState) => ({
+        ...currentState,
+        status: "loading",
+        error: null,
+      }));
+      setRequestAttempt((attempt) => attempt + 1);
+    },
   };
 }

@@ -5,9 +5,14 @@ import styles from "../viewer-canvas.module.css";
 type CameraPanelProps = {
   camera: BufferedCameraFrame;
   isActualData?: boolean;
+  onRetry: () => void;
 };
 
-export function CameraPanel({ camera, isActualData = false }: CameraPanelProps) {
+export function CameraPanel({
+  camera,
+  isActualData = false,
+  onRetry,
+}: CameraPanelProps) {
   const { frame, activeSlot, imageRefs, status } = camera;
   const timestampSeconds = frame ? formatSeconds(frame.timestampMs) : null;
   const statusMessage =
@@ -54,9 +59,21 @@ export function CameraPanel({ camera, isActualData = false }: CameraPanelProps) 
           />
         ))}
         {statusMessage && (
-          <p className={styles.cameraStatus} role="status">
-            {statusMessage}
-          </p>
+          <div className={styles.cameraStatus} role="status">
+            <p>{statusMessage}</p>
+            {status === "error" && (
+              <>
+                <p>이미지 파일이나 연결 상태를 확인한 뒤 다시 시도하세요.</p>
+                <button
+                  type="button"
+                  className={styles.retryButton}
+                  onClick={onRetry}
+                >
+                  이미지 다시 시도
+                </button>
+              </>
+            )}
+          </div>
         )}
         {frame && (
           <span className={styles.cameraChannel}>

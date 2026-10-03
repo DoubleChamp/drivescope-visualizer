@@ -11,6 +11,7 @@ type DriveScopeDataSourceState = {
 };
 
 export function useDriveScopeDataSource() {
+  const [requestAttempt, setRequestAttempt] = useState(0);
   const [state, setState] = useState<DriveScopeDataSourceState>({
     source: null,
     error: null,
@@ -36,7 +37,12 @@ export function useDriveScopeDataSource() {
       });
 
     return () => abortController.abort();
-  }, []);
+  }, [requestAttempt]);
 
-  return state;
+  const retry = () => {
+    setState({ source: null, error: null });
+    setRequestAttempt((attempt) => attempt + 1);
+  };
+
+  return { ...state, retry };
 }

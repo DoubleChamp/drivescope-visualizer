@@ -205,6 +205,16 @@ Viewer는 Camera, LiDAR와 Object Detection의 목표 Frame을 `currentTimeMs`�
 
 ## Viewer 코드의 책임 경계
 
+### 실제 데이터 오류와 복구
+
+`useDriveScopeDataSource`는 manifest 요청·검증 오류를 `error`로 반환한다. Viewer는 실패 시 가상 데모임을 알리고 `DataErrorNotice`에 오류 상세와 재연결 버튼을 전달한다. 재연결은 시계를 0초에서 정지하고 Hook의 요청 번호를 증가시켜 effect를 다시 실행한다. cleanup은 이전 manifest 요청을 abort한다.
+
+`useLidarFrameCache`는 현재 목표의 로딩 실패를 별도 `error` 상태로 보관한다. 실패한 Frame은 표시하지 않고 같은 timestamp를 재시도하거나 정상 시점으로 이동할 수 있다. 표시 state는 source 참조와 목표 timestamp가 모두 일치해야 사용한다. 완료 전 Promise는 실패해도 `finally`에서 Map에서 제거되므로 영구 실패 캐시가 되지 않는다. 주변 prefetch는 `Promise.allSettled`로 rejection을 처리하며 현재 Frame 상태를 바꾸지 않는다.
+
+`useBufferedCameraFrame`의 재시도도 요청 번호를 바꿔 같은 URL의 숨겨진 img 로드·decode를 다시 실행한다. 이전 사진과 timestamp는 성공할 때까지 유지한다. `CameraPanel`은 실패 문구와 재시도 입력만 담당하며, 재시도 시 Viewer가 재생을 정지해 목표 Frame을 유지한다.
+
+### 조합과 표시
+
 `app/viewer/viewer-canvas.tsx`는 Viewer의 조합 지점이다. 현재 재생 시각을 받아 센서 Frame과 보행자를 파생하고, React Hook과 화면 컴포넌트 사이에 필요한 값만 전달한다. 재생 타이머, Three.js 리소스 생성 코드와 각 패널의 마크업은 이 파일에 직접 두지 않는다.
 
 - `_data/select-scenario-frames.ts`: 같은 `currentTimeMs`를 모든 센서 배열에 적용해 현재 사용할 Frame 묶음을 반환하는 순수 함수

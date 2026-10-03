@@ -5,9 +5,9 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: 실제 LiDAR 좌우 반전을 v3 좌표 계약으로 수정하고, 전방 이미지를 두 img 버퍼로 디코딩 완료 후 교체해 프레임 이동 깜빡임을 수정했다.
-- 다음 한 단계: 이번 축·yaw·이미지 버퍼 원리의 이해를 확인한 뒤 누락 파일·잘못된 timestamp·로딩 실패의 전체 안내와 복구 흐름을 연결한다.
-- 아직 구현하지 않은 것: ego pose 보간과 Camera 이동 smoothing, 이미지 수동 재시도·manifest/LiDAR 오류 복구 UI, 실제 데이터 상태를 반영한 최종 디자인 마감, 배포용 데이터 호스팅과 데모 영상
+- 현재 작업: manifest 오류 원인·가상 데모 안내와 실제 데이터 재연결, LiDAR 실패 처리·재시도와 이미지 수동 재시도를 연결하고 검증했다.
+- 다음 한 단계: 오류 state·재시도·prefetch 실패 분리 원리의 이해를 확인한 뒤 가상 데이터와 실제 데이터의 성능을 같은 기준으로 비교한다.
+- 아직 구현하지 않은 것: ego pose 보간과 Camera 이동 smoothing, 실제 데이터 상태를 반영한 최종 디자인 마감, 배포용 데이터 호스팅과 데모 영상
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
 ## 다른 컴퓨터에서 이어서 시작하기
@@ -21,6 +21,19 @@
 7. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 8. 현재 Route Handler는 로컬 개발용이다. 배포에서는 로컬 C 드라이브를 읽을 수 없으므로 같은 scene 디렉터리를 정적 파일 서버·CDN·오브젝트 스토리지에 올리고 로더의 기준 URL을 바꿔야 한다.
 9. 실제 LiDAR·카메라 연결과 오류 처리가 안정된 직후 Viewer 디자인을 마감하고, 이후 README·배포·1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### Phase 7: 로딩 오류 안내와 수동 재시도 (2026-10-03)
+
+- 카메라 URL·브라우저 디코딩·두 img 교체 흐름을 설명한 뒤 사용자가 다음 단계 진행을 요청했다. 이번 범위는 Phase 7의 누락 파일·잘못된 timestamp·로딩 실패 안내와 복구다.
+- 작업 시작 시 GitHub Desktop 내장 Git으로 원격 main을 읽어 `origin/main`과 같은 `eed3e94`임을 확인했다. 로컬 main은 기존 commit 3개가 앞서 있었고 미커밋 변경은 없었다.
+- manifest 실패 시 가상 데모임을 명시하고 오류 상세와 실제 데이터 다시 연결 버튼을 표시한다. HTTP 404·503은 파일 누락·서버 설정 안내로 구분하며 timestamp·schema 검증 오류는 기존 parser의 이유를 표시한다. 재연결은 재생을 멈추고 0초에서 시작하며 기존 요청은 AbortController cleanup으로 차단한다.
+- LiDAR 현재 요청의 rejection과 null 결과를 error state로 처리해 무한 로딩·미처리 Promise 오류를 막았다. 실패한 시점에는 점군을 숨기고 오류 상세·같은 시점 재시도를 제공하며 다음 정상 시점으로 이동해도 복구한다. source 참조와 timestamp가 모두 맞는 state만 표시해 데이터 전환 중 다른 소스의 Frame이 섞이지 않게 했다.
+- 주변 LiDAR prefetch는 Promise.allSettled로 실패를 수습해 현재 정상 Frame을 오류로 바꾸지 않는다. 실패한 Promise는 기존 finally에서 Map에서 제거돼 다시 요청할 수 있다. CPU LRU 캐시·Promise 공유·최대 5개 규칙은 유지한다.
+- 이미지 재시도는 요청 번호를 증가시켜 같은 목표 URL도 다시 숨겨진 img에서 로드·decode한다. 이전 표시 사진과 timestamp를 유지하며 디코딩 성공 후 함께 교체한다. 사용자 재시도 시 재생을 정지해 목표 Frame이 바뀌지 않게 한다.
+- 검증: `pnpm.cmd exec tsc --noEmit --incremental false`, `pnpm.cmd validate:manifest`, `pnpm.cmd build` 통과. validator에 음수·소수·재생 길이 초과·순서 역전 timestamp 거부 검사를 추가했다.
+- Chrome production 검사 10개 통과: manifest 404·503·잘못된 timestamp 후 재연결, 첫 JPEG 실패와 기존 사진 유지 후 같은 URL 재시도, 반복 LiDAR 404 후 같은 시점 복구, 잘린 바이너리 후 정상 Frame 복구, prefetch 실패 분리, 늦은 이전 실패 폐기, 모바일 오류 상세 가로 overflow 없음·런타임 예외 없음. 임시 검증 명령은 `node node_modules/.cache/drivescope-browser-check/error-recovery.mjs`이며 원본 파일 대신 HTTP 응답을 가로채 실패를 재현했다.
+- 기존 `camera-regression.mjs`도 통과했다. 이미지 지연·빠른 seek·재생 검사에서 첫 사진 준비 이후 rAF 샘플 437회 중 빈 활성 이미지와 img DOM 교체는 각각 0회였다. 이번 실행 조건의 결과이며 전체 환경의 성능 보장은 아니다.
+- 오류 처리 원리의 사용자 이해 확인은 아직 대기 중이다. 다음 성능 비교와 디자인 마감은 시작하지 않았다.
 
 ### Phase 7: LiDAR 좌우 반전·이미지 깜빡임 수정 (2026-10-03)
 
