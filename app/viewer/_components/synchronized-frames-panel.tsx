@@ -2,6 +2,7 @@ import type {
   CameraFrame,
   LidarFrame,
   ObjectDetectionFrame,
+  EgoPoseFrame,
 } from "../_data/frame-types";
 import { formatSeconds } from "../_utils/format-time";
 import styles from "../viewer-canvas.module.css";
@@ -11,6 +12,8 @@ type SynchronizedFramesPanelProps = {
   cameraFrame: CameraFrame | null;
   lidarFrame: LidarFrame | null;
   objectDetectionFrame: ObjectDetectionFrame | null;
+  egoPoseFrame: EgoPoseFrame | null;
+  isMockFallback: boolean;
 };
 
 const formatTimestampDifference = (differenceMs: number) =>
@@ -21,6 +24,8 @@ export function SynchronizedFramesPanel({
   cameraFrame,
   lidarFrame,
   objectDetectionFrame,
+  egoPoseFrame,
+  isMockFallback,
 }: SynchronizedFramesPanelProps) {
   const lidarPointCount = lidarFrame ? lidarFrame.positions.length / 3 : 0;
   const objectSummary = objectDetectionFrame
@@ -31,7 +36,7 @@ export function SynchronizedFramesPanel({
           .join(", ")
     : null;
   const frames = [
-    { label: "Camera", frame: cameraFrame, detail: cameraFrame?.imageUrl ?? null },
+    { label: "Camera", frame: cameraFrame, detail: cameraFrame ? "전방 이미지" : null },
     {
       label: "LiDAR",
       frame: lidarFrame,
@@ -39,11 +44,9 @@ export function SynchronizedFramesPanel({
         ? `${lidarPointCount.toLocaleString("ko-KR")}개 포인트`
         : null,
     },
-    {
-      label: "Object Detection",
-      frame: objectDetectionFrame,
-      detail: objectSummary,
-    },
+    isMockFallback
+      ? { label: "Object Detection", frame: objectDetectionFrame, detail: objectSummary }
+      : { label: "차량 위치", frame: egoPoseFrame, detail: egoPoseFrame ? "차량 위치와 방향" : null },
   ];
 
   return (
@@ -86,6 +89,10 @@ export function SynchronizedFramesPanel({
           </div>
         ))}
       </dl>
+      <p className={styles.panelNote}>
+        시간 차이는 표시된 Frame과 재생 시각의 차이입니다. 센서별 수집 시각은
+        다를 수 있습니다.
+      </p>
     </section>
   );
 }

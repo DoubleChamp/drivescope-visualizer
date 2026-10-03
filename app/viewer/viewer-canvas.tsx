@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { CameraPanel } from "./_components/camera-panel";
 import { DataErrorNotice } from "./_components/data-error-notice";
+import { EgoPosePanel } from "./_components/ego-pose-panel";
 import { PlaybackControls } from "./_components/playback-controls";
 import { SelectedObjectPanel } from "./_components/selected-object-panel";
 import { SynchronizedFramesPanel } from "./_components/synchronized-frames-panel";
@@ -48,6 +49,11 @@ export default function ViewerCanvas() {
   const isActualDataLoading =
     actualDataSource === null && actualDataError === null;
   const isMockFallback = actualDataError !== null;
+  const sourceState = isActualDataLoading
+    ? "loading"
+    : isActualData
+      ? "actual"
+      : "mock";
   const durationMs =
     actualDataSource?.manifest.durationMs ?? mockScenario.durationMs;
   const { currentTimeMs, isPlaying, seek, togglePlayback } = usePlayback(
@@ -125,7 +131,11 @@ export default function ViewerCanvas() {
   const timelineEvents = isMockFallback ? mockScenario.events : [];
 
   return (
-    <div className={styles.viewer}>
+    <div
+      className={styles.viewer}
+      data-source-state={sourceState}
+      aria-busy={isActualDataLoading}
+    >
       <header className={styles.viewerHeader}>
         <div className={styles.viewerHeading}>
           <p className={styles.eyebrow}>
@@ -134,7 +144,7 @@ export default function ViewerCanvas() {
               ? "nuScenes mini · 연결 중"
               : isActualData
               ? `nuScenes mini · ${actualDataSource.manifest.scenarioId}`
-              : "Incident review · Demo 01"}
+              : "가상 급제동 데모 · Demo 01"}
           </p>
           <h1>
             {isActualDataLoading
@@ -145,9 +155,9 @@ export default function ViewerCanvas() {
           </h1>
           <p>
             {isActualDataLoading
-              ? "manifest를 검증하고 실제 LiDAR 데이터 소스를 준비하고 있습니다."
+              ? "센서 로그를 준비하고 있습니다. 연결이 끝나면 재생과 탐색을 시작할 수 있습니다."
               : isActualData
-              ? "nuScenes의 LiDAR와 전방 카메라를 공통 시간축에서 재생합니다."
+              ? "점군과 전방 이미지를 같은 타임라인에서 살펴보고, 차량 위치와 센서 수집 시각을 비교하세요."
               : "센서가 포착한 순간부터 차량이 반응하기까지, 모든 Frame을 하나의 시간축에서 추적합니다."}
           </p>
         </div>
@@ -155,22 +165,40 @@ export default function ViewerCanvas() {
         <dl className={styles.scenarioSummary} aria-label="시나리오 요약">
           <div>
             <dt>재생 구간</dt>
-            <dd>{formatSeconds(durationMs)}초</dd>
+            <dd>{isActualDataLoading ? "확인 중" : `${formatSeconds(durationMs)}초`}</dd>
           </div>
           <div>
             <dt>LiDAR Frame</dt>
-            <dd>{lidarSource.frames.length}개</dd>
+            <dd>{isActualDataLoading ? "확인 중" : `${lidarSource.frames.length}개`}</dd>
           </div>
-          <div className={styles.incidentSummary}>
-            <dt>급제동 이벤트</dt>
+          <div className={primaryEvent ? styles.incidentSummary : undefined}>
+            <dt>{isMockFallback ? "급제동 이벤트" : "전방 이미지"}</dt>
             <dd>
-              {primaryEvent
-                ? `${formatSeconds(primaryEvent.timestampMs)}초`
-                : "없음"}
+              {isActualDataLoading
+                ? "확인 중"
+                : isActualData
+                  ? `${actualDataSource.cameraFrames.length}장`
+                  : primaryEvent
+                    ? `${formatSeconds(primaryEvent.timestampMs)}초`
+                    : "없음"}
             </dd>
           </div>
         </dl>
       </header>
+
+      <div className={styles.sourceStrip}>
+        <span className={styles.sourceBadge} data-state={sourceState}>
+          <span aria-hidden="true" />
+          {isActualDataLoading ? "연결 중" : isActualData ? "실제 센서 로그" : "가상 데모"}
+        </span>
+        <p>
+          {isActualDataLoading
+            ? "LiDAR · 전방 이미지 · 차량 위치를 확인하고 있습니다."
+            : isActualData
+              ? "객체 인식·예상 경로·급제동 이벤트는 아직 연결되지 않았습니다."
+              : "보행자 등장부터 인식, 경로 충돌과 급제동까지 시간 순서를 살펴보세요."}
+        </p>
+      </div>
 
       {actualDataError && (
         <DataErrorNotice
@@ -197,9 +225,20 @@ export default function ViewerCanvas() {
                 <h2 id="scene-title">3D LiDAR 장면</h2>
               </div>
             </div>
-            <span className={styles.synchronizedBadge}>
+            <span
+              className={styles.synchronizedBadge}
+              data-state={lidarFrame ? "ready" : lidarCacheStatus === "error" ? "error" : "waiting"}
+            >
               <span aria-hidden="true" />
-              공통 시간축
+              {isActualDataLoading
+                ? "연결 중"
+                : lidarCacheStatus === "error"
+                  ? "LiDAR 로딩 실패"
+                  : lidarCacheStatus === "loading"
+                    ? "LiDAR 불러오는 중"
+                    : lidarFrame
+                      ? "공통 시간축"
+                      : "LiDAR Frame 대기"}
             </span>
           </header>
 
@@ -226,36 +265,63 @@ export default function ViewerCanvas() {
               cachedLidarFrameCount={cachedLidarFrameCount}
               lidarCacheCapacity={lidarCacheCapacity}
               lidarLoadDurationMs={lidarLoadDurationMs}
+              isDataLoading={isActualDataLoading}
             />
             <canvas
               ref={canvasRef}
               className={styles.canvas}
+              data-selectable={isMockFallback}
               aria-label="DriveScope 3D 뷰어"
               aria-describedby="scene-input-help"
             >
-              3D LiDAR 장면입니다. 현재 객체 선택은 포인터 입력을 사용합니다.
+              {isMockFallback
+                ? "3D LiDAR 장면입니다. 객체 선택은 포인터 입력을 사용합니다."
+                : "3D LiDAR와 주행 차량 위치를 보여주는 장면입니다."}
             </canvas>
             <p id="scene-input-help" className={styles.visuallyHidden}>
-              3D 장면에서 보행자 박스를 클릭하면 선택 객체 정보를 확인할 수
-              있습니다.
+              {isMockFallback
+                ? "3D 장면에서 보행자 박스를 클릭하면 선택 객체 정보를 확인할 수 있습니다."
+                : "타임라인을 이동해 LiDAR와 전방 이미지, 차량 위치를 함께 확인하세요."}
             </p>
+            {(isActualDataLoading || (isActualData && lidarCacheStatus === "empty")) && (
+              <div className={styles.canvasEmptyState} role="status">
+                <strong>{isActualDataLoading ? "센서 로그 연결 중" : "점군 표시 대기"}</strong>
+                <p>
+                  {isActualDataLoading
+                    ? "데이터가 준비되면 재생을 시작할 수 있습니다."
+                    : lidarSource.frames.length === 0
+                      ? "이 로그에는 LiDAR Frame이 없습니다."
+                      : "현재 시각 이전의 LiDAR Frame이 없습니다. 재생하거나 타임라인을 이동하세요."}
+                </p>
+              </div>
+            )}
             <ul className={styles.sceneLegend} aria-label="3D 장면 범례">
               <li>
                 <i className={styles.lidarLegend} aria-hidden="true" />
                 LiDAR
               </li>
-              <li>
-                <i className={styles.objectLegend} aria-hidden="true" />
-                객체
-              </li>
-              <li>
-                <i className={styles.trajectoryLegend} aria-hidden="true" />
-                예상 경로
-              </li>
-              <li>
-                <i className={styles.riskLegend} aria-hidden="true" />
-                충돌 위험
-              </li>
+              {!isActualDataLoading && (
+                <li>
+                  <i className={styles.objectLegend} aria-hidden="true" />
+                  주행 차량
+                </li>
+              )}
+              {isMockFallback && (
+                <>
+                  <li>
+                    <i className={styles.pedestrianLegend} aria-hidden="true" />
+                    보행자
+                  </li>
+                  <li>
+                    <i className={styles.trajectoryLegend} aria-hidden="true" />
+                    예상 경로
+                  </li>
+                  <li>
+                    <i className={styles.riskLegend} aria-hidden="true" />
+                    충돌 위험
+                  </li>
+                </>
+              )}
             </ul>
           </div>
 
@@ -266,6 +332,7 @@ export default function ViewerCanvas() {
             isPlaying={isPlaying}
             onSeek={seek}
             onTogglePlayback={togglePlayback}
+            disabled={isActualDataLoading}
           />
         </section>
 
@@ -278,15 +345,18 @@ export default function ViewerCanvas() {
               bufferedCamera.retry();
             }}
           />
-          <SelectedObjectPanel
-            object={selectedObject}
-            frame={objectDetectionFrame}
-          />
+          {isMockFallback ? (
+            <SelectedObjectPanel object={selectedObject} frame={objectDetectionFrame} />
+          ) : (
+            <EgoPosePanel frame={egoPoseFrame} isLoading={isActualDataLoading} />
+          )}
           <SynchronizedFramesPanel
             currentTimeMs={currentTimeMs}
             cameraFrame={bufferedCamera.frame}
             lidarFrame={lidarFrame}
             objectDetectionFrame={objectDetectionFrame}
+            egoPoseFrame={egoPoseFrame}
+            isMockFallback={isMockFallback}
           />
         </aside>
       </div>

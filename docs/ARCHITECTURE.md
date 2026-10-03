@@ -65,7 +65,7 @@ Phase 7의 실제 데이터 경계는 [DATA_FORMAT.md](./DATA_FORMAT.md)의 Driv
 
 로컬 산출물은 JavaScript bundle이나 Git에 넣지 않는다. `.env.local`의 서버 전용 `DRIVESCOPE_DATA_ROOT`는 scene 디렉터리를 가리키고, `/api/drivescope-data/[...assetPath]` Route Handler가 manifest·LiDAR 바이너리·전방 JPEG 이미지를 same-origin HTTP로 제공한다. 브라우저는 로컬 절대 경로를 알지 못하며 `fetch()`로 manifest를 검증한 뒤 현재·양옆 LiDAR Frame만 요청한다. 응답 바이트는 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 경계에서 `LidarFrame` 객체로 바뀐다. 배포 환경은 개발자 PC의 로컬 디스크를 읽을 수 없으므로 이 산출물을 정적 파일 서버·CDN·오브젝트 스토리지로 옮기고 같은 상대 경로 계약을 유지한다.
 
-데이터 소스의 `cameraFrames`는 검증된 manifest의 상대 이미지 경로를 manifest 응답 URL 기준으로 해석한 `CameraFrame` 목록이다. Viewer는 같은 재생 시각에서 최신 과거 카메라 Frame을 선택한다. `useBufferedCameraFrame`은 패널에 유지되는 img 두 개 중 숨겨진 쪽에 URL을 지정하고 `decode()`가 완료된 뒤 표시 슬롯과 촬영 시각을 함께 바꾼다. 다운로드·디코딩 중과 이미지 실패 시에는 이전 사진을 유지하고 상태 문구를 표시한다. 동기화 패널도 목표 Frame이 아니라 실제 표시 중인 Frame의 timestamp를 사용하며, 뒤로 seek하는 동안에는 잠시 목표보다 늦은 이전 사진이 남을 수 있다. effect cleanup은 폐기된 요청의 완료 결과와 unmount 후 state 갱신을 차단한다. 소스 변경·빈 Frame에는 이전 소스 사진을 숨긴다. img DOM은 슬롯별로 재사용하며 URL별 key로 교체하지 않는다. LiDAR CPU 캐시와 Three.js 런타임은 이미지 버퍼를 소유하지 않는다. 수동 재시도와 다른 데이터 오류의 복구 UI는 다음 단계다.
+데이터 소스의 `cameraFrames`는 검증된 manifest의 상대 이미지 경로를 manifest 응답 URL 기준으로 해석한 `CameraFrame` 목록이다. Viewer는 같은 재생 시각에서 최신 과거 카메라 Frame을 선택한다. `useBufferedCameraFrame`은 패널에 유지되는 img 두 개 중 숨겨진 쪽에 URL을 지정하고 `decode()`가 완료된 뒤 표시 슬롯과 촬영 시각을 함께 바꾼다. 다운로드·디코딩 중과 이미지 실패 시에는 이전 사진을 유지하고 상태 문구를 표시한다. 동기화 패널도 목표 Frame이 아니라 실제 표시 중인 Frame의 timestamp를 사용하며, 뒤로 seek하는 동안에는 잠시 목표보다 늦은 이전 사진이 남을 수 있다. effect cleanup은 폐기된 요청의 완료 결과와 unmount 후 state 갱신을 차단한다. 소스 변경·빈 Frame에는 이전 소스 사진을 숨긴다. img DOM은 슬롯별로 재사용하며 URL별 key로 교체하지 않는다. LiDAR CPU 캐시와 Three.js 런타임은 이미지 버퍼를 소유하지 않는다. 수동 재시도와 manifest·LiDAR 오류 복구는 아래의 실제 데이터 오류와 복구 경계에서 처리한다.
 
 실제 Viewer는 공통 재생 시각 이하의 최신 `egoVehicle.frames`를 선택해 차량 Mesh의 위치와 yaw를 갱신한다. 실제 pose의 최소 계약은 `EgoPoseFrame`이며, 가상 `VehicleStateFrame`은 이를 확장해 속도와 가속도를 추가한다. 이 분리는 실제 manifest에 존재하지 않는 동역학 값을 임의로 채우지 않으면서 같은 차량 Mesh 갱신 경계를 재사용하게 한다.
 
@@ -212,6 +212,14 @@ Viewer는 Camera, LiDAR와 Object Detection의 목표 Frame을 `currentTimeMs`�
 `useLidarFrameCache`는 현재 목표의 로딩 실패를 별도 `error` 상태로 보관한다. 실패한 Frame은 표시하지 않고 같은 timestamp를 재시도하거나 정상 시점으로 이동할 수 있다. 표시 state는 source 참조와 목표 timestamp가 모두 일치해야 사용한다. 완료 전 Promise는 실패해도 `finally`에서 Map에서 제거되므로 영구 실패 캐시가 되지 않는다. 주변 prefetch는 `Promise.allSettled`로 rejection을 처리하며 현재 Frame 상태를 바꾸지 않는다.
 
 `useBufferedCameraFrame`의 재시도도 요청 번호를 바꿔 같은 URL의 숨겨진 img 로드·decode를 다시 실행한다. 이전 사진과 timestamp는 성공할 때까지 유지한다. `CameraPanel`은 실패 문구와 재시도 입력만 담당하며, 재시도 시 Viewer가 재생을 정지해 목표 Frame을 유지한다.
+
+### 데이터 상태에 따른 표시
+
+`ViewerCanvas`는 기존 소스·오류 상태에서 `loading`·`actual`·`mock`을 파생해 제목·요약·범례와 분석 패널을 결정한다. 별도의 소스 표시 state를 복제하지 않는다. `app/viewer/page.tsx`의 서버 헤더는 중립 문구를 사용하고, 브라우저 요청 결과에 따른 표시는 Client 경계가 소유한다.
+
+실제 모드의 `EgoPosePanel`은 선택된 manifest pose의 위치와 방향각을 props로 받아 표시하며 Three.js 객체를 소유하지 않는다. 동기화 패널의 세 번째 행도 실제 ego pose다. 객체 인식·Planning·급제동 이벤트는 미연결임을 알리고 가상 분석 범례와 선택 안내를 표시하지 않는다. 가상 fallback은 기존 `SelectedObjectPanel`과 객체·경로·이벤트 표시를 사용한다.
+
+연결 중에는 요약과 재생 길이를 확인 중으로 표시하고 `PlaybackControls`를 비활성화한다. manifest 연결 완료와 현재 시점의 Frame 존재는 다른 상태다. 첫 실제 LiDAR·ego timestamp보다 이른 시각에는 데이터 소스를 유지하면서 해당 Frame만 빈 상태로 표시하고 재생·탐색을 안내한다.
 
 ### 조합과 표시
 

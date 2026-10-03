@@ -11,6 +11,7 @@ type PlaybackControlsProps = {
   isPlaying: boolean;
   onSeek: (timeMs: number) => void;
   onTogglePlayback: () => void;
+  disabled?: boolean;
 };
 
 const EVENT_TYPE_LABELS: Record<ScenarioEvent["type"], string> = {
@@ -31,8 +32,10 @@ export function PlaybackControls({
   isPlaying,
   onSeek,
   onTogglePlayback,
+  disabled = false,
 }: PlaybackControlsProps) {
-  const progressPercent = (currentTimeMs / durationMs) * 100;
+  const progressPercent = durationMs > 0 ? (currentTimeMs / durationMs) * 100 : 0;
+  const isDisabled = disabled || durationMs <= 0;
 
   return (
     <div className={styles.controls}>
@@ -40,6 +43,7 @@ export function PlaybackControls({
         type="button"
         className={styles.playbackButton}
         aria-pressed={isPlaying}
+        disabled={isDisabled}
         onClick={onTogglePlayback}
       >
         <span className={styles.playbackIcon} aria-hidden="true">
@@ -57,8 +61,8 @@ export function PlaybackControls({
             className={styles.timelineTime}
             aria-live="off"
           >
-            <strong>{formatPlaybackTime(currentTimeMs)}</strong>
-            <span>/ {formatPlaybackTime(durationMs)}</span>
+            <strong>{disabled ? "준비 중" : formatPlaybackTime(currentTimeMs)}</strong>
+            <span>{disabled ? "센서 로그 연결 중" : `/ ${formatPlaybackTime(durationMs)}`}</span>
           </output>
         </div>
         <div
@@ -77,6 +81,7 @@ export function PlaybackControls({
             max={durationMs}
             step={PLAYBACK_STEP_MS}
             value={currentTimeMs}
+            disabled={isDisabled}
             aria-valuetext={`${formatSeconds(currentTimeMs)}초`}
             onChange={(event) => onSeek(event.currentTarget.valueAsNumber)}
           />

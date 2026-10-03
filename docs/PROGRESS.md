@@ -5,9 +5,9 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: 가상·실제 데이터를 같은 탐색·재생 조건으로 각 3회 측정하고 포인트 수·cache miss 로딩 시간·FPS의 기준선을 기록했다.
-- 다음 한 단계: 로딩 시간의 측정 범위와 FPS 결과의 의미를 확인한 뒤 실제 데이터 상태를 반영해 Viewer 디자인을 마감한다.
-- 아직 구현하지 않은 것: ego pose 보간과 Camera 이동 smoothing, 실제 데이터 상태를 반영한 최종 디자인 마감, 배포용 데이터 호스팅과 데모 영상
+- 현재 작업: 실제·가상·연결 중 상태에 맞춰 Viewer 제목·요약·범례·빈 상태와 분석 패널을 마감하고 브라우저에서 검증했다.
+- 다음 한 단계: 이번 표시 분기의 원리를 확인한 뒤 설치·실행·사용법과 두 데모의 범위를 README에 정리한다.
+- 아직 구현하지 않은 것: ego pose 보간과 Camera 이동 smoothing, 최종 README·아키텍처 정리, 배포용 데이터 호스팅과 데모 영상
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
 ## 다른 컴퓨터에서 이어서 시작하기
@@ -20,7 +20,20 @@
 6. 로컬에서는 산출물 scene 디렉터리를 `.env.local`의 `DRIVESCOPE_DATA_ROOT`로 지정한다. 절대 경로는 Git과 브라우저 bundle에 포함되지 않는다.
 7. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 8. 현재 Route Handler는 로컬 개발용이다. 배포에서는 로컬 C 드라이브를 읽을 수 없으므로 같은 scene 디렉터리를 정적 파일 서버·CDN·오브젝트 스토리지에 올리고 로더의 기준 URL을 바꿔야 한다.
-9. 실제 LiDAR·카메라 연결과 오류 처리가 안정된 직후 Viewer 디자인을 마감하고, 이후 README·배포·1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+9. 실제 LiDAR·카메라 연결, 오류 처리와 Viewer 디자인 마감을 검증했다. 이후 README·최종 아키텍처·배포·1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### Phase 7: 실제 데이터 상태를 반영한 Viewer 마감 (2026-10-03)
+
+- 사용자가 실제 로더의 13.9ms에는 API 응답 대기가 포함돼 순수 렌더링 시간으로 볼 수 없다고 설명했다. benchmark의 탐색 시점·2.2초 준비·1초 간격 10회 FPS 읽기와 순간 정지 측정의 차이를 설명한 뒤 사용자의 다음 단계 요청에 따라 디자인 마감을 진행했다.
+- 작업 시작 시 GitHub Desktop 내장 Git으로 원격 main이 기존 `origin/main`의 `eed3e94`와 같음을 확인했다. 로컬 main은 기존 commit 5개가 앞서 있었고 미커밋 변경은 없었다.
+- 기존 소스 상태에서 `loading`·`actual`·`mock` 표시를 파생한다. 서버 페이지의 고정 Simulation·Phase 표시는 중립 문구로 바꾸고, Client Viewer가 실제 데이터 여부와 연결된 분석 범위를 표시한다.
+- 실제 모드는 재생 구간·LiDAR Frame 수·전방 이미지 수를 요약하고, 객체 선택 대신 `EgoPosePanel`에서 manifest의 X·Z·Y 위치와 방향각을 표시한다. 속도·가속도를 추정하지 않으며 범례와 동기화 패널도 연결된 LiDAR·차량 위치에 맞춘다. 실제 객체 인식·예상 경로·급제동 이벤트는 미연결임을 명시한다.
+- 가상 모드에는 기존 객체 선택·경로·충돌 범례와 급제동 마커를 유지한다. 아직 인식 객체가 없는 시점과 선택할 객체가 있는 시점의 안내를 구분하고 보행자 범례를 실제 기본 색상에 맞췄다.
+- 연결 중에는 요약 수치·재생 길이를 확인 중으로 표시하고 재생·타임라인 입력을 비활성화한다. 실제 0초에는 첫 LiDAR·ego Frame이 아직 과거에 없으므로 빈 장면의 이유와 재생 안내를 제공한다. 모바일 요약의 마지막 항목은 전체 폭을 사용한다.
+- 카메라 상세의 내부 URL 대신 전방 이미지라는 의미를 표시하고, 동기화 패널은 실제 표시된 Frame과 재생 시각의 차이를 설명한다. Three.js 리소스·렌더 루프와 센서 선택·캐시·이미지 버퍼의 동작은 기존 구조를 사용한다.
+- 검증: `pnpm.cmd exec tsc --noEmit --incremental false`, `pnpm.cmd build` 통과. 별도 3100 포트 production 서버에서 Chrome UI 검사 6개 통과: 연결 중 입력 차단·가상 화면 혼입 없음, manifest와 동일한 실제 pose·수치, 재생, 모바일 가로 overflow 없음, 가상 보행자 포인터 선택, 재연결 후 실제 표시 복구·런타임 예외 없음.
+- 기존 오류 복구 검사 10개가 통과했다. 카메라 지연·빠른 seek·재생 검사에서 첫 사진 준비 후 rAF 샘플 445회 중 빈 활성 이미지와 img DOM 교체는 각각 0회였다. 임시 검증 명령은 `node node_modules/.cache/drivescope-browser-check/ui-finalize.mjs`, `error-recovery-3100.mjs`, `camera-regression-3100.mjs`이며 스크립트와 화면 캡처는 Git 제외 캐시 디렉터리에 둔다.
+- 이번 표시 분기의 사용자 이해 확인은 대기 중이며 다음 README 단계는 시작하지 않았다.
 
 ### Phase 7: 가상·실제 데이터 성능 기준선 (2026-10-03)
 
@@ -31,7 +44,7 @@
 - 결과: 가상 15~21포인트·miss 중앙값 0.3ms(0.2~0.5), 실제 34,688~34,752포인트·miss 중앙값 13.9ms(8.9~32.8). 두 모드의 표시 FPS 중앙값·범위는 모두 75였다. 각 모드 hit 검사 3/3회, 캐시 최대 5개, 런타임 예외 0개였다.
 - Windows x64·Headless Chrome 154·NVIDIA GTX 1050 Ti Direct3D11 환경이다. 로딩 시간에는 비동기 HTTP 대기가 포함되며 FPS는 rAF render 호출 빈도이므로 이 결과로 CPU 정지·GPU 여유량이나 Worker 효과를 판단하지 않는다. 측정 방식·원시 miss 값·해석·재실행 명령은 [PERFORMANCE.md](./PERFORMANCE.md)에 기록했다.
 - 검증: `node --check scripts/benchmark-viewer.mjs`, `pnpm.cmd validate:manifest`, `pnpm.cmd build` 통과. 별도 3100 포트 production 서버에서 `pnpm.cmd benchmark:viewer`의 6회 측정이 완료됐다. 전체 JSON과 프로필은 Git 제외 `node_modules/.cache/drivescope-benchmark`에 남긴다.
-- 성능 지표 해석의 사용자 이해 확인과 실제 데이터 기준 디자인 마감은 아직 대기 중이다.
+- 후속 대화에서 사용자가 HTTP 대기가 포함된 13.9ms를 순수 렌더링 시간으로 볼 수 없다고 설명했다. 측정 주기·범위 설명 후 실제 데이터 기준 디자인 마감을 진행했다.
 
 ### Phase 7: 로딩 오류 안내와 수동 재시도 (2026-10-03)
 

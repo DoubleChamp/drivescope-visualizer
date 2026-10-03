@@ -18,11 +18,7 @@ export default function ViewerPage() {
           </Link>
 
           <div className={styles.appHeaderStatus}>
-            <span className={styles.environmentBadge}>
-              <span className={styles.statusDot} aria-hidden="true" />
-              Simulation
-            </span>
-            <span className={styles.phaseBadge}>Phase 07</span>
+            <span className={styles.environmentBadge}>센서 로그 분석</span>
           </div>
         </div>
       </header>

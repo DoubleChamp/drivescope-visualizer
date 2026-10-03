@@ -11,6 +11,7 @@ export function SelectedObjectPanel({
   object,
   frame,
 }: SelectedObjectPanelProps) {
+  const hasObjects = (frame?.objects.length ?? 0) > 0;
   return (
     <section className={styles.selectedObject} aria-labelledby="object-title">
       <div className={styles.railPanelHeading}>
@@ -19,7 +20,7 @@ export function SelectedObjectPanel({
           <h2 id="object-title">선택 객체</h2>
         </div>
         <span className={styles.selectionStatus}>
-          {object ? "선택됨" : "선택 대기"}
+          {object ? "선택됨" : hasObjects ? "선택 대기" : "객체 없음"}
         </span>
       </div>
       {object ? (
@@ -49,8 +50,14 @@ export function SelectedObjectPanel({
         <div className={styles.objectEmptyState}>
           <span className={styles.crosshair} aria-hidden="true" />
           <div>
-            <strong>분석할 객체를 선택하세요</strong>
-            <p>3D 장면에서 보행자 박스를 클릭하면 세부 정보가 표시됩니다.</p>
+            <strong>
+              {hasObjects ? "분석할 객체를 선택하세요" : "아직 인식된 객체가 없습니다"}
+            </strong>
+            <p>
+              {hasObjects
+                ? "3D 장면에서 보행자 박스를 클릭하면 세부 정보가 표시됩니다."
+                : "타임라인을 움직여 객체가 인식된 시점을 살펴보세요."}
+            </p>
           </div>
         </div>
       )}

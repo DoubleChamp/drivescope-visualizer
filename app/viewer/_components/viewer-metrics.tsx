@@ -11,6 +11,7 @@ type ViewerMetricsProps = {
   cachedLidarFrameCount: number;
   lidarCacheCapacity: number;
   lidarLoadDurationMs: number | null;
+  isDataLoading?: boolean;
 };
 
 const CACHE_STATUS_LABELS: Record<LidarCacheStatus, string> = {
@@ -30,6 +31,7 @@ export function ViewerMetrics({
   cachedLidarFrameCount,
   lidarCacheCapacity,
   lidarLoadDurationMs,
+  isDataLoading = false,
 }: ViewerMetricsProps) {
   const lidarLoadDurationLabel =
     lidarCacheStatus === "hit"
@@ -46,7 +48,7 @@ export function ViewerMetrics({
     <dl className={styles.metrics} aria-label="뷰어 통계">
       <div className={styles.metric}>
         <dt>포인트 수</dt>
-        <dd>{pointCount.toLocaleString("ko-KR")}</dd>
+        <dd>{isDataLoading ? "—" : pointCount.toLocaleString("ko-KR")}</dd>
       </div>
       <div className={styles.metric}>
         <dt>FPS</dt>
@@ -55,7 +57,9 @@ export function ViewerMetrics({
       <div className={styles.metric}>
         <dt>재생 시간</dt>
         <dd>
-          {formatSeconds(currentTimeMs)} / {formatSeconds(durationMs)}초
+          {isDataLoading
+            ? "준비 중"
+            : `${formatSeconds(currentTimeMs)} / ${formatSeconds(durationMs)}초`}
         </dd>
       </div>
       <div className={styles.metric}>
