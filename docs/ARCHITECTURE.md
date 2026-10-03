@@ -249,6 +249,8 @@ LiDAR Buffer 재사용은 Phase 4에서 최소 구조를 먼저 구현했다. Fr
 
 ## 단순하게 시작하는 원칙
 
+성능 비교는 `scripts/benchmark-viewer.mjs`가 production Viewer의 기존 UI 지표를 읽는 방식으로 수행한다. 앱의 매 프레임 state·Three.js 렌더 루프에 측정 처리를 추가하지 않는다. 가상·실제 모드에 같은 viewport·탐색·재생 순서를 적용하고 cache miss 로더 시간과 cache hit 생략을 구분한다. 로딩 시간은 로더 Promise 경과 시간, FPS는 rAF render 호출 빈도이며 GPU 시간이나 메인 스레드 정지를 직접 나타내지 않는다. 측정 기준선과 재실행 방법은 [PERFORMANCE.md](./PERFORMANCE.md)에 기록한다.
+
 - 초기에는 하나의 작은 Three.js 장면과 가상 데이터로 시작한다.
 - 동작과 책임이 반복해서 확인되기 전에는 범용 렌더러나 복잡한 추상 계층을 만들지 않는다.
 - 이해하거나 측정하지 않은 최적화를 먼저 적용하지 않는다.

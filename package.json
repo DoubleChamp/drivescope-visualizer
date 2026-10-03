@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "validate:manifest": "node --experimental-strip-types scripts/validate-drivescope-manifest.ts"
+    "validate:manifest": "node --experimental-strip-types scripts/validate-drivescope-manifest.ts",
+    "benchmark:viewer": "node scripts/benchmark-viewer.mjs"
   },
   "dependencies": {
     "next": "16.3.3",

@@ -5,8 +5,8 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: manifest 오류 원인·가상 데모 안내와 실제 데이터 재연결, LiDAR 실패 처리·재시도와 이미지 수동 재시도를 연결하고 검증했다.
-- 다음 한 단계: 오류 state·재시도·prefetch 실패 분리 원리의 이해를 확인한 뒤 가상 데이터와 실제 데이터의 성능을 같은 기준으로 비교한다.
+- 현재 작업: 가상·실제 데이터를 같은 탐색·재생 조건으로 각 3회 측정하고 포인트 수·cache miss 로딩 시간·FPS의 기준선을 기록했다.
+- 다음 한 단계: 로딩 시간의 측정 범위와 FPS 결과의 의미를 확인한 뒤 실제 데이터 상태를 반영해 Viewer 디자인을 마감한다.
 - 아직 구현하지 않은 것: ego pose 보간과 Camera 이동 smoothing, 실제 데이터 상태를 반영한 최종 디자인 마감, 배포용 데이터 호스팅과 데모 영상
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
@@ -21,6 +21,17 @@
 7. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 8. 현재 Route Handler는 로컬 개발용이다. 배포에서는 로컬 C 드라이브를 읽을 수 없으므로 같은 scene 디렉터리를 정적 파일 서버·CDN·오브젝트 스토리지에 올리고 로더의 기준 URL을 바꿔야 한다.
 9. 실제 LiDAR·카메라 연결과 오류 처리가 안정된 직후 Viewer 디자인을 마감하고, 이후 README·배포·1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### Phase 7: 가상·실제 데이터 성능 기준선 (2026-10-03)
+
+- 사용자가 요청 번호가 effect 의존성이므로 값 변화로 재요청한다는 원리를 설명했고, 두 img의 DOM 참조·숨겨진 사진 준비·디코딩 후 표시 교체를 다시 설명한 뒤 다음 단계 진행을 요청했다.
+- 작업 시작 시 GitHub Desktop 내장 Git으로 원격 main이 기존 `origin/main`의 `eed3e94`와 같음을 확인했다. 로컬 main은 기존 commit 4개가 앞서 있었고 미커밋 변경은 없었다.
+- `scripts/benchmark-viewer.mjs`와 `pnpm benchmark:viewer`를 추가했다. production Viewer의 기존 통계를 읽으며, 측정 브라우저의 manifest 응답만 바꿔 가상 fallback과 실제 모드를 각각 실행한다. 실제 데이터 파일과 서버 설정은 수정하지 않는다.
+- 동일한 `1440×1400` viewport·DPR 1에서 1.0·5.0·10.0·12.4·14.5초를 탐색하고 cache miss만 로딩 통계에 포함했다. 인접 Frame을 거쳐 직전 Frame으로 돌아가 hit·로더 생략을 확인했다. 2.2초 준비 후 약 10초 재생 중 FPS를 1초 간격으로 읽었고 실행 순서를 바꿔 모드당 3회 측정했다.
+- 결과: 가상 15~21포인트·miss 중앙값 0.3ms(0.2~0.5), 실제 34,688~34,752포인트·miss 중앙값 13.9ms(8.9~32.8). 두 모드의 표시 FPS 중앙값·범위는 모두 75였다. 각 모드 hit 검사 3/3회, 캐시 최대 5개, 런타임 예외 0개였다.
+- Windows x64·Headless Chrome 154·NVIDIA GTX 1050 Ti Direct3D11 환경이다. 로딩 시간에는 비동기 HTTP 대기가 포함되며 FPS는 rAF render 호출 빈도이므로 이 결과로 CPU 정지·GPU 여유량이나 Worker 효과를 판단하지 않는다. 측정 방식·원시 miss 값·해석·재실행 명령은 [PERFORMANCE.md](./PERFORMANCE.md)에 기록했다.
+- 검증: `node --check scripts/benchmark-viewer.mjs`, `pnpm.cmd validate:manifest`, `pnpm.cmd build` 통과. 별도 3100 포트 production 서버에서 `pnpm.cmd benchmark:viewer`의 6회 측정이 완료됐다. 전체 JSON과 프로필은 Git 제외 `node_modules/.cache/drivescope-benchmark`에 남긴다.
+- 성능 지표 해석의 사용자 이해 확인과 실제 데이터 기준 디자인 마감은 아직 대기 중이다.
 
 ### Phase 7: 로딩 오류 안내와 수동 재시도 (2026-10-03)
 
