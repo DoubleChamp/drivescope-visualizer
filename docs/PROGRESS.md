@@ -5,9 +5,9 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: 정상 이미지 교체의 반복 안내를 없애고 장시간 지연만 헤더에 표시한다. Viewer의 제목·요약과 3D 표시 마크업을 분리해 메인 조합 파일을 정리하고 검증했다.
-- 다음 한 단계: 카메라 지연 안내의 타이머·cleanup과 표시 컴포넌트 분리 원리를 확인한 뒤 설치·실행·사용법과 두 데모의 범위를 README에 정리한다.
-- 아직 구현하지 않은 것: ego pose 보간과 Camera 이동 smoothing, 최종 README·아키텍처 정리, 배포용 데이터 호스팅과 데모 영상
+- 현재 작업: Next.js 기본 README를 DriveScope 설치·가상 데모 탐색·실제 v3 데이터 준비·검증·오류 해결 안내로 바꾸고 재현 절차를 확인했다.
+- 다음 한 단계: README의 실행 경계와 검증 명령을 확인한 뒤 최종 데이터 흐름·책임·리소스 생명주기를 아키텍처 문서에 정리한다.
+- 아직 구현하지 않은 것: ego pose 보간과 Camera 이동 smoothing, 최종 아키텍처 정리, 배포용 데이터 호스팅과 데모 영상
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
 ## 다른 컴퓨터에서 이어서 시작하기
@@ -20,7 +20,20 @@
 6. 로컬에서는 산출물 scene 디렉터리를 `.env.local`의 `DRIVESCOPE_DATA_ROOT`로 지정한다. 절대 경로는 Git과 브라우저 bundle에 포함되지 않는다.
 7. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 8. 현재 Route Handler는 로컬 개발용이다. 배포에서는 로컬 C 드라이브를 읽을 수 없으므로 같은 scene 디렉터리를 정적 파일 서버·CDN·오브젝트 스토리지에 올리고 로더의 기준 URL을 바꿔야 한다.
-9. 실제 LiDAR·카메라 연결, 오류 처리와 Viewer 디자인 마감을 검증했다. 이후 README·최종 아키텍처·배포·1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+9. 실제 LiDAR·카메라 연결, 오류 처리·Viewer 디자인과 README 재현 안내를 검증했다. 이후 최종 아키텍처·배포·1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### Phase 7: 설치·실행·데모 재현 README (2026-10-04)
+
+- 카메라 지연 안내와 표시 코드 분리의 변경 위치·핵심 코드를 설명한 뒤 사용자가 다음 단계 진행을 요청했다. 이번 범위는 로드맵 7번의 설치·실행·사용법·데모 설명이며 앱 동작 코드는 변경하지 않았다.
+- 시작 시 미커밋 변경이 없는 main에서 작업했고 기존 commit 7개가 origin/main보다 앞서 있었다. GitHub Desktop 내장 Git으로 원격 main이 기존 `eed3e94`와 같음을 확인했다.
+- README에 검증 환경·clone·고정 lockfile 설치·개발 실행, 가상 데모의 중요 시점과 보행자 선택, 실제 nuScenes mini 원본/기존 v3 산출물 두 준비 경로를 정리했다. 공식 nuScenes devkit 안내와 현재 변환기 CLI를 대조했다.
+- 원본 루트·출력 루트·manifest를 포함한 scene 루트를 구분하고 `.env.local`의 서버 전용 설정과 재시작을 설명했다. 첫 실행의 manifest 503 뒤 가상 fallback, 실제 모드에 현재 연결된 데이터 범위, v2 재변환 조건, 첫 실제 LiDAR·ego Frame 35ms를 명시했다.
+- fixture와 실제 자산 검증의 차이, production 실행·benchmark, HTTP 대기 포함 로딩 시간과 FPS의 측정 범위, 오류 해결 표와 기능별 코드·문서 링크를 추가했다. 개인 데이터 경로 대신 교체 가능한 예시 경로를 사용했다.
+- 검증: `pnpm.cmd install --frozen-lockfile --offline` 통과·lockfile 변경 없음, `pnpm.cmd validate:manifest`, `pnpm.cmd exec tsc --noEmit --incremental false`, `pnpm.cmd build`, `node --check scripts/benchmark-viewer.mjs` 통과. Python 변환기 `--help`에서 README 옵션을 확인했고 변환기 테스트 7개가 통과했다. 기존 v3 산출물 검증에서 LiDAR·Camera·ego pose 각 39개와 참조 자산을 확인했다. 이번 단계에서 원본 재변환이나 benchmark 수치 재측정은 하지 않았다.
+- 브라우저 재현 4개 통과: 미설정 503·홈 링크·가상 fallback, 10초 보행자 등장·11초 인식/포인터 선택, 12.4초 Camera 12초 유지·13초 이미지 변경·재생, 실제 이미지 39장·0초 점군 대기·12.4초 점군/이미지/pose 연결. 런타임 예외 0개였다.
+- 사용자 개발 서버 3000은 유지했다. 같은 프로젝트의 두 번째 dev 실행이 제한되는 것을 확인해 README에 기존 서버 접속/종료 안내를 추가했다. 첫 실행 상태는 개인 `.env.local` 대신 별도 3101 production 프로세스의 데이터 설정만 비워 검사했고 실제 모드는 3100 production 서버로 검사했다.
+- 임시 검증 명령은 `node node_modules/.cache/drivescope-browser-check/check-readme.mjs`, `node node_modules/.cache/drivescope-browser-check/readme-smoke.mjs`다. README 내부 링크 21개와 code fence 짝을 확인했다. 스크립트·브라우저 프로필은 Git 제외 캐시에 보관한다.
+- README의 실행 경계에 대한 사용자 이해 확인은 대기 중이며 최종 아키텍처·배포 단계는 시작하지 않았다.
 
 ### 카메라 교체 안내 개선과 Viewer 표시 코드 정리 (2026-10-04)
 
