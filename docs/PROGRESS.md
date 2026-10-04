@@ -5,9 +5,9 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: 공개 Vercel 주소의 홈·Viewer 200과 manifest API 503을 확인하고 manifest URL을 환경별로 선택하는 작은 변경을 구현·빌드 검증했다. 프로젝트 화면에서 Blob 저장소를 만드는 순서를 안내한다.
-- 다음 한 단계: 사용자가 생성한 공개 Blob 저장소에 v3 scene을 경로에 맞춰 업로드하고 원격 manifest·참조 파일·CORS를 검증한다. 이후 Vercel URL 환경변수·새 deployment·브라우저 실제 재생을 확인한다.
-- 아직 구현하지 않은 것: 배포용 데이터 업로드와 가상/실제 데모 선택, ego pose 보간과 Camera smoothing, 데모 영상
+- 현재 작업: Node Blob 업로드 도구를 구현하고 Public 저장소에 scene-0061 파일 79개를 올렸다. 모든 파일의 원본 일치·응답 형식·CORS와 배포 origin의 Chrome에서 manifest·첫 bin fetch·JPEG decode를 검증했다.
+- 다음 한 단계: Vercel에 확보한 공개 manifest URL 환경변수를 넣고 사용자 main push·새 deployment 뒤 실제 Viewer 연결·재생을 확인한다. 방화벽 설정은 사용자 요청으로 나중에 진행한다.
+- 아직 구현하지 않은 것: 가상/실제 데모 선택, ego pose 보간과 Camera smoothing, 데모 영상
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
 ## 다른 컴퓨터에서 이어서 시작하기
@@ -21,6 +21,18 @@
 7. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 8. 현재 Route Handler는 로컬 개발용이다. 배포에서는 로컬 C 드라이브를 읽을 수 없으므로 같은 scene 디렉터리를 정적 파일 서버·CDN·오브젝트 스토리지에 올리고 로더의 기준 URL을 바꿔야 한다.
 9. 실제 센서 연결·오류 처리·Viewer 디자인·README 재현과 아키텍처를 정리했다. 기존 Vercel 사이트의 최신 코드·실제 데이터 연결을 검증한 뒤 1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### Phase 7: Public Blob 센서 파일 업로드 (2026-10-04)
+
+- 사용자가 Public Blob 저장소 생성·프로젝트 연결 뒤 새 토큰을 개인 환경 파일에 설정했다고 확인했다. 배포 준비의 한 단계로 참조 자산 업로드를 진행했으며 방화벽 작업은 명시적으로 뒤로 미뤘다.
+- 시작 시 main은 `e37654b`, 원격 main은 `eb1473d`였다. 미커밋 변경은 없었고 기존 manifest URL 지원 commit의 push가 남아 있었다. 원격은 읽기 전용으로 확인했다.
+- `@vercel/blob` 2.8.0을 개발 의존성으로 설치하고 `scripts/upload-drivescope-data.mjs`·`upload:blob` 명령을 추가했다. Node에서 개인 환경 파일을 읽고 기존 v3 parser·참조 파일 존재·scene 내부 경로·LiDAR 크기·JPEG 시작 표시를 검사한다. 옵션 없는 실행은 로컬 검사만 수행한다.
+- `--upload` 실행은 같은 scene prefix의 기존 파일이 없을 때만 진행한다. Public·suffix 없음·덮어쓰기 없음으로 사진·bin 경로를 유지하며 manifest는 마지막에 올린다. 중간 실패 시 남은 자산을 자동 삭제·덮어쓰지 않는다.
+- 실제 scene은 LiDAR 39·Camera 39·manifest 1, 총 79개·21,976,548바이트다. 사전 검사 뒤 업로드를 완료하고 공개 manifest URL을 확보했다. 모든 원격 파일에서 HTTP 200·MIME·원본 SHA-256 일치·CORS `*`와 모든 bin의 pointCount × 12바이트를 확인했다.
+- 격리된 Headless Chrome에서 배포 사이트 origin으로 공개 manifest·첫 bin을 fetch하고 첫 JPEG를 decode했다. v3·34,688포인트·416,256바이트·1600×900을 확인했다. 이 검사는 파일 읽기 경계이며 새 deployment의 실제 Viewer 재생 검증은 남아 있다.
+- 검증: `pnpm.cmd upload:blob`, `node --check scripts/upload-drivescope-data.mjs`, `pnpm.cmd validate:manifest`, `pnpm.cmd build` 통과. 임시 fixture로 정상 검사만 실행·bin 크기 오류·파일 누락·잘못된 옵션 4개를 확인했다. 원격 검증 명령은 Git 제외 캐시의 `verify-public-assets.mjs`·`browser-cors.mjs`에 공개 manifest URL을 넘기는 방식이다.
+- 문서 검증기로 README·관련 문서 7개의 내부 링크 74개·목차 앵커 10개·Mermaid 블록 2개·코드 블록 짝을 확인했고 `git diff --check`를 통과했다.
+- 개인 환경·계정 환경변수·방화벽은 변경하지 않았다. Vercel의 NEXT_PUBLIC_DRIVESCOPE_MANIFEST_URL 설정·사용자 push·새 build·실제 센서 재생을 다음 단계로 남긴다. Phase 7 항목 9는 아직 완료가 아니다.
 
 ### Phase 7: 배포 URL 확인과 원격 manifest 설정 입구 (2026-10-04)
 

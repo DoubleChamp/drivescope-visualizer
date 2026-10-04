@@ -1,6 +1,6 @@
 # DriveScope Vercel 배포 점검
 
-점검일: 2026-10-04. 공개 사이트는 [drivescope-visualizer.vercel.app](https://drivescope-visualizer.vercel.app/)이다. 주소 제공 후 홈·Viewer HTTP 200과 manifest API 503을 확인했다. 원격 데이터 URL·Vercel 계정 설정·빌드 로그는 아직 확인하지 않았으며 실제 센서의 배포 재생 검증은 대기 중이다.
+점검일: 2026-10-04. 공개 사이트는 [drivescope-visualizer.vercel.app](https://drivescope-visualizer.vercel.app/)이다. 홈·Viewer HTTP 200과 기존 manifest API 503을 확인했다. Public Blob에 실제 scene 파일 79개를 업로드하고 원본 일치·CORS를 검증했다. Vercel URL 환경변수·새 deployment·실제 Viewer 재생 검증은 다음 단계다.
 
 ## 확인된 상태
 
@@ -9,11 +9,13 @@
 | production build | `pnpm.cmd build` 통과. `/`, `/viewer`는 prerender, 데이터 API는 동적 Route Handler |
 | 타입 검사 | `pnpm.cmd exec tsc --noEmit --incremental false` 통과 |
 | manifest 규칙 | `pnpm.cmd validate:manifest` 통과. fixture의 LiDAR·Camera·ego 각 2개 검사 |
-| Git | 초기 점검에서는 로컬 커밋 9개가 앞섰고, 이번 변경 시작 전에는 main·원격 main 모두 `eb1473d`로 push 완료를 확인함 |
+| Git | 업로드 단계 시작 시 main은 `e37654b`, 원격 main은 `eb1473d`. 사용자 GitHub Desktop push 대기 |
 | Next.js 설정 | `next.config.ts`는 기본 설정. 이번 점검에서 추가 설정이 필요한 렌더링 문제는 발견하지 못함 |
 | 실제 데이터 입구 | NEXT_PUBLIC_DRIVESCOPE_MANIFEST_URL을 설정하면 해당 주소, 생략하면 기존 로컬 API 사용 |
 | 실제 파일 제공 | API가 `DRIVESCOPE_DATA_ROOT`의 서버 로컬 파일을 readFile로 읽음 |
 | 공개 manifest API | HTTP 503: DRIVESCOPE_DATA_ROOT가 설정되지 않았습니다 |
+| 공개 Blob 자산 | scene-0061의 79개·21,976,548바이트 업로드 완료. 모두 HTTP 200·MIME·SHA-256 일치 |
+| 원격 읽기 | 모든 파일의 CORS `*`, 배포 origin의 Chrome에서 manifest·bin fetch와 JPEG decode 성공 |
 | 데모 선택 | 실제 연결 실패 시에만 가상 fallback. 사용자 모드 선택 UI는 아직 없음 |
 
 Git 연동 배포라면 로컬 commit만으로 Vercel에 코드가 반영되지 않는다. 사용자가 GitHub Desktop에서 push한 뒤 Vercel의 성공한 deployment가 해당 commit을 가리키는지 확인한다. CLI로 별도 배포했는지는 이번 점검에서 확인하지 않았다.
@@ -55,18 +57,49 @@ export const DRIVE_SCOPE_MANIFEST_URL =
 
 NEXT_PUBLIC 값은 Next.js build에서 브라우저 코드에 들어간다. 대시보드 값을 변경한 뒤 새 deployment를 만들어야 한다. 이 변수에는 공개 읽기 주소를 사용한다. [Next.js 환경변수 문서](https://nextjs.org/docs/app/guides/environment-variables)
 
-### Vercel 화면에서 시작하기
+### 생성한 저장소와 업로드 도구
 
-사용자가 제공한 화면은 팀의 Projects 목록이다. 다음은 데이터 파일을 둘 Blob 저장소를 만드는 순서다.
+사용자가 프로젝트 Storage의 Create Database에서 Blob·Public을 선택해 `drivescope-visualizer-blob` 저장소를 생성했다. 화면에서는 이름이 자동으로 지정됐고 해당 프로젝트와 연결된 상태를 확인했다. 생성·접근 모드의 기준은 [Blob 생성 안내](https://vercel.com/docs/vercel-blob/using-blob-sdk#getting-started)를 따른다.
 
-1. `drivescope-visualizer` 프로젝트 카드를 연다.
-2. 프로젝트의 Storage에서 Create Storage를 누르고 Blob을 선택한다.
-3. Continue 뒤 access를 Public으로 선택하고 이름을 `drivescope-data`로 지정한다.
-4. Create a new Blob store를 선택하고 해당 프로젝트와 연결을 확인한다. 원격 읽기 구성은 공개 파일 URL을 사용한다.
+사용자가 새 발급 토큰을 개인 `.env.local`의 BLOB_READ_WRITE_TOKEN에 설정했다. 업로드 도구는 같은 파일의 DRIVESCOPE_DATA_ROOT에서 scene을 읽는다. 토큰은 Node CLI의 SDK 인증에만 사용하고 브라우저 공개 환경변수나 Git에 넣지 않는다.
 
-메뉴·접근 모드 기준은 [Blob 생성 안내](https://vercel.com/docs/vercel-blob/using-blob-sdk#getting-started)를 따른다. 계정 화면에서 저장소 생성은 사용자가 수행하며 이번 단계에서 파일을 업로드하지 않았다.
+[upload-drivescope-data.mjs](../scripts/upload-drivescope-data.mjs)는 Node.js에서 실행하는 오프라인 배포 도구다. 브라우저 재생 중에는 실행하지 않는다. `@vercel/blob`은 이 도구의 개발 의존성이다.
 
-다음에는 scene의 manifest·camera·lidar를 경로에 맞춰 올리고 manifest의 공개 URL을 확인한다. 그 뒤 프로젝트 Settings의 환경변수에 NEXT_PUBLIC_DRIVESCOPE_MANIFEST_URL을 넣고 새 코드 push·새 deployment를 확인한다. 저장소를 생성하는 것만으로 파일이나 URL 설정이 자동 완성되지는 않는다.
+```powershell
+# 로컬 검사만 실행: 네트워크 요청·업로드 없음
+pnpm.cmd upload:blob
+
+# 검사 통과 후 Public Blob에 실제 업로드
+pnpm.cmd upload:blob --upload
+```
+
+스크립트는 v3 parser로 manifest를 읽고 참조 파일만 수집한다. 실제 경로가 scene 안에 있는지, 파일이 존재하는지, LiDAR 크기가 pointCount × 12인지와 JPEG 시작 표시를 검사한다. 모든 파일 내용을 준비한 뒤 SDK를 호출한다. JPEG 시작 표시 검사는 이미지 전체 디코딩 검사가 아니며 원격 첫 사진은 Chrome decode로 별도 확인했다.
+
+핵심 업로드 코드는 다음과 같다. scene prefix 아래 상대 경로를 유지해 기존 manifest를 수정 없이 사용한다. SDK 옵션과 응답은 [공식 문서](https://vercel.com/docs/vercel-blob/using-blob-sdk#put)를 따른다.
+
+```js
+const blob = await put(`${prefix}${assetPath}`, asset.body, {
+  access: "public",
+  addRandomSuffix: false,
+  allowOverwrite: false,
+  contentType: asset.contentType,
+  token,
+});
+```
+
+사진·LiDAR를 순서대로 올린 뒤 manifest를 마지막에 공개한다. 같은 scene prefix에 기존 파일이 있으면 업로드 전에 중단한다. 중간 실패 후에는 일부 파일이 남을 수 있으므로 목록·내용을 확인한 뒤 재시도 범위를 정한다. 이 도구는 기존 파일을 덮어쓰거나 자동으로 삭제하지 않는다.
+
+### 확보한 URL과 다음 환경 설정
+
+공개 manifest: [scene-0061/manifest.json](https://yvt07zz1kuvzdwlw.public.blob.vercel-storage.com/scene-0061/manifest.json)
+
+Vercel의 `drivescope-visualizer` 프로젝트 → Environment Variables에 다음 값을 Production·Preview 범위로 추가한다.
+
+```dotenv
+NEXT_PUBLIC_DRIVESCOPE_MANIFEST_URL=https://yvt07zz1kuvzdwlw.public.blob.vercel-storage.com/scene-0061/manifest.json
+```
+
+사용자가 GitHub Desktop에서 main의 준비된 commit을 push한 뒤 새 deployment의 commit·빌드 로그를 확인한다. URL 환경변수는 새 build에 포함되어야 한다. 계정의 환경변수 설정과 실제 배포 Viewer 재생은 이번 업로드 단계에서 실행하지 않았다. 방화벽 설정은 사용자의 요청으로 뒤로 미뤘다.
 
 ### 웹 저장소의 파일과 응답
 
@@ -114,4 +147,6 @@ CORS는 데이터를 제공하는 웹 저장소의 응답 정책이다. 앱과 �
 
 ## 이번 점검의 경계
 
-이번 작은 변경은 manifest 주소를 환경별로 선택하는 입구다. production build·타입·fixture manifest 검증이 통과했다. 공개 홈·Viewer·API의 HTTP 상태도 확인했다. 계정 설정·웹 저장소 생성과 파일 업로드는 실행하지 않았고 원격 자산·CORS·브라우저 실제 재생 검증은 남아 있다. 배포 결과가 확인되기 전까지 ROADMAP의 Phase 7 항목 9는 완료로 표시하지 않는다.
+이번 작은 단계는 공개 센서 파일 준비다. 파일 79개·21,976,548바이트의 HTTP 200·MIME·원본 SHA-256 일치와 LiDAR 크기를 확인했다. Chrome에서 배포 origin으로 manifest·첫 bin을 fetch하고 첫 JPEG를 decode해 34,688포인트·416,256바이트·1600×900 이미지를 읽었다. 실제 Viewer의 연결·재생 검증과는 구분한다.
+
+업로드 사전 검사의 정상 실행·파일 누락·잘못된 bin 크기·잘못된 옵션 4개, fixture manifest 검사와 production build가 통과했다. 원격·브라우저 검증기는 Git 제외 캐시에 보관한다. Vercel 환경변수와 새 deployment의 센서 재생이 확인되기 전까지 ROADMAP의 Phase 7 항목 9는 완료로 표시하지 않는다.

@@ -161,9 +161,11 @@ Frame 로딩 시간은 비동기 HTTP 대기를 포함한 로더 Promise의 경�
 
 ## Vercel 실제 데이터 연결
 
-공개 Viewer는 [drivescope-visualizer.vercel.app](https://drivescope-visualizer.vercel.app/viewer)에서 실행합니다. 실제 데이터 공개 연결은 준비 중입니다. 웹앱 배포와 센서 파일 업로드·연결은 별도이며 개발자 PC의 데이터 디렉터리는 Vercel에서 읽을 수 없습니다.
+공개 Viewer는 [drivescope-visualizer.vercel.app](https://drivescope-visualizer.vercel.app/viewer)에서 실행합니다. 실제 scene 파일 79개의 Public Blob 업로드·원본 일치·CORS 검증을 마쳤고, Vercel 환경변수와 새 deployment의 Viewer 연결 확인이 남았습니다. 개발자 PC의 데이터 디렉터리는 Vercel에서 읽을 수 없습니다.
 
 로더는 `NEXT_PUBLIC_DRIVESCOPE_MANIFEST_URL`이 있으면 해당 manifest를, 생략하면 기존 로컬 API를 사용합니다. 웹 저장소에 manifest·Camera·LiDAR를 상대 경로에 맞게 제공한 뒤 Vercel 프로젝트에 공개 HTTPS manifest URL을 설정하고 새 build를 만듭니다. 로컬 파일로 실행하거나 기존 로컬 benchmark를 사용할 때는 이 URL 설정을 비워 둡니다. Storage·Blob·Public 생성과 설정·검증 순서는 [DEPLOYMENT.md](docs/DEPLOYMENT.md)를 따릅니다.
+
+`pnpm.cmd upload:blob`은 개인 환경의 scene 파일을 로컬 검사만 합니다. `--upload`를 추가하면 manifest가 참조한 센서 파일과 manifest를 Public Blob에 업로드합니다. 이미 같은 scene이 있으면 중단합니다. 실행 준비와 확보한 공개 URL은 배포 문서에 기록했습니다.
 
 ## 문제 해결
 
@@ -193,6 +195,7 @@ manifest 연결 문제를 해결한 뒤 **실제 데이터 다시 연결**을 �
 | 숨겨진 img 준비·decode 후 사진 교체 | [use-buffered-camera-frame.ts](app/viewer/_hooks/use-buffered-camera-frame.ts) |
 | Three.js 생성·Buffer 갱신·선택·cleanup | [use-three-viewer.ts](app/viewer/_hooks/use-three-viewer.ts) |
 | 가상 시나리오 / 실제 데이터 전처리 | [mock-scenario.ts](app/viewer/_data/mock-scenario.ts), [convert_nuscenes_mini.py](scripts/convert_nuscenes_mini.py) |
+| 배포용 센서 파일 검사·Blob 업로드 | [upload-drivescope-data.mjs](scripts/upload-drivescope-data.mjs) |
 
 포인트 좌표는 Three.js가 재사용하는 Buffer에 반영하고 매 프레임 큰 센서 배열을 React state에 넣지 않습니다. Geometry·Material·Renderer 등 GPU 리소스는 소유한 런타임이 cleanup합니다. React Three Fiber는 사용하지 않습니다.
 

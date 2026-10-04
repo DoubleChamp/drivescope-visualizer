@@ -665,9 +665,18 @@
 - Blob 저장소 생성, 파일 업로드, 공개 manifest URL 확보와 앱 환경변수 설정은 각각 다른 결과다. 저장소가 생겼다고 현재 로컬 폴더가 자동 업로드되는 것은 아니다. 현재 공식 생성 안내와 사용자 화면을 대조했다.
 - 새 공개 URL을 브라우저 코드에서 사용하려면 해당 설정으로 새 build가 필요하다. 현재 원격 파일·CORS는 아직 확인하지 않았으며 실제 공개 파일을 준비한 뒤 검증한다.
 
+### Public Blob 업로드와 브라우저 읽기 (2026-10-04, 사용자 이해 확인 대기)
+
+- `.mjs` 업로드 도구는 Node.js에서 실행한다. scene의 파일을 로컬 검사한 뒤 SDK로 Blob에 복사하며 브라우저 재생 중에는 실행하지 않는다. 실제로 파일 79개·약 22MB의 업로드를 완료했다.
+- 업로드용 BLOB_READ_WRITE_TOKEN과 Viewer가 읽는 공개 manifest URL은 다른 값이다. Node 업로드는 토큰으로 인증했고 이후 원격 파일 GET·배포 origin의 Chrome fetch에는 토큰을 전달하지 않았다.
+- manifest의 상대 경로를 그대로 사용하려면 scene prefix 아래 자산 경로를 유지해야 한다. addRandomSuffix를 false로 설정해 파일 이름을 보존했고 manifest 응답 URL로 계산한 모든 자산 URL을 확인했다.
+- 업로드 전에 파일 누락·bin 크기 오류를 검출한다. 모든 참조 자산을 먼저 준비하고 센서 파일 뒤에 manifest를 올렸다. 같은 prefix의 기존 파일은 업로드 전에 중단하며 중간 실패를 원자적 rollback으로 처리하지 않는다.
+- 파일이 HTTP 200이어도 내용이 같다는 보장은 없으므로 모든 공개 응답을 로컬 원본과 SHA-256으로 비교했다. CORS `*` 헤더 확인 뒤 실제 배포 origin의 Chrome에서 manifest·bin fetch와 JPEG decode도 성공했다.
+- 공개 파일 준비와 앱 환경 설정·새 deployment의 Viewer 재생은 별도의 검증 결과다. 이번에는 파일 경계를 확인했고 배포 Viewer의 실제 재생 검증은 남겼다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 7의 센서 연결·오류 복구·성능 기준선·표시·README·아키텍처와 배포 준비를 점검하고 manifest 입구의 환경별 URL 선택을 구현했다. 다음은 공개 저장소와 v3 자산을 준비해 원격 응답을 검증하는 단계다. 환경 적용·두 데모 노출·브라우저 실제 재생과 아래 이전 학습 항목의 사용자 이해 확인도 남아 있다.
+Phase 7의 센서 연결·오류 복구·성능 기준선·표시·README·아키텍처와 배포 준비를 점검하고 manifest 입구의 환경별 URL 선택·Public Blob 자산 업로드를 구현·검증했다. 다음은 Vercel의 URL 환경변수·새 deployment와 Viewer의 실제 센서 재생을 확인하는 단계다. 두 데모 노출과 아래 이전 학습 항목의 사용자 이해 확인도 남아 있다.
 
 - Canvas DOM 좌표를 NDC로 변환하는 식과 Y 부호를 뒤집는 이유
 - Camera 광선과 Mesh 삼각형의 교차, `visible`과 wireframe이 선택 판정에 미치는 영향
