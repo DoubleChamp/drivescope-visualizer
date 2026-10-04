@@ -5,9 +5,9 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: 사용자의 Config 환경변수 설정·push 뒤 공개 Viewer가 Blob의 실제 scene을 직접 읽는 것을 확인했다. 재생·탐색·사진 유지·오류 복구·모바일·WebGL 검증을 마치고 Phase 7 배포 항목 9를 완료로 기록했다.
-- 다음 한 단계: 앱·Blob·manifest의 역할 이해를 확인한 뒤 가상/실제 선택 UI 또는 1분 데모 영상 중 다음 범위를 정한다. 새 기능은 이번 검증 단계에서 구현하지 않았다. 방화벽 설정은 사용자 요청으로 나중에 진행한다.
-- 아직 구현하지 않은 것: 가상/실제 데모 선택, ego pose 보간과 Camera smoothing, 데모 영상
+- 현재 작업: 승인한 실제/가상 데모 선택 UI를 구현했다. 기본 실제 모드, 가상 모드의 manifest 생략과 전환 시 0초·정지·선택·캐시·Three.js 초기화를 로컬 production Chrome에서 검증했다.
+- 다음 한 단계: 선택 state·key 초기화·effect 요청 생략 원리 이해를 확인한다. 사용자 push 이후 새 UI의 공개 반영을 확인하고 1분 영상 준비 범위를 정한다. 방화벽 설정은 사용자 요청으로 나중에 진행한다.
+- 아직 구현하지 않은 것: ego pose 보간과 Camera smoothing, 데모 영상. 선택 UI의 공개 배포 반영은 확인 대기다.
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
 ## 다른 컴퓨터에서 이어서 시작하기
@@ -20,7 +20,20 @@
 6. 로컬에서는 산출물 scene 디렉터리를 `.env.local`의 `DRIVESCOPE_DATA_ROOT`로 지정한다. 절대 경로는 Git과 브라우저 bundle에 포함되지 않는다.
 7. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 8. 현재 Route Handler는 로컬 개발용이다. 배포에서는 로컬 C 드라이브를 읽을 수 없으므로 같은 scene 디렉터리를 정적 파일 서버·CDN·오브젝트 스토리지에 올리고 로더의 기준 URL을 바꿔야 한다.
-9. 실제 센서 연결·오류 처리·Viewer 디자인·README 재현과 아키텍처를 정리했다. 기존 Vercel 사이트의 최신 코드·실제 데이터 연결을 검증한 뒤 1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+9. 실제 센서 연결·오류 처리·Viewer 디자인·README 재현과 아키텍처를 정리했다. 공개 실제 연결도 검증했다. 데모 선택 UI의 사용자 push·공개 반영 확인 뒤 1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### Phase 7: 실제/가상 데모 선택 (2026-10-04)
+
+- 사용자가 추천한 선택 UI를 먼저 구현하도록 승인했다. 시작 시 미커밋 변경이 없고 main은 `384ab22`, 원격 main은 `882845f`로 기존 문서 commit 1개가 앞서 있었다. GitHub Desktop 내장 Git으로 원격을 읽기 전용 확인했다. 설치된 Next.js `use-client` 가이드도 읽었다.
+- `ViewerSourceSelector`를 fieldset·radio 표시 컴포넌트로 분리했다. 상단 `ViewerCanvas`는 기본 `actual` 선택을 보관하고, 기존 연결·시계·센서·패널 조합을 같은 파일의 `ViewerSession`에 둔다. `key={mode}`로 모드 변경 때 이전 Hook·Three.js cleanup 후 0초·정지·선택 해제·새 캐시·사진 슬롯으로 시작한다. 같은 모드를 고르면 기존 세션을 유지한다.
+- `useDriveScopeDataSource(enabled)`는 항상 호출하되 enabled가 false면 effect의 요청을 생략한다. 가상 선택은 실제 manifest를 읽지 않는다. `isMockData`는 수동 가상 선택 또는 실제 연결 오류일 때 true다. 실제 실패 fallback에서는 상단 실제 선택과 오류·retry를 유지하며 가상을 직접 고르면 오류를 지운다.
+- 검증 명령: `pnpm.cmd build`, `pnpm.cmd start --port 3100`, `node node_modules/.cache/drivescope-browser-check/source-selector.mjs`. build의 compile·TypeScript·정적 페이지 생성과 Chrome 검사 10개 묶음이 통과했다. 검증 도구·프로필·보고서·스크린샷은 Git 제외 캐시에 보관한다.
+- 기본 실제 scene의 39개 센서 Frame·19.185초, 12.4초 JPEG·34,752포인트·ego 패널을 확인했다. 재생 중 양방향 전환은 0초·정지 상태로 돌아갔고 가상 선택에서 새 manifest 요청이 없었다. 같은 선택은 재생 시각을 유지했다. 가상 10초의 21포인트, 11초 인식·Raycaster 선택, 12.4초 마커·12초 사진과 전환 뒤 선택 ID 초기화도 확인했다.
+- 검증 브라우저에서 manifest·JPEG를 보류한 뒤 가상으로 전환해 오래된 완료가 새 소스를 덮어쓰지 않음을 확인했다. manifest 503 주입 시 실제 선택·가상 fallback·오류를 유지했고 수동 가상 전환의 오류 제거·요청 생략과 실제 retry 복구가 통과했다. 원본 서버·파일은 변경하지 않았다.
+- 실제→가상 전환에서 이전 WebGL context의 draw가 멈추고 Buffer 14개·Program 7개 삭제를 관찰했다. 반복 전환 후 Canvas는 1개이고 이전 context는 더 그리지 않았다. 정지 상태의 pending rAF는 1개였다. 이 관찰을 장시간 메모리 누수 부재나 모든 HTTP 요청 취소의 증명으로 확대하지 않는다.
+- radio 방향키로 선택·focus 유지가 동작했다. 320×844·390×844의 두 모드 모두 가로 overflow가 없고 선택 label 높이는 44px였다. desktop·mobile 스크린샷을 확인했으며 JS runtime exception은 0이었다.
+- 문서 검증 `node node_modules/.cache/drivescope-browser-check/check-architecture.mjs`에서 문서 7개·내부 링크 78개·앵커 10개·Mermaid 2개와 코드 블록 짝을 확인했다. `git diff --check`의 공백 오류도 없었다. 검증용 3100 production 서버는 종료했다.
+- 변경 파일은 Viewer 조합·manifest Hook·동기화 패널·selector·CSS와 관련 문서다. 기존 개발 서버·개인 환경·업로드 파일·Vercel 설정·방화벽은 유지했다. 구현·검증·문서 갱신 후 main commit까지만 하며 사용자 push 뒤 새 UI의 공개 반영을 확인한다. 원리 이해 확인과 영상 단계는 남아 있다.
 
 ### Phase 7: 공개 Viewer 실제 센서 배포 검증 (2026-10-04)
 
@@ -807,7 +820,7 @@
 1. 사용자가 Python 전처리·서버 파일 제공·브라우저 로더·React·Three.js의 책임을 설명한다.
 2. 사용자가 CPU Frame 캐시와 Three.js 표시 Buffer, 목표 사진과 실제 표시 사진의 차이를 설명한다.
 3. 사용자가 실제 모드의 연결 범위와 로컬 데이터 루트를 배포 서버에서 그대로 읽을 수 없는 이유를 확인한다.
-4. 공개 설정·Blob 파일 제공·배포 Viewer의 역할 이해를 확인하고, 다음 가상/실제 선택 UI 또는 1분 영상의 작은 범위를 설명한 뒤 승인받는다.
+4. 선택 모드와 표시 소스의 차이, key 변경에 따른 Hook·Three.js cleanup, 가상 모드의 manifest 요청 생략을 확인한다. 사용자 push·공개 반영 뒤 1분 영상의 작은 범위를 설명한 뒤 승인받는다.
 
 ## 추천 커밋 메시지
 

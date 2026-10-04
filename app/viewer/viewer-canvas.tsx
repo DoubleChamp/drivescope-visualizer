@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { CameraPanel } from "./_components/camera-panel";
 import { DataErrorNotice } from "./_components/data-error-notice";
 import { EgoPosePanel } from "./_components/ego-pose-panel";
@@ -9,6 +9,10 @@ import { SelectedObjectPanel } from "./_components/selected-object-panel";
 import { SynchronizedFramesPanel } from "./_components/synchronized-frames-panel";
 import { ViewerMetrics } from "./_components/viewer-metrics";
 import { ViewerHeader } from "./_components/viewer-header";
+import {
+  ViewerSourceSelector,
+  type ViewerMode,
+} from "./_components/viewer-source-selector";
 import {
   ViewerScenePanel,
   ViewerSceneStage,
@@ -41,20 +45,32 @@ const LOADING_LIDAR_SOURCE: LidarFrameSource = {
 };
 
 export default function ViewerCanvas() {
+  const [mode, setMode] = useState<ViewerMode>("actual");
+
+  return (
+    <div className={styles.viewer}>
+      <ViewerSourceSelector mode={mode} onChange={setMode} />
+      {/* 모드 전환 시 이전 Hook·Three.js cleanup을 실행하고 재생·선택·캐시를 새로 시작한다. */}
+      <ViewerSession key={mode} mode={mode} />
+    </div>
+  );
+}
+
+function ViewerSession({ mode }: { mode: ViewerMode }) {
   // 데이터 소스와 공통 재생 시계
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const {
     source: actualDataSource,
     error: actualDataError,
     retry: retryActualData,
-  } = useDriveScopeDataSource();
-  const lidarSource =
-    actualDataSource ??
-    (actualDataError === null ? LOADING_LIDAR_SOURCE : MOCK_LIDAR_SOURCE);
-  const isActualData = actualDataSource !== null;
+  } = useDriveScopeDataSource(mode === "actual");
+  const isActualData = mode === "actual" && actualDataSource !== null;
   const isActualDataLoading =
-    actualDataSource === null && actualDataError === null;
-  const isMockFallback = actualDataError !== null;
+    mode === "actual" && actualDataSource === null && actualDataError === null;
+  const isMockData = mode === "mock" || actualDataError !== null;
+  const lidarSource = isMockData
+    ? MOCK_LIDAR_SOURCE
+    : actualDataSource ?? LOADING_LIDAR_SOURCE;
   const sourceState = isActualDataLoading
     ? "loading"
     : isActualData
@@ -93,14 +109,14 @@ export default function ViewerCanvas() {
         : 0,
     ),
   );
-  const objectDetectionFrame = isMockFallback ? frames.objectDetection : null;
+  const objectDetectionFrame = isMockData ? frames.objectDetection : null;
   const currentPedestrian =
     objectDetectionFrame?.objects.find(
       (object) => object.category === "pedestrian",
     ) ?? null;
   const cameraFrame = isActualData
     ? findLatestFrameAtOrBefore(actualDataSource.cameraFrames, currentTimeMs)
-    : isMockFallback
+    : isMockData
       ? frames.camera
       : null;
   const bufferedCamera = useBufferedCameraFrame(cameraFrame, lidarSource.id);
@@ -109,7 +125,7 @@ export default function ViewerCanvas() {
         actualDataSource.manifest.egoVehicle.frames,
         currentTimeMs,
       )
-    : isMockFallback
+    : isMockData
       ? frames.vehicleState
       : null;
   // 선택 상태와 Three.js 런타임 연결
@@ -122,18 +138,18 @@ export default function ViewerCanvas() {
     pedestrian: currentPedestrian,
     egoPoseFrame,
     followEgoVehicle: isActualData,
-    trajectoryFrame: isMockFallback ? frames.trajectory : null,
+    trajectoryFrame: isMockData ? frames.trajectory : null,
     selectedObjectId,
     setSelectedObjectId,
     lidarPositionCapacity,
   });
   const primaryEvent =
-    isMockFallback
+    isMockData
       ? (mockScenario.events.find(
           (event) => event.type === "emergency-braking",
         ) ?? null)
       : null;
-  const timelineEvents = isMockFallback ? mockScenario.events : [];
+  const timelineEvents = isMockData ? mockScenario.events : [];
 
   return (
     <div
@@ -222,7 +238,7 @@ export default function ViewerCanvas() {
               bufferedCamera.retry();
             }}
           />
-          {isMockFallback ? (
+          {isMockData ? (
             <SelectedObjectPanel object={selectedObject} frame={objectDetectionFrame} />
           ) : (
             <EgoPosePanel frame={egoPoseFrame} isLoading={isActualDataLoading} />
@@ -233,7 +249,7 @@ export default function ViewerCanvas() {
             lidarFrame={lidarFrame}
             objectDetectionFrame={objectDetectionFrame}
             egoPoseFrame={egoPoseFrame}
-            isMockFallback={isMockFallback}
+            isMockData={isMockData}
           />
         </aside>
       </div>

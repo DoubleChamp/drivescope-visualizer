@@ -44,11 +44,13 @@ pnpm.cmd dev
 
 [http://localhost:3000](http://localhost:3000)의 **분석 Viewer 열기**를 누르거나 [http://localhost:3000/viewer](http://localhost:3000/viewer)로 이동합니다. 서버 종료는 터미널에서 `Ctrl+C`입니다.
 
-처음 clone한 프로젝트에는 실제 데이터 설정이 없습니다. Viewer는 실제 manifest 요청 실패를 안내하면서 **가상 데모**를 표시합니다. 이 상태에서도 재생·탐색·보행자 선택을 사용할 수 있습니다. 실제 모드가 열리는 기존 환경에서 가상 데모로 돌아가려면 `DRIVESCOPE_DATA_ROOT` 설정을 제거하고 서버를 다시 실행합니다. 현재 별도의 모드 전환 버튼은 없습니다.
+Viewer 상단의 **데모 선택**에서 **실제 센서 로그 / 가상 급제동 데모**를 고릅니다. 기본값은 실제 센서 로그입니다. 모드를 바꾸면 재생이 정지하고 0초로 돌아가며 선택 객체와 센서 표시·캐시도 새로 시작합니다. 가상 모드는 실제 데이터 설정 없이 사용할 수 있고 실제 manifest를 요청하지 않습니다.
+
+처음 clone한 프로젝트에는 실제 데이터 설정이 없습니다. 기본 실제 연결이 실패하면 오류와 함께 가상 데모를 표시합니다. **가상 급제동 데모**를 직접 선택하면 오류 안내 없이 분석할 수 있습니다. 선택 UI의 공개 배포 반영은 [배포 기록](docs/DEPLOYMENT.md)에서 확인합니다.
 
 ## 가상 데모 살펴보기
 
-1. 재생 버튼으로 전체 흐름을 보거나 타임라인을 드래그해 아래 시점으로 이동합니다. 탐색하면 재생은 정지합니다.
+1. 상단에서 **가상 급제동 데모**를 고른 뒤 재생하거나 타임라인을 드래그해 아래 시점으로 이동합니다. 탐색하면 재생은 정지합니다.
 2. 11초 이후 3D 장면의 보행자 박스를 클릭합니다. 오른쪽 선택 객체 패널에서 ID·분류·신뢰도·인식 시각을 확인합니다.
 3. 12초와 12.4초의 예상 경로·충돌 강조를 비교하고, 카메라와 센서별 Frame 시각도 함께 확인합니다.
 
@@ -171,7 +173,7 @@ Frame 로딩 시간은 비동기 HTTP 대기를 포함한 로더 Promise의 경�
 
 | 상태 | 확인할 내용 |
 | --- | --- |
-| 처음 실행해 실제 연결 오류와 가상 데모가 보임 | 실제 데이터 미설정 상태입니다. 가상 데모는 그대로 사용할 수 있습니다. 실제 데이터가 필요하면 위 연결 절차를 진행합니다. |
+| 처음 실행해 실제 연결 오류와 가상 데모가 보임 | 실제 데이터 미설정 상태입니다. **가상 급제동 데모**를 직접 선택해 사용할 수 있습니다. 실제 데이터가 필요하면 위 연결 절차를 진행합니다. |
 | manifest HTTP 503 | `DRIVESCOPE_DATA_ROOT` 설정과 서버 재시작 여부를 확인합니다. |
 | manifest·이미지·LiDAR HTTP 404 | 설정이 출력 루트가 아닌 scene 디렉터리인지, manifest가 참조한 파일을 함께 복사했는지 확인합니다. |
 | manifest 버전·timestamp 검증 실패 | 오류 상세를 보고 `validate:manifest`로 검사합니다. v2 파일은 v3로 다시 준비합니다. |
@@ -188,6 +190,7 @@ manifest 연결 문제를 해결한 뒤 **실제 데이터 다시 연결**을 �
 | 관심사 | 시작 파일 |
 | --- | --- |
 | 소스·재생 시계·센서 선택·패널 조합 | [viewer-canvas.tsx](app/viewer/viewer-canvas.tsx) |
+| 실제/가상 데모 선택 입력 | [viewer-source-selector.tsx](app/viewer/_components/viewer-source-selector.tsx) |
 | 제목·요약 / 3D 표시 마크업 | [viewer-header.tsx](app/viewer/_components/viewer-header.tsx), [viewer-scene-panel.tsx](app/viewer/_components/viewer-scene-panel.tsx) |
 | 재생·탐색 / timestamp 선택 | [use-playback.ts](app/viewer/_hooks/use-playback.ts), [find-latest-frame-at-or-before.ts](app/viewer/_data/find-latest-frame-at-or-before.ts) |
 | 실제 manifest·LiDAR 로딩 | [load-drivescope-data-source.ts](app/viewer/_data/load-drivescope-data-source.ts) |

@@ -13,7 +13,7 @@ type SynchronizedFramesPanelProps = {
   lidarFrame: LidarFrame | null;
   objectDetectionFrame: ObjectDetectionFrame | null;
   egoPoseFrame: EgoPoseFrame | null;
-  isMockFallback: boolean;
+  isMockData: boolean;
 };
 
 const formatTimestampDifference = (differenceMs: number) =>
@@ -25,7 +25,7 @@ export function SynchronizedFramesPanel({
   lidarFrame,
   objectDetectionFrame,
   egoPoseFrame,
-  isMockFallback,
+  isMockData,
 }: SynchronizedFramesPanelProps) {
   const lidarPointCount = lidarFrame ? lidarFrame.positions.length / 3 : 0;
   const objectSummary = objectDetectionFrame
@@ -44,7 +44,7 @@ export function SynchronizedFramesPanel({
         ? `${lidarPointCount.toLocaleString("ko-KR")}개 포인트`
         : null,
     },
-    isMockFallback
+    isMockData
       ? { label: "Object Detection", frame: objectDetectionFrame, detail: objectSummary }
       : { label: "차량 위치", frame: egoPoseFrame, detail: egoPoseFrame ? "차량 위치와 방향" : null },
   ];

@@ -683,9 +683,18 @@
 - 배포 서버를 수정하지 않고 검증 브라우저의 요청만 실패시켜 JPEG·LiDAR 재시도와 manifest fallback·재연결을 검사했다. 원격 정상 동작과 의도적으로 주입한 오류를 구분한다.
 - 실제 Chrome 페이지의 재생·센서 표시·모바일 에뮬레이션·WebGL을 확인하는 것과 HTTP 200만 확인하는 것은 검증 범위가 다르다. 이번 실행에서는 화면도 확인했지만 Preview·실제 모바일 기기·장시간 성능까지 검증한 것으로 기록하지 않는다.
 
+### 데모 선택과 세션 초기화 (2026-10-04, 사용자 이해 확인 대기)
+
+- 선택 `mode`와 표시 결과 `sourceState`는 다르다. 실제를 골라도 manifest 실패 시 가상 fallback을 표시할 수 있으므로 선택은 실제로 유지하고 오류·retry를 제공한다. 수동 가상 선택에서는 요청·연결 오류 없이 가상 데이터를 사용한다.
+- `ViewerSession key={mode}`의 key가 바뀌면 React는 이전 세션을 해제하고 새로 만든다. 각 Hook의 초기 state가 다시 적용돼 재생 0초·정지, 선택 null, 새 센서 캐시·사진 슬롯이 함께 시작된다. 같은 key에서 재생 시각만 바꾸면 세션을 유지한다.
+- Hook을 조건문 안에서 호출하지 않는다. `useDriveScopeDataSource(mode === "actual")`는 항상 호출하고 effect 내부의 `if (!enabled) return`으로 HTTP 요청을 생략한다. 가상 전환 후 새 manifest 요청이 없는 것을 브라우저에서 확인했다.
+- 세션 교체는 기존 Three.js cleanup을 실행한다. 실제→가상에서 이전 WebGL draw 중지와 Buffer·Program 삭제를 관찰했고 반복 전환에도 Canvas는 1개였다. 재생 Frame마다 Scene을 새로 만드는 동작과는 호출 시점이 다르다.
+- 보류된 manifest·JPEG 뒤 가상으로 전환해 오래된 완료의 표시 차단을 확인했다. manifest는 AbortController를 사용하고 이미지·LiDAR는 완료 결과 반영을 차단하므로 모든 자산 요청이 취소된다고 해석하지 않는다.
+- 선택 radio를 세션 밖에 두면 키보드 focus를 유지하면서 센서 세션만 교체할 수 있다. 방향키 전환과 320/390px 표시를 실제 Chrome에서 확인했다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 7의 센서 연결·성능 기준선·표시·README·아키텍처를 정리하고 공개 설정·Blob 업로드·배포 Viewer 실제 재생과 복구를 검증했다. 앱·Blob·manifest의 역할 이해를 확인한 뒤 두 데모 노출 또는 1분 영상 중 다음 작은 범위를 정한다. 아래 이전 학습 항목의 사용자 이해 확인도 남아 있다.
+Phase 7의 센서 연결·성능 기준선·표시·README·아키텍처를 정리하고 공개 설정·Blob 업로드·배포 Viewer 실제 재생과 복구를 검증했다. 이어 두 데모 선택과 세션 초기화를 로컬에서 검증했다. mode·key·effect guard 원리 이해와 사용자 push 뒤 공개 반영을 확인한 뒤 1분 영상의 작은 범위를 정한다. 아래 이전 학습 항목의 사용자 이해 확인도 남아 있다.
 
 - Canvas DOM 좌표를 NDC로 변환하는 식과 Y 부호를 뒤집는 이유
 - Camera 광선과 Mesh 삼각형의 교차, `visible`과 wireframe이 선택 판정에 미치는 영향

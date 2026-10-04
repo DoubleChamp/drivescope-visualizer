@@ -10,7 +10,7 @@ type DriveScopeDataSourceState = {
   error: Error | null;
 };
 
-export function useDriveScopeDataSource() {
+export function useDriveScopeDataSource(enabled = true) {
   const [requestAttempt, setRequestAttempt] = useState(0);
   const [state, setState] = useState<DriveScopeDataSourceState>({
     source: null,
@@ -18,6 +18,8 @@ export function useDriveScopeDataSource() {
   });
 
   useEffect(() => {
+    if (!enabled) return;
+
     const abortController = new AbortController();
 
     void loadDriveScopeDataSource(
@@ -37,7 +39,7 @@ export function useDriveScopeDataSource() {
       });
 
     return () => abortController.abort();
-  }, [requestAttempt]);
+  }, [enabled, requestAttempt]);
 
   const retry = () => {
     setState({ source: null, error: null });

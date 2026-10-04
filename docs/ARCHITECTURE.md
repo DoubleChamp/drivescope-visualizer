@@ -12,7 +12,7 @@ DriveScope는 Next.js App Router·React·TypeScript로 UI와 재생 상태를 �
 | 가상 | 0~15초 급제동 시나리오의 센서·인식·경로·차량 상태·이벤트 | 보행자 선택, 예상 경로·충돌 구간, 12.4초 급제동 이벤트 |
 | 연결 중 | manifest 요청·검증 진행 | 빈 센서 상태와 연결 안내, 재생 입력 비활성화 |
 
-실제 모드에는 객체 인식·Planning·급제동 이벤트를 아직 연결하지 않았다. 실제 센서 데이터 위에 가상 분석 결과를 섞지 않는다. manifest 연결이 실패하면 오류와 가상 데모임을 알리고 가상 모드로 전환한다.
+상단에서 실제 센서 로그와 가상 급제동 데모를 선택한다. 기본 선택은 실제다. 실제 모드에는 객체 인식·Planning·급제동 이벤트를 아직 연결하지 않았다. 실제 센서 데이터 위에 가상 분석 결과를 섞지 않는다. 실제 manifest 연결이 실패하면 사용자의 실제 선택을 유지한 채 오류와 가상 fallback을 표시한다. 가상을 직접 선택하면 실제 manifest 요청과 연결 오류 안내 없이 가상 데이터만 사용한다.
 
 찾아보기: [전체 흐름](#전체-데이터-흐름) · [코드와 책임](#코드와-책임) · [데이터 계약](#데이터-계약과-좌표) · [시간 선택](#재생-시계와-frame-선택) · [LiDAR](#lidar-로딩캐시buffer) · [이미지](#카메라-이미지의-준비와-교체) · [오류](#오류와-재시도) · [가상 분석](#가상-시나리오의-분석) · [cleanup](#소유권과-리소스-생명주기) · [측정과 한계](#측정-범위와-남은-작업).
 
@@ -59,8 +59,9 @@ manifest를 읽으면 Frame 목록과 ego pose를 확보한다. 모든 LiDAR 바
 | [Route Handler](../app/api/drivescope-data/[...assetPath]/route.ts) | 서버 파일 읽기, 허용 경로 검사, JSON·바이너리·JPEG HTTP 응답 |
 | [drivescope-manifest.ts](../app/viewer/_data/drivescope-manifest.ts) | 디스크 계약·timestamp·상대 경로·pose 검증 |
 | [load-drivescope-data-source.ts](../app/viewer/_data/load-drivescope-data-source.ts) | manifest로 소스 생성, 상대 URL 해석, LiDAR 요청·바이너리 해석 |
-| [viewer-canvas.tsx](../app/viewer/viewer-canvas.tsx) | 소스 모드 파생, 공통 시계와 센서 선택, Hook 연결, 패널 조합 |
-| [use-drivescope-data-source.ts](../app/viewer/_hooks/use-drivescope-data-source.ts) | manifest 연결 상태·오류·재연결과 AbortController |
+| [viewer-canvas.tsx](../app/viewer/viewer-canvas.tsx) | 선택 모드 state, key로 세션 초기화; 세션 안의 공통 시계·센서 선택·Hook 연결·패널 조합 |
+| [viewer-source-selector.tsx](../app/viewer/_components/viewer-source-selector.tsx) | fieldset·radio로 실제/가상 선택 입력 표시 |
+| [use-drivescope-data-source.ts](../app/viewer/_hooks/use-drivescope-data-source.ts) | enabled일 때 manifest 연결, 상태·오류·재연결과 AbortController |
 | [use-playback.ts](../app/viewer/_hooks/use-playback.ts) | 재생·정지·seek, 실제 경과 시간 기반 시계 |
 | [find-latest-frame-at-or-before.ts](../app/viewer/_data/find-latest-frame-at-or-before.ts) | 재생 시각 이하의 최신 Frame 선택 |
 | [use-lidar-frame-cache.ts](../app/viewer/_hooks/use-lidar-frame-cache.ts), [frame-cache.ts](../app/viewer/_data/frame-cache.ts) | 진행 중 Promise 공유, 현재 Frame 로딩, 양옆 prefetch, LRU |
@@ -74,7 +75,21 @@ manifest를 읽으면 Frame 목록과 ego pose를 확보한다. 모든 LiDAR 바
 
 React가 Canvas·img DOM과 사용자 입력을 소유하고, Three.js가 Canvas의 WebGL 렌더링을 소유한다. 전방 센서 사진의 `<img>`와 3D 시점을 정하는 `PerspectiveCamera`는 별개다. 현재 전방 사진을 Three.js Texture로 만들지 않는다.
 
-`ViewerCanvas`는 조합 지점이다. 타이머·파일 로더·GPU 리소스 생성·패널 마크업을 직접 구현하지 않고 각 책임을 연결한다. Three.js Hook은 생성과 정리의 소유권을 한곳에서 추적하며, 순수 분석 계산은 `_analysis`에 둔다.
+`ViewerCanvas`는 선택 모드만 보관하고 `ViewerSession`이 기존 시계·센서·패널을 조합한다. 타이머·파일 로더·GPU 리소스 생성·패널 마크업을 직접 구현하지 않고 각 책임을 연결한다. Three.js Hook은 생성과 정리의 소유권을 한곳에서 추적하며, 순수 분석 계산은 `_analysis`에 둔다.
+
+```tsx
+const [mode, setMode] = useState<ViewerMode>("actual");
+return (
+  <>
+    <ViewerSourceSelector mode={mode} onChange={setMode} />
+    <ViewerSession key={mode} mode={mode} />
+  </>
+);
+```
+
+모드가 바뀌면 React는 key가 다른 세션을 새 컴포넌트로 취급한다. 이전 Hook과 Three.js cleanup 후 새 시계는 0초·정지, 선택 ID는 null, 캐시·사진 슬롯은 새 상태로 시작한다. 같은 모드를 다시 선택하거나 재생 시간만 갱신하면 key가 같아 세션을 유지한다. 선택 UI는 세션 밖에 있어 전환 중에도 키보드 focus를 유지한다.
+
+세션은 `useDriveScopeDataSource(mode === "actual")`를 항상 호출하되 effect의 `if (!enabled) return`으로 가상 모드의 HTTP 요청을 생략한다. `mode`는 사용자의 선택이고 `sourceState`는 연결 중·실제·가상 표시 결과다. 가상 데이터 사용 조건은 `mode === "mock" || actualDataError !== null`이며, 수동 선택과 실패 fallback을 이 둘로 구분한다.
 
 ## 데이터 계약과 좌표
 
@@ -251,7 +266,7 @@ React state는 선택 객체의 ID를 저장하고 최신 Detection Frame에서 
 | 이미지 준비·지연 timeout | 이미지 Hook·CameraPanel | decode 결과 차단·clearTimeout |
 | Scene·Camera·Renderer·Grid·Geometry·Material·rAF·리스너 | useThreeViewer | 런타임 effect cleanup |
 
-Three.js 초기화 effect의 실제 의존성은 `[canvasRef, lidarPositionCapacity, scenario, setSelectedObjectId]`다. 재생 시간·FPS state 갱신만으로 런타임을 다시 만들지 않는다. manifest 연결 등으로 용량이 바뀌면 기존 런타임을 정리하고 새 용량으로 생성한다. 따라서 “앱 전체에서 한 번 생성”보다 “같은 용량의 런타임 동안 재사용”이 정확하다.
+Three.js 초기화 effect의 실제 의존성은 `[canvasRef, lidarPositionCapacity, scenario, setSelectedObjectId]`다. 재생 시간·FPS state 갱신만으로 런타임을 다시 만들지 않는다. manifest 연결 등으로 용량이 바뀌거나 선택 모드의 key가 바뀌어 세션을 교체하면 기존 런타임을 정리하고 새로 생성한다. 따라서 “앱 전체에서 한 번 생성”보다 “같은 용량의 런타임 동안 재사용”이 정확하다.
 
 cleanup은 rAF와 resize·Canvas click listener를 먼저 중지하고 ref를 비운 뒤, 생성한 Geometry·Material·Grid·Renderer를 정리한다. 차량과 보행자가 공유하는 BoxGeometry는 한 번만 dispose한다.
 

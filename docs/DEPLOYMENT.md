@@ -17,7 +17,7 @@
 | 공개 Blob 자산 | scene-0061의 79개·21,976,548바이트 업로드 완료. 모두 HTTP 200·MIME·SHA-256 일치 |
 | 원격 읽기 | 모든 파일의 CORS `*`, 배포 origin의 Chrome에서 manifest·bin fetch와 JPEG decode 성공 |
 | 배포 Viewer | 실제 모드·공개 Blob 직접 요청·재생·탐색·사진 유지·오류 복구·모바일 에뮬레이션 통과 |
-| 데모 선택 | 실제 연결 실패 시에만 가상 fallback. 사용자 모드 선택 UI는 아직 없음 |
+| 데모 선택 | 실제/가상 선택·전환 초기화 로컬 검증 완료. 선택 UI 공개 반영은 사용자 push 이후 확인 |
 
 Git 연동 배포라면 로컬 commit만으로 Vercel에 코드가 반영되지 않는다. 사용자가 GitHub Desktop에서 push한 뒤 Vercel의 성공한 deployment가 해당 commit을 가리키는지 확인한다. CLI로 별도 배포했는지는 이번 점검에서 확인하지 않았다.
 
@@ -134,9 +134,11 @@ CORS는 데이터를 제공하는 웹 저장소의 응답 정책이다. 앱과 �
 
 ## 두 데모를 보여주는 방법
 
-[ViewerCanvas](../app/viewer/viewer-canvas.tsx)의 `isMockFallback = actualDataError !== null`이 가상 센서·인식·경로·이벤트 표시를 결정한다. 실제 연결이 성공하면 가상 급제동 데모를 직접 선택하는 입구가 없다.
+[ViewerSourceSelector](../app/viewer/_components/viewer-source-selector.tsx)에서 **실제 센서 로그 / 가상 급제동 데모**를 고른다. [ViewerCanvas](../app/viewer/viewer-canvas.tsx)는 기본 실제 선택을 보관하고 `ViewerSession key={mode}`로 전환 때 재생·선택·센서·캐시·Three.js를 초기화한다. 가상 선택은 실제 manifest 요청을 생략한다.
 
-두 데모를 모두 공개할 경우 `가상 분석 데모 / 실제 센서 로그` 선택을 별도 작은 단계로 구현한다. 사용자의 선택과 연결 실패 fallback을 구분하고 소스 전환 시 재생을 정지·0초로 이동한다. 현재 실제 모드에는 인식·Planning·급제동 이벤트가 미연결이므로 이 선택은 분석 데모를 찾는 데 필요하다.
+`isMockData = mode === "mock" || actualDataError !== null`이 가상 센서·인식·경로·이벤트 표시를 결정한다. 실제 연결 실패 시 선택은 실제로 유지하고 오류와 가상 fallback·재연결을 제공한다. 수동 가상 선택은 연결 오류를 표시하지 않는다. 현재 실제 모드에는 인식·Planning·급제동 이벤트가 미연결이므로 선택 UI로 가상 분석 데모에도 접근한다.
+
+선택 UI는 로컬 production build와 브라우저 검증을 마쳤다. GitHub Desktop에서 사용자 push·Vercel 새 배포 뒤 아래 공개 검증을 이어간다. 이전 공개 실제 센서 검증을 새 UI의 배포 완료로 기록하지 않는다.
 
 ## 실제 배포 검증 순서
 
@@ -144,7 +146,7 @@ CORS는 데이터를 제공하는 웹 저장소의 응답 정책이다. 앱과 �
 2. 실제 manifest 요청이 의도한 웹 저장소로 가고 응답을 브라우저에서 읽을 수 있는지 확인한다.
 3. 첫 이미지와 0초 LiDAR·ego 빈 상태, 12.4초 실제 Frame·포인트·pose를 확인한다.
 4. 재생·seek·이전 사진 유지·오류 복구·모바일 표시·WebGL 오류를 검사한다.
-5. 모드 선택 구현 후 가상 10초 등장·11초 인식·12초 충돌·12.4초 급제동과 객체 선택도 확인한다.
+5. 상단 선택 UI로 가상 10초 등장·11초 인식·12초 충돌·12.4초 급제동과 객체 선택을 확인한다. 재생 중 양방향 전환에서 0초·정지·선택 해제와 실제/가상 사진 구분도 확인한다.
 
 [benchmark-viewer.mjs](../scripts/benchmark-viewer.mjs)는 현재 localhost만 허용하고 로컬 API manifest를 요청·가로채는 비교 도구다. 배포 주소를 이 스크립트에 넣어 실제 서비스가 검증됐다고 기록하지 않는다. 원격 지연·캐시·성능 측정은 이 로컬 기준선과 별도의 조건으로 비교한다.
 
@@ -168,10 +170,12 @@ CORS는 데이터를 제공하는 웹 저장소의 응답 정책이다. 앱과 �
 
 실제 서버·파일에 오류를 만들지 않았다. 실패·지연은 이 검증 브라우저의 요청에만 적용했다. 기존 API는 여전히 DRIVESCOPE_DATA_ROOT 미설정 503이지만 실제 Viewer가 사용한 공개 Blob 요청에는 영향을 주지 않았다. 앱·파일 제공 경계를 분리한 결과다.
 
-9개 검사 묶음이 통과했으며 desktop·mobile 스크린샷에서 점군·차량·전방 사진을 확인했다. 에뮬레이션과 한 번의 표본을 모든 모바일 장치·장시간 안정성·원격 성능 보장으로 확대하지 않는다. 두 데모 선택 UI는 후속 단계다.
+선택 UI 추가 전 공개 Viewer에서 9개 검사 묶음이 통과했으며 desktop·mobile 스크린샷에서 점군·차량·전방 사진을 확인했다. 에뮬레이션과 한 번의 표본을 모든 모바일 장치·장시간 안정성·원격 성능 보장으로 확대하지 않는다.
 
 ## 점검 범위와 남은 작업
 
 앞선 업로드 단계에서는 파일 79개·21,976,548바이트의 HTTP 200·MIME·원본 SHA-256 일치와 LiDAR 크기를 확인했다. Chrome에서 배포 origin으로 manifest·첫 bin을 fetch하고 첫 JPEG를 decode해 34,688포인트·416,256바이트·1600×900 이미지를 읽었다. 이번에는 배포 앱의 실제 표시·재생까지 검증했다.
 
-업로드 사전 검사 4개·fixture manifest·production build는 앞선 변경에서 통과했다. 이번 변경은 배포 검증 결과를 문서에 기록하며 앱 코드를 바꾸거나 build를 반복하지 않았다. 계정의 deployment 상세·Preview·실제 모바일 기기·1분 영상·가상/실제 선택 UI·사용자가 미룬 방화벽은 남은 확인 또는 별도 작업이다.
+업로드 사전 검사 4개·fixture manifest는 앞선 변경에서 통과했다. 이후 데모 선택 UI를 추가하고 `pnpm.cmd build`와 로컬 production Chrome 검사 10개 묶음을 통과했다. 양방향 전환·비동기 완료 차단·오류 fallback·retry·객체 선택 초기화·키보드·320/390px 화면을 확인했다. 이전 WebGL context의 draw 중지와 Buffer·Program 삭제도 관찰했다. 자세한 명령·결과는 [PROGRESS](./PROGRESS.md)에 기록한다.
+
+선택 UI의 공개 반영, 계정 deployment 상세·Preview·실제 모바일 기기·1분 영상·사용자가 미룬 방화벽은 남은 확인 또는 별도 작업이다.
