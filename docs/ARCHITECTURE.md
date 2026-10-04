@@ -294,6 +294,6 @@ JS GC는 도달할 수 없는 객체 메모리를 나중에 회수한다. rAF �
 
 [benchmark-viewer.mjs](../scripts/benchmark-viewer.mjs)는 Node.js에서 Chrome DevTools Protocol로 production Viewer를 조작하고 DOM의 기존 지표를 읽어 결과 JSON을 저장한다. 화면 픽셀·OCR로 시간을 추정하지 않는다. FPS는 2.2초 준비 후 1초 간격 10회, 가상·실제 각 3회 기준선을 측정했다. 조건·한계·재실행 명령은 PERFORMANCE 문서에 둔다.
 
-웹앱은 Vercel에 배포되어 있으며 Public Blob의 실제 scene 파일 79개는 원본 SHA-256·응답 형식·CORS를 검증했다. Config로 설정한 공개 manifest URL을 배포 Viewer가 직접 요청하고 재생·탐색·사진 유지·오류 복구·모바일 표시까지 통과했다. 기존 로컬 API는 미설정 503이지만 공개 모드에서는 요청하지 않는다. 배포 앱은 PC 데이터 디렉터리나 업로드 토큰을 필요로 하지 않는다. 계정의 빌드 로그·Preview 배포와 실제 모바일 기기는 별도 검증이며 1분 영상은 남아 있다. 자세한 결과는 [DEPLOYMENT.md](./DEPLOYMENT.md)에 기록한다.
+웹앱은 Vercel에 배포되어 있으며 Public Blob의 실제 scene 파일 79개는 원본 SHA-256·응답 형식·CORS를 검증했다. Config로 설정한 공개 manifest URL을 배포 Viewer가 직접 요청하고 재생·탐색·사진 유지·오류 복구·모바일 표시까지 통과했다. 실제/가상 선택 UI의 공개 반영 뒤 양방향 전환·초기화·오래된 완료 차단·retry·키보드·320/390px 표시도 검사했다. 기존 로컬 API는 미설정 503이지만 공개 모드에서는 요청하지 않는다. 배포 앱은 PC 데이터 디렉터리나 업로드 토큰을 필요로 하지 않는다. 계정의 빌드 로그·Preview 배포와 실제 모바일 기기는 별도 검증이며 1분 영상은 남아 있다. 자세한 결과는 [DEPLOYMENT.md](./DEPLOYMENT.md)에 기록한다.
 
 ego pose 보간·Camera smoothing, 센서 sweeps 재생·누적, 실제 annotation·Planning 연결은 현재 범위 밖이다. 실제 모드의 차량 박스 크기는 현재 가상 시나리오 값을 재사용한다. Worker와 Frame 선택의 cursor·이진 탐색, 세부 시간·P95·메인 스레드 정지 측정은 로드맵의 후속 개선으로 남긴다. 측정하지 않은 병목을 근거로 복잡한 계층을 먼저 추가하지 않는다.

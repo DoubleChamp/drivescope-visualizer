@@ -5,9 +5,9 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: 승인한 실제/가상 데모 선택 UI를 구현했다. 기본 실제 모드, 가상 모드의 manifest 생략과 전환 시 0초·정지·선택·캐시·Three.js 초기화를 로컬 production Chrome에서 검증했다.
-- 다음 한 단계: 선택 state·key 초기화·effect 요청 생략 원리 이해를 확인한다. 사용자 push 이후 새 UI의 공개 반영을 확인하고 1분 영상 준비 범위를 정한다. 방화벽 설정은 사용자 요청으로 나중에 진행한다.
-- 아직 구현하지 않은 것: ego pose 보간과 Camera smoothing, 데모 영상. 선택 UI의 공개 배포 반영은 확인 대기다.
+- 현재 작업: 실제/가상 선택 UI의 원격 push·공개 사이트 반영을 확인했다. 공개 Chrome에서도 전환 초기화·오래된 완료 차단·실패 fallback·retry·키보드·모바일 검사 10개 묶음을 통과했다.
+- 다음 한 단계: 선택 state·key 초기화·effect 요청 생략 원리 이해를 확인하고 1분 영상의 장면·조작·설명 대본 준비 범위를 승인받는다. 방화벽 설정은 사용자 요청으로 나중에 진행한다.
+- 아직 구현하지 않은 것: ego pose 보간과 Camera smoothing, 데모 영상.
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
 ## 다른 컴퓨터에서 이어서 시작하기
@@ -20,7 +20,17 @@
 6. 로컬에서는 산출물 scene 디렉터리를 `.env.local`의 `DRIVESCOPE_DATA_ROOT`로 지정한다. 절대 경로는 Git과 브라우저 bundle에 포함되지 않는다.
 7. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 8. 현재 Route Handler는 로컬 개발용이다. 배포에서는 로컬 C 드라이브를 읽을 수 없으므로 같은 scene 디렉터리를 정적 파일 서버·CDN·오브젝트 스토리지에 올리고 로더의 기준 URL을 바꿔야 한다.
-9. 실제 센서 연결·오류 처리·Viewer 디자인·README 재현과 아키텍처를 정리했다. 공개 실제 연결도 검증했다. 데모 선택 UI의 사용자 push·공개 반영 확인 뒤 1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+9. 실제 센서 연결·오류 처리·Viewer 디자인·README 재현과 아키텍처를 정리했다. 공개 실제 연결과 데모 선택 UI 반영·전환도 검증했다. 다음 1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### Phase 7: 데모 선택 UI 공개 반영 확인 (2026-10-04)
+
+- 사용자가 다음 진행을 요청해 앞서 남긴 선택 UI 공개 반영을 먼저 점검했다. 시작 시 worktree는 깨끗하고 로컬 main은 `0dae393`이었다. 원격 main도 같은 commit임을 읽기 전용 확인했고 fetch 뒤 origin/main과 일치했다. 최초 HTTP 응답에는 selector가 없었으나 이후 요청과 canonical URL의 Chrome에서 새 UI를 확인했다. 정확한 계정 deployment commit 표시·빌드 로그는 조회하지 않았다.
+- 검증 명령 `node node_modules/.cache/drivescope-browser-check/live-source-selector.mjs`로 격리된 Chrome에서 공개 Viewer 검사 10개 묶음을 통과했다. 공개 Blob manifest·센서 자산만 사용했고 로컬 API 요청은 0개였다. 개인 `.env.local`·토큰·로컬 센서 파일은 읽지 않았다. 검증 도구·보고서·스크린샷은 Git 제외 캐시에 보관한다.
+- 실제 39개 센서 Frame·19.185초·12.4초 34,752포인트, 가상 15초·10초 등장·11초 Raycaster 객체 선택·12.4초 마커와 사진 timestamp를 확인했다. 재생 중 양방향 전환은 0초·정지·선택 해제로 시작했고 같은 모드 선택은 시간을 유지했다. 가상을 고를 때 새 manifest 요청은 없었다.
+- 브라우저 요청만 보류·실패시켜 이전 manifest·JPEG 완료의 표시 차단과 실제 선택 유지·가상 fallback·수동 가상 전환·실제 retry 복구를 확인했다. 이전 WebGL draw는 멈추고 Buffer·Program 삭제를 관찰했으며 반복 전환 후 Canvas 1개·정지 상태 pending rAF 1개였다. 이전 context·CPU 메모리 전체의 장시간 회수까지 보장하는 결과는 아니다.
+- radio 방향키와 focus 유지, 320×844·390×844 두 모드의 overflow 없음·44px 선택 영역, desktop·mobile 스크린샷을 확인했다. JS runtime exception은 0이었다. 실제 기기·장시간 성능·Preview는 이번 범위 밖이다.
+- 문서 검증 `node node_modules/.cache/drivescope-browser-check/check-architecture.mjs`에서 문서 7개·내부 링크 78개·앵커 10개·Mermaid 2개·코드 블록 짝을 확인했고 `git diff --check`도 통과했다.
+- 문서의 선택 UI 공개 반영 대기를 완료로 갱신했다. 앱 코드·Vercel 설정·데이터 자산은 변경하지 않아 앞서 통과한 build를 반복하지 않았다. 다음 1분 영상의 구성안을 설명하며 원리 이해·준비 단계 승인은 남긴다. main에 문서 commit까지만 하고 push는 사용자가 진행한다.
 
 ### Phase 7: 실제/가상 데모 선택 (2026-10-04)
 
@@ -820,7 +830,7 @@
 1. 사용자가 Python 전처리·서버 파일 제공·브라우저 로더·React·Three.js의 책임을 설명한다.
 2. 사용자가 CPU Frame 캐시와 Three.js 표시 Buffer, 목표 사진과 실제 표시 사진의 차이를 설명한다.
 3. 사용자가 실제 모드의 연결 범위와 로컬 데이터 루트를 배포 서버에서 그대로 읽을 수 없는 이유를 확인한다.
-4. 선택 모드와 표시 소스의 차이, key 변경에 따른 Hook·Three.js cleanup, 가상 모드의 manifest 요청 생략을 확인한다. 사용자 push·공개 반영 뒤 1분 영상의 작은 범위를 설명한 뒤 승인받는다.
+4. 선택 모드와 표시 소스의 차이, key 변경에 따른 Hook·Three.js cleanup, 가상 모드의 manifest 요청 생략을 확인한다. 공개 반영은 검증됐으며 1분 영상의 작은 범위를 설명한 뒤 승인받는다.
 
 ## 추천 커밋 메시지
 

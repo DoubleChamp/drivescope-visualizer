@@ -9,7 +9,7 @@
 | production build | `pnpm.cmd build` 통과. `/`, `/viewer`는 prerender, 데이터 API는 동적 Route Handler |
 | 타입 검사 | `pnpm.cmd exec tsc --noEmit --incremental false` 통과 |
 | manifest 규칙 | `pnpm.cmd validate:manifest` 통과. fixture의 LiDAR·Camera·ego 각 2개 검사 |
-| Git | 배포 검증 시작 시 main·origin/main·원격 main이 `882845f`로 같음. deployment 화면의 정확한 commit 표시·빌드 로그는 미조회 |
+| Git | 초기 실제 배포 검증은 `882845f`, 선택 UI 공개 점검 시작 시 로컬·원격 main은 `0dae393`. deployment 화면의 정확한 commit 표시·빌드 로그는 미조회 |
 | Next.js 설정 | `next.config.ts`는 기본 설정. 이번 점검에서 추가 설정이 필요한 렌더링 문제는 발견하지 못함 |
 | 실제 데이터 입구 | NEXT_PUBLIC_DRIVESCOPE_MANIFEST_URL을 설정하면 해당 주소, 생략하면 기존 로컬 API 사용 |
 | 실제 파일 제공 | API가 `DRIVESCOPE_DATA_ROOT`의 서버 로컬 파일을 readFile로 읽음 |
@@ -17,7 +17,7 @@
 | 공개 Blob 자산 | scene-0061의 79개·21,976,548바이트 업로드 완료. 모두 HTTP 200·MIME·SHA-256 일치 |
 | 원격 읽기 | 모든 파일의 CORS `*`, 배포 origin의 Chrome에서 manifest·bin fetch와 JPEG decode 성공 |
 | 배포 Viewer | 실제 모드·공개 Blob 직접 요청·재생·탐색·사진 유지·오류 복구·모바일 에뮬레이션 통과 |
-| 데모 선택 | 실제/가상 선택·전환 초기화 로컬 검증 완료. 선택 UI 공개 반영은 사용자 push 이후 확인 |
+| 데모 선택 | 실제/가상 선택 UI 공개 반영 확인. 양방향 전환·초기화·비동기 완료 차단·retry·키보드·모바일 검사 통과 |
 
 Git 연동 배포라면 로컬 commit만으로 Vercel에 코드가 반영되지 않는다. 사용자가 GitHub Desktop에서 push한 뒤 Vercel의 성공한 deployment가 해당 commit을 가리키는지 확인한다. CLI로 별도 배포했는지는 이번 점검에서 확인하지 않았다.
 
@@ -138,7 +138,7 @@ CORS는 데이터를 제공하는 웹 저장소의 응답 정책이다. 앱과 �
 
 `isMockData = mode === "mock" || actualDataError !== null`이 가상 센서·인식·경로·이벤트 표시를 결정한다. 실제 연결 실패 시 선택은 실제로 유지하고 오류와 가상 fallback·재연결을 제공한다. 수동 가상 선택은 연결 오류를 표시하지 않는다. 현재 실제 모드에는 인식·Planning·급제동 이벤트가 미연결이므로 선택 UI로 가상 분석 데모에도 접근한다.
 
-선택 UI는 로컬 production build와 브라우저 검증을 마쳤다. GitHub Desktop에서 사용자 push·Vercel 새 배포 뒤 아래 공개 검증을 이어간다. 이전 공개 실제 센서 검증을 새 UI의 배포 완료로 기록하지 않는다.
+선택 UI는 로컬 production build와 브라우저 검증 뒤 사용자 push를 확인했다. 공개 Viewer에서도 선택 UI와 전환 동작을 직접 검사했다. 아래 초기 실제 센서 검사와 선택 UI 공개 검사를 구분해 기록한다.
 
 ## 실제 배포 검증 순서
 
@@ -174,8 +174,20 @@ CORS는 데이터를 제공하는 웹 저장소의 응답 정책이다. 앱과 �
 
 ## 점검 범위와 남은 작업
 
+### 선택 UI 공개 검증 (2026-10-04)
+
+원격 main이 `0dae393`인 것을 확인한 뒤 `node node_modules/.cache/drivescope-browser-check/live-source-selector.mjs`로 공개 Viewer를 검사했다. 격리된 Chrome·CDP에서 실제 URL로 접근하고 Public Blob의 manifest·JPEG·bin만 읽었다. 로컬 API 요청은 0개이며 개인 환경 파일·업로드 토큰·로컬 센서 데이터는 사용하지 않았다. 검사 도구·보고서·스크린샷은 Git 제외 캐시에 보관한다.
+
+검사 10개 묶음이 통과했다. 실제 19.185초·39개 센서 Frame과 12.4초의 34,752포인트, 가상 10초 등장·11초 객체 선택·12.4초 이벤트, 재생 중 양방향 전환의 0초·정지·선택 초기화를 확인했다. 가상 직접 선택에서는 새 manifest 요청과 연결 오류 안내가 없었다.
+
+검증 브라우저의 manifest·JPEG 요청 보류 뒤 전환해 오래된 완료가 새 화면을 덮어쓰지 않는 것을 확인했다. manifest 503 주입의 실제 선택 유지·가상 fallback·수동 가상 선택·실제 retry도 통과했다. 이전 WebGL context의 draw가 멈추고 GPU Buffer·Program이 삭제됐으며 반복 전환에도 Canvas는 1개였다. 서버·원본 파일은 변경하지 않았다.
+
+radio 방향키 전환·focus 유지, 320×844·390×844에서 두 모드의 가로 overflow 없음과 44px 선택 영역을 확인했다. desktop·mobile 스크린샷을 확인했고 JS runtime exception은 0이었다. 공개 UI의 실행 검증이며 Vercel 계정 빌드 로그·deployment commit 표시·Preview·실제 모바일 기기·장시간 성능을 검증한 결과는 아니다.
+
+### 남은 작업
+
 앞선 업로드 단계에서는 파일 79개·21,976,548바이트의 HTTP 200·MIME·원본 SHA-256 일치와 LiDAR 크기를 확인했다. Chrome에서 배포 origin으로 manifest·첫 bin을 fetch하고 첫 JPEG를 decode해 34,688포인트·416,256바이트·1600×900 이미지를 읽었다. 이번에는 배포 앱의 실제 표시·재생까지 검증했다.
 
 업로드 사전 검사 4개·fixture manifest는 앞선 변경에서 통과했다. 이후 데모 선택 UI를 추가하고 `pnpm.cmd build`와 로컬 production Chrome 검사 10개 묶음을 통과했다. 양방향 전환·비동기 완료 차단·오류 fallback·retry·객체 선택 초기화·키보드·320/390px 화면을 확인했다. 이전 WebGL context의 draw 중지와 Buffer·Program 삭제도 관찰했다. 자세한 명령·결과는 [PROGRESS](./PROGRESS.md)에 기록한다.
 
-선택 UI의 공개 반영, 계정 deployment 상세·Preview·실제 모바일 기기·1분 영상·사용자가 미룬 방화벽은 남은 확인 또는 별도 작업이다.
+계정 deployment 상세·Preview·실제 모바일 기기·1분 영상·사용자가 미룬 방화벽은 남은 확인 또는 별도 작업이다.
