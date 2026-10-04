@@ -563,6 +563,70 @@
   pointer-events: none;
 }
 
+.loadDetails {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--border);
+  color: var(--text);
+  background: var(--surface);
+}
+
+.loadDetails summary {
+  cursor: pointer;
+  font-size: .85rem;
+  font-weight: 600;
+}
+
+.loadDetails h3 {
+  margin: 1.1rem 0 .65rem;
+  font-size: .85rem;
+}
+
+.loadScope {
+  margin: .75rem 0;
+  color: var(--muted);
+  font-size: .78rem;
+  line-height: 1.7;
+}
+
+.prefetchLoads {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: .75rem;
+}
+
+.loadMeasurement {
+  padding: .85rem;
+  border: 1px solid var(--border);
+  border-radius: .4rem;
+}
+
+.loadMeasurement h4, .loadMeasurement p {
+  margin: 0 0 .4rem;
+  font-size: .8rem;
+}
+
+.loadMeasurement p {
+  color: var(--muted);
+  font-size: .75rem;
+}
+
+.loadMeasurement dl {
+  margin: .75rem 0 0;
+  font-size: .8rem;
+}
+
+.loadMeasurement dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: .75rem;
+  padding-block: .25rem;
+}
+
+.loadMeasurement dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
 .metrics {
   position: absolute;
   z-index: 2;

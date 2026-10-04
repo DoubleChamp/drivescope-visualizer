@@ -10,6 +10,8 @@ Next.js App Router, React, TypeScript와 Three.js를 사용합니다. React는 U
 
 13.9ms는 HTTP 대기가 포함된 로더 Promise의 경과 시간입니다. 소개 페이지에서도 이를 순수 렌더링 시간이나 최적화 전후 향상률로 표현하지 않으며 [원본 측정 기록](docs/PERFORMANCE.md)과 코드 링크를 함께 제공합니다.
 
+실제 Viewer의 **LiDAR 로딩 구간 자세히 보기**를 펼치면 응답 헤더까지·본문 읽기·좌표 배열 준비·전체 시간을 확인할 수 있습니다. 현재 Frame 요청과 마지막 주변 prefetch를 구분하고, 진행 중 prefetch를 공유할 때 최초 요청 종류를 유지합니다. cache hit는 새 로더를 실행하지 않아 세부 시간도 생략합니다. [측정 구간·검증](docs/PERFORMANCE.md)에 해석 범위를 기록했습니다.
+
 ## 현재 확인할 수 있는 데모
 
 | 항목 | 가상 급제동 데모 | 실제 nuScenes mini |
@@ -205,6 +207,7 @@ manifest 연결 문제를 해결한 뒤 **실제 데이터 다시 연결**을 �
 | 데이터 흐름 설명 / 조작 가능한 Frame 선택 예시 | [project-architecture.tsx](app/_components/project-architecture.tsx), [frame-selection-demo.tsx](app/_components/frame-selection-demo.tsx) |
 | 최적화 결정·핵심 코드 / 측정 결과·해석 | [project-optimizations.tsx](app/_components/project-optimizations.tsx), [project-results.tsx](app/_components/project-results.tsx) |
 | 사이트 안에서 재생하는 1분 영상·텍스트 설명 | [project-demo.tsx](app/_components/project-demo.tsx) |
+| 실제 LiDAR 로딩 구간·요청별 시간 표시 | [load-drivescope-data-source.ts](app/viewer/_data/load-drivescope-data-source.ts), [lidar-load-details.tsx](app/viewer/_components/lidar-load-details.tsx) |
 | 소스·재생 시계·센서 선택·패널 조합 | [viewer-canvas.tsx](app/viewer/viewer-canvas.tsx) |
 | 실제/가상 데모 선택 입력 | [viewer-source-selector.tsx](app/viewer/_components/viewer-source-selector.tsx) |
 | 제목·요약 / 3D 표시 마크업 | [viewer-header.tsx](app/viewer/_components/viewer-header.tsx), [viewer-scene-panel.tsx](app/viewer/_components/viewer-scene-panel.tsx) |

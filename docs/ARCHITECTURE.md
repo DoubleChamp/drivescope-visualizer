@@ -69,6 +69,8 @@ manifest를 읽으면 Frame 목록과 ego pose를 확보한다. 모든 LiDAR 바
 | --- | --- |
 | [app/page.tsx](../app/page.tsx), [app/_components](../app/_components) | 포트폴리오 홈의 섹션·메타데이터·설계 근거·측정 결과·영상 조합 |
 | [frame-selection-demo.tsx](../app/_components/frame-selection-demo.tsx) | 홈에서 작은 state로 최신 과거 Frame 선택 원리를 체험하는 Client Component |
+| [lidar-frame-source.ts](../app/viewer/_data/lidar-frame-source.ts) | 로더의 Frame·세부 시간 반환 계약과 요청별 측정 타입 |
+| [lidar-load-details.tsx](../app/viewer/_components/lidar-load-details.tsx) | 실제 현재 Frame과 마지막 주변 prefetch의 구간 시간 표시 |
 | [convert_nuscenes_mini.py](../scripts/convert_nuscenes_mini.py) | keyframe 추출, 센서·ego 좌표 변환, 상대 시간 정규화, v3 scene 출력 |
 | [Route Handler](../app/api/drivescope-data/[...assetPath]/route.ts) | 서버 파일 읽기, 허용 경로 검사, JSON·바이너리·JPEG HTTP 응답 |
 | [drivescope-manifest.ts](../app/viewer/_data/drivescope-manifest.ts) | 디스크 계약·timestamp·상대 경로·pose 검증 |
@@ -301,10 +303,17 @@ JS GC는 도달할 수 없는 객체 메모리를 나중에 회수한다. rAF �
 | --- | --- | --- |
 | FPS | rAF render 횟수 ÷ 실제 경과 시간, 약 1초마다 React 표시 | render 호출 빈도; GPU 개별 작업 시간은 미측정 |
 | Frame 로딩 ms | 로더 Promise 시작부터 완료까지의 경과 시간 | 실제는 HTTP·서버 파일 읽기·응답·바이너리 해석 포함 |
+| 응답 헤더까지 | `fetch` 직전부터 Response 획득까지 | 서버·네트워크·브라우저 대기 포함; 서버 파일 읽기만 분리하지 않음 |
+| 응답 본문 읽기 | Response 획득부터 `arrayBuffer()` 완료까지 | 남은 다운로드와 ArrayBuffer 준비 포함 |
+| 좌표 배열 준비 | 본문 완료부터 크기 검사·좌표 해석 완료까지 | little-endian은 Float32Array view; GPU Buffer 복사와 업로드 제외 |
 | cache hit | 로더 호출 생략, 같은 Frame 반환 | 현재 요청의 로딩 시간은 `캐시로 생략` |
 | 포인트·캐시 수 | 표시 Frame의 배열 길이 ÷ 3, 완료 항목 수/5 | 장치 전체 메모리·진행 중 요청 수는 미표시 |
 
 진행 중 Promise를 공유하면 로딩 ms는 그 요청의 최초 시작부터 계산된다. prefetch 완료는 현재 표시 로딩 시간을 바꾸지 않는다. 실제 13.9ms는 기존 비교의 miss 중앙값으로, 순수 렌더링 시간이나 메인 스레드 정지 시간이 아니다.
+
+실제 `loadFrame`은 `{ frame, timings }`를 반환하고, 캐시에는 `frame`만 저장한다. Hook은 새 로더를 실행할 때 `requestKind: current | prefetch`와 시작 시각을 기록한다. 공유 중인 Promise를 반환할 때 종류·시작 시각도 그대로 재사용하므로 현재 선택이 이미 진행 중인 prefetch를 기다리면 `prefetch`로 남는다. 가상 로더에는 HTTP 구간이 없어 `timings: null`이며 가상의 전체 시간만 유지한다.
+
+실제 Viewer의 세부 시간은 기본 접힌 details에서 표시한다. 현재 목표에 맞는 성공 측정 하나와 마지막 완료 주변 묶음 최대 두 개만 보관한다. cache hit·새 로딩·실패·retry에서는 현재 측정을 지워 과거 수치를 새 결과로 보여주지 않는다. prefetch는 `allSettled`로 성공 결과만 기록하며 이전 목표의 늦은 완료는 현재 표시를 덮어쓰지 못한다. unmount·소스 변경 시 기존 세션 기록을 이어 쓰지 않는다. 센서 배열·GPU 리소스를 측정용 state에 추가하지 않는다.
 
 [benchmark-viewer.mjs](../scripts/benchmark-viewer.mjs)는 Node.js에서 Chrome DevTools Protocol로 production Viewer를 조작하고 DOM의 기존 지표를 읽어 결과 JSON을 저장한다. 화면 픽셀·OCR로 시간을 추정하지 않는다. FPS는 2.2초 준비 후 1초 간격 10회, 가상·실제 각 3회 기준선을 측정했다. 조건·한계·재실행 명령은 PERFORMANCE 문서에 둔다.
 

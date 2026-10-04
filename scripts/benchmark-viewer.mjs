@@ -84,7 +84,7 @@ try {
     }
     throw new Error(`대기 시간 초과: ${expression}`);
   };
-  // 기존 UI 값을 읽는다. 앱 state나 Three.js 루프에는 측정 코드를 추가하지 않는다.
+  // UI와 로더가 기록한 요청별 측정값을 읽는다. Three.js 루프는 계측하지 않는다.
   await send("Page.enable");
   await send("Runtime.enable");
   await send("Network.enable");
@@ -105,6 +105,12 @@ try {
       cacheEntries: Number(size[1]), cacheCapacity: Number(size[2]),
       loadDurationMs: /^\d/.test(load) ? Number(load.replace('ms', '')) : null,
       loadLabel: load,
+      loadMeasurement: (() => {
+        const value = document.querySelector('[data-lidar-load-role="current"]')?.dataset.measurement;
+        return value ? JSON.parse(value) : null;
+      })(),
+      prefetchMeasurements: [...document.querySelectorAll('[data-lidar-load-role="prefetch"]')]
+        .map(row => JSON.parse(row.dataset.measurement)),
     };
   })()`);
   const latestActualFrame = time => manifest.lidar.frames.filter(frame => frame.timestampMs <= time).at(-1);
@@ -145,13 +151,34 @@ try {
         };
       })()`);
       const misses = [];
+      const prefetchLoads = [];
       for (const time of seekTimesMs) {
         await seek(time);
         const measurement = await readMetrics();
         assert.equal(measurement.cacheStatus, "miss", "멀리 떨어진 seek는 cache miss로 측정해야 합니다.");
         assert.notEqual(measurement.loadDurationMs, null);
         assert.ok(measurement.cacheEntries <= measurement.cacheCapacity);
-        misses.push({ targetTimeMs: time, pointCount: measurement.pointCount, loadDurationMs: measurement.loadDurationMs });
+        if (mode === "actual") {
+          assert.equal(measurement.loadMeasurement?.requestKind, "current", "prefetch 공유를 새 현재 요청으로 집계하지 않습니다.");
+          const timings = measurement.loadMeasurement.timings;
+          assert.ok(timings && Object.values(timings).every(value => Number.isFinite(value) && value >= 0));
+          const stageSum = Object.values(timings).reduce((sum, value) => sum + value, 0);
+          assert.ok(stageSum <= measurement.loadMeasurement.loadDurationMs + .01);
+          const index = manifest.lidar.frames.indexOf(latestActualFrame(time));
+          const neighbors = [manifest.lidar.frames[index - 1]?.timestampMs, manifest.lidar.frames[index + 1]?.timestampMs]
+            .filter(value => value !== undefined);
+          await waitFor(`(() => {
+            const samples = [...document.querySelectorAll('[data-lidar-load-role="prefetch"]')]
+              .map(row => JSON.parse(row.dataset.measurement));
+            return ${JSON.stringify(neighbors)}.every(time => samples.some(sample => sample.timestampMs === time));
+          })()`);
+          const afterPrefetch = await readMetrics();
+          assert.equal(afterPrefetch.loadMeasurement.startedAtMs, measurement.loadMeasurement.startedAtMs,
+            "prefetch 완료가 현재 요청의 측정값을 바꾸면 안 됩니다.");
+          prefetchLoads.push(...afterPrefetch.prefetchMeasurements);
+        }
+        misses.push({ targetTimeMs: time, pointCount: measurement.pointCount, loadDurationMs: measurement.loadDurationMs,
+          loadMeasurement: measurement.loadMeasurement });
       }
       // 인접 Frame을 거쳐 직전 Frame으로 돌아와 hit와 로더 생략을 확인한다.
       const lastTime = seekTimesMs.at(-1);
@@ -165,6 +192,7 @@ try {
       const hit = await readMetrics();
       assert.equal(hit.cacheStatus, "hit");
       assert.equal(hit.loadLabel, "캐시로 생략");
+      assert.equal(hit.loadMeasurement, null, "cache hit는 과거 측정값을 새 측정처럼 표시하지 않습니다.");
       await seek(0);
       await delay(2200); // 초기 리소스 준비와 첫 FPS 집계 구간을 측정에서 제외한다.
       await evaluate(`document.querySelector('button[aria-pressed]').click()`);
@@ -178,7 +206,8 @@ try {
       }
       await evaluate(`document.querySelector('button[aria-pressed]').click()`);
       assert.ok(playback.at(-1).currentTimeMs >= 9000 && playback.at(-1).currentTimeMs < 13000);
-      trials.push({ round: roundIndex + 1, mode, misses, hit: { targetTimeMs: lastTime, cacheStatus: hit.cacheStatus, loadLabel: hit.loadLabel }, playback });
+      trials.push({ round: roundIndex + 1, mode, misses, prefetchLoads,
+        hit: { targetTimeMs: lastTime, cacheStatus: hit.cacheStatus, loadLabel: hit.loadLabel }, playback });
       console.log(`round ${roundIndex + 1} ${mode}: seek miss ${misses.map(value => value.loadDurationMs).join(', ')}ms; FPS ${playback.map(value => value.fps).join(', ')}`);
     }
   }
@@ -197,15 +226,26 @@ try {
       cacheHitChecksPassed: matching.length,
     }];
   }));
+  const summarizeLoads = samples => ({
+    loadDurationMs: summarize(samples.map(sample => sample.loadDurationMs)),
+    responseHeadersMs: summarize(samples.map(sample => sample.timings.responseHeadersMs)),
+    responseBodyMs: summarize(samples.map(sample => sample.timings.responseBodyMs)),
+    preparePositionsMs: summarize(samples.map(sample => sample.timings.preparePositionsMs)),
+  });
+  const actualTrials = trials.filter(trial => trial.mode === "actual");
+  const detailedActualLoads = {
+    current: summarizeLoads(actualTrials.flatMap(trial => trial.misses.map(miss => miss.loadMeasurement))),
+    prefetch: summarizeLoads(actualTrials.flatMap(trial => trial.prefetchLoads)),
+  };
   const result = {
     measuredAt: new Date().toISOString(), nodeVersion: process.version,
     platform: `${os.platform()} ${os.release()} ${os.arch()}`,
     environment, viewport, source: { actualScenarioId: manifest.scenarioId, schemaVersion: manifest.schemaVersion },
     protocol: { rounds: 3, seekTimesMs, playbackSamplesPerRound: playbackSamples, fpsSampleIntervalMs: 1000, uiLoadDurationPrecisionMs: 0.01, browserHttpCache: "disabled", lidarLruCapacity: 5 },
-    summaries, trials, runtimeExceptionCount: exceptions.length,
+    summaries, detailedActualLoads, trials, runtimeExceptionCount: exceptions.length,
   };
   await writeFile(path.join(outputDirectory, "latest.json"), JSON.stringify(result, null, 2) + "\n");
-  console.log(JSON.stringify({ environment, summaries, result: "node_modules/.cache/drivescope-benchmark/latest.json" }, null, 2));
+  console.log(JSON.stringify({ environment, summaries, detailedActualLoads, result: "node_modules/.cache/drivescope-benchmark/latest.json" }, null, 2));
 } finally {
   ws?.close();
   chrome.kill();

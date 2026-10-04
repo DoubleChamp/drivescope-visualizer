@@ -2,7 +2,8 @@ import {
   parseDriveScopeManifest,
   type DriveScopeManifest,
 } from "./drivescope-manifest";
-import type { CameraFrame, LidarFrame } from "./frame-types";
+import type { CameraFrame } from "./frame-types";
+import type { LidarFrameSource } from "./lidar-frame-source";
 
 export const DRIVE_SCOPE_MANIFEST_URL =
   process.env.NEXT_PUBLIC_DRIVESCOPE_MANIFEST_URL?.trim() ||
@@ -10,12 +11,10 @@ export const DRIVE_SCOPE_MANIFEST_URL =
 
 type LidarManifestFrame = DriveScopeManifest["lidar"]["frames"][number];
 
-export type DriveScopeDataSource = {
-  id: string;
+export type DriveScopeDataSource = LidarFrameSource & {
   manifest: DriveScopeManifest;
   frames: readonly LidarManifestFrame[];
   cameraFrames: readonly CameraFrame[];
-  loadFrame: (timestampMs: number) => Promise<LidarFrame | null>;
 };
 
 const isLittleEndian = (() => {
@@ -75,10 +74,13 @@ export async function loadDriveScopeDataSource(
     })),
     async loadFrame(timestampMs) {
       const frameMetadata = framesByTimestamp.get(timestampMs);
-      if (!frameMetadata) return null;
+      if (!frameMetadata) return { frame: null, timings: null };
 
       const positionsUrl = new URL(frameMetadata.positionsFile, manifestBaseUrl);
+      const requestStartedAt = performance.now();
       const positionsResponse = await fetch(positionsUrl, { cache: "no-store" });
+      // fetch는 본문 전체가 아니라 응답 헤더를 받은 시점에 완료된다.
+      const headersReceivedAt = performance.now();
       if (!positionsResponse.ok) {
         throw new Error(
           `LiDAR Frame 로딩 실패 (${timestampMs}ms): HTTP ${positionsResponse.status}`,
@@ -86,6 +88,7 @@ export async function loadDriveScopeDataSource(
       }
 
       const positionsBuffer = await positionsResponse.arrayBuffer();
+      const bodyReadAt = performance.now();
       const expectedByteLength =
         frameMetadata.pointCount * 3 * Float32Array.BYTES_PER_ELEMENT;
       if (positionsBuffer.byteLength !== expectedByteLength) {
@@ -95,10 +98,17 @@ export async function loadDriveScopeDataSource(
         );
       }
 
+      const positions = decodeLittleEndianPositions(positionsBuffer);
+      const positionsPreparedAt = performance.now();
+
       return {
-        timestampMs,
-        positions: decodeLittleEndianPositions(positionsBuffer),
-      } satisfies LidarFrame;
+        frame: { timestampMs, positions },
+        timings: {
+          responseHeadersMs: headersReceivedAt - requestStartedAt,
+          responseBodyMs: bodyReadAt - headersReceivedAt,
+          preparePositionsMs: positionsPreparedAt - bodyReadAt,
+        },
+      };
     },
   };
 }

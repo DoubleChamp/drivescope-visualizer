@@ -1,0 +1,1185 @@
+{
+  "measuredAt": "2026-10-04T14:25:36.799Z",
+  "nodeVersion": "v24.19.0",
+  "platform": "win32 10.0.26100 x64",
+  "environment": {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/154.0.0.0 Safari/537.36",
+    "hardwareConcurrency": 12,
+    "graphicsRenderer": "ANGLE (NVIDIA, NVIDIA GeForce GTX 1050 Ti (0x00001C82) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "canvasWidth": 990,
+    "canvasHeight": 720
+  },
+  "viewport": {
+    "width": 1440,
+    "height": 1400,
+    "deviceScaleFactor": 1,
+    "mobile": false
+  },
+  "source": {
+    "actualScenarioId": "scene-0061",
+    "schemaVersion": 3
+  },
+  "protocol": {
+    "rounds": 3,
+    "seekTimesMs": [
+      1000,
+      5000,
+      10000,
+      12400,
+      14500
+    ],
+    "playbackSamplesPerRound": 10,
+    "fpsSampleIntervalMs": 1000,
+    "uiLoadDurationPrecisionMs": 0.01,
+    "browserHttpCache": "disabled",
+    "lidarLruCapacity": 5
+  },
+  "summaries": {
+    "mock": {
+      "seekMissLoadDurationMs": {
+        "count": 15,
+        "min": 0.3,
+        "median": 0.4,
+        "max": 0.8
+      },
+      "seekPointCount": {
+        "count": 15,
+        "min": 15,
+        "median": 21,
+        "max": 21
+      },
+      "playbackFps": {
+        "count": 30,
+        "min": 75,
+        "median": 75,
+        "max": 75
+      },
+      "cacheHitChecksPassed": 3
+    },
+    "actual": {
+      "seekMissLoadDurationMs": {
+        "count": 15,
+        "min": 12.4,
+        "median": 15,
+        "max": 69.5
+      },
+      "seekPointCount": {
+        "count": 15,
+        "min": 34688,
+        "median": 34720,
+        "max": 34752
+      },
+      "playbackFps": {
+        "count": 30,
+        "min": 75,
+        "median": 75,
+        "max": 75
+      },
+      "cacheHitChecksPassed": 3
+    }
+  },
+  "detailedActualLoads": {
+    "current": {
+      "loadDurationMs": {
+        "count": 15,
+        "min": 12.400000095367432,
+        "median": 15,
+        "max": 69.5
+      },
+      "responseHeadersMs": {
+        "count": 15,
+        "min": 9.300000190734863,
+        "median": 11.199999809265137,
+        "max": 65.79999995231628
+      },
+      "responseBodyMs": {
+        "count": 15,
+        "min": 1.4000000953674316,
+        "median": 2.5,
+        "max": 16.600000143051147
+      },
+      "preparePositionsMs": {
+        "count": 15,
+        "min": 0,
+        "median": 0,
+        "max": 0.09999990463256836
+      }
+    },
+    "prefetch": {
+      "loadDurationMs": {
+        "count": 30,
+        "min": 9.700000047683716,
+        "median": 13.99999988079071,
+        "max": 29.199999809265137
+      },
+      "responseHeadersMs": {
+        "count": 30,
+        "min": 8.200000047683716,
+        "median": 11.75,
+        "max": 17
+      },
+      "responseBodyMs": {
+        "count": 30,
+        "min": 1.0999999046325684,
+        "median": 1.7000000476837158,
+        "max": 17.09999990463257
+      },
+      "preparePositionsMs": {
+        "count": 30,
+        "min": 0,
+        "median": 0,
+        "max": 0.09999990463256836
+      }
+    }
+  },
+  "trials": [
+    {
+      "round": 1,
+      "mode": "mock",
+      "misses": [
+        {
+          "targetTimeMs": 1000,
+          "pointCount": 15,
+          "loadDurationMs": 0.5,
+          "loadMeasurement": null
+        },
+        {
+          "targetTimeMs": 5000,
+          "pointCount": 15,
+          "loadDurationMs": 0.3,
+          "loadMeasurement": null
+        },
+        {
+          "targetTimeMs": 10000,
+          "pointCount": 21,
+          "loadDurationMs": 0.3,
+          "loadMeasurement": null
+        },
+        {
+          "targetTimeMs": 12400,
+          "pointCount": 21,
+          "loadDurationMs": 0.5,
+          "loadMeasurement": null
+        },
+        {
+          "targetTimeMs": 14500,
+          "pointCount": 21,
+          "loadDurationMs": 0.3,
+          "loadMeasurement": null
+        }
+      ],
+      "prefetchLoads": [],
+      "hit": {
+        "targetTimeMs": 14500,
+        "cacheStatus": "hit",
+        "loadLabel": "캐시로 생략"
+      },
+      "playback": [
+        {
+          "currentTimeMs": 1000,
+          "pointCount": 0,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 2000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 3000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 4000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 5000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 6000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 7000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 8000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 9000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 10100,
+          "pointCount": 21,
+          "fps": 75
+        }
+      ]
+    },
+    {
+      "round": 1,
+      "mode": "actual",
+      "misses": [
+        {
+          "targetTimeMs": 1000,
+          "pointCount": 34720,
+          "loadDurationMs": 69.5,
+          "loadMeasurement": {
+            "timestampMs": 535,
+            "requestKind": "current",
+            "startedAtMs": 226.70000004768372,
+            "loadDurationMs": 69.5,
+            "timings": {
+              "responseHeadersMs": 65.79999995231628,
+              "responseBodyMs": 3.3000001907348633,
+              "preparePositionsMs": 0
+            }
+          }
+        },
+        {
+          "targetTimeMs": 5000,
+          "pointCount": 34688,
+          "loadDurationMs": 15.2,
+          "loadMeasurement": {
+            "timestampMs": 4585,
+            "requestKind": "current",
+            "startedAtMs": 366.7999999523163,
+            "loadDurationMs": 15.200000047683716,
+            "timings": {
+              "responseHeadersMs": 9.300000190734863,
+              "responseBodyMs": 5.8999998569488525,
+              "preparePositionsMs": 0
+            }
+          }
+        },
+        {
+          "targetTimeMs": 10000,
+          "pointCount": 34688,
+          "loadDurationMs": 13.2,
+          "loadMeasurement": {
+            "timestampMs": 9586,
+            "requestKind": "current",
+            "startedAtMs": 427.10000014305115,
+            "loadDurationMs": 13.199999809265137,
+            "timings": {
+              "responseHeadersMs": 11,
+              "responseBodyMs": 2.1999998092651367,
+              "preparePositionsMs": 0
+            }
+          }
+        },
+        {
+          "targetTimeMs": 12400,
+          "pointCount": 34752,
+          "loadDurationMs": 12.5,
+          "loadMeasurement": {
+            "timestampMs": 12085,
+            "requestKind": "current",
+            "startedAtMs": 505.10000014305115,
+            "loadDurationMs": 12.5,
+            "timings": {
+              "responseHeadersMs": 10.799999952316284,
+              "responseBodyMs": 1.7000000476837158,
+              "preparePositionsMs": 0
+            }
+          }
+        },
+        {
+          "targetTimeMs": 14500,
+          "pointCount": 34752,
+          "loadDurationMs": 16.8,
+          "loadMeasurement": {
+            "timestampMs": 14185,
+            "requestKind": "current",
+            "startedAtMs": 567.5,
+            "loadDurationMs": 16.799999952316284,
+            "timings": {
+              "responseHeadersMs": 15,
+              "responseBodyMs": 1.7999999523162842,
+              "preparePositionsMs": 0
+            }
+          }
+        }
+      ],
+      "prefetchLoads": [
+        {
+          "timestampMs": 35,
+          "requestKind": "prefetch",
+          "startedAtMs": 296.2999999523163,
+          "loadDurationMs": 12.5,
+          "timings": {
+            "responseHeadersMs": 10.5,
+            "responseBodyMs": 1.8999998569488525,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 1085,
+          "requestKind": "prefetch",
+          "startedAtMs": 297,
+          "loadDurationMs": 13.600000143051147,
+          "timings": {
+            "responseHeadersMs": 12,
+            "responseBodyMs": 1.5,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 4085,
+          "requestKind": "prefetch",
+          "startedAtMs": 382.10000014305115,
+          "loadDurationMs": 29.199999809265137,
+          "timings": {
+            "responseHeadersMs": 12.099999904632568,
+            "responseBodyMs": 17.09999990463257,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 5034,
+          "requestKind": "prefetch",
+          "startedAtMs": 382.2999999523163,
+          "loadDurationMs": 14.200000047683716,
+          "timings": {
+            "responseHeadersMs": 12.5,
+            "responseBodyMs": 1.7000000476837158,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 9086,
+          "requestKind": "prefetch",
+          "startedAtMs": 440.40000009536743,
+          "loadDurationMs": 14.099999904632568,
+          "timings": {
+            "responseHeadersMs": 12.799999952316284,
+            "responseBodyMs": 1.2999999523162842,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 10085,
+          "requestKind": "prefetch",
+          "startedAtMs": 440.60000014305115,
+          "loadDurationMs": 15.299999952316284,
+          "timings": {
+            "responseHeadersMs": 13.900000095367432,
+            "responseBodyMs": 1.2999999523162842,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 11534,
+          "requestKind": "prefetch",
+          "startedAtMs": 517.6000001430511,
+          "loadDurationMs": 15.699999809265137,
+          "timings": {
+            "responseHeadersMs": 10.699999809265137,
+            "responseBodyMs": 5,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 12585,
+          "requestKind": "prefetch",
+          "startedAtMs": 518,
+          "loadDurationMs": 15.299999952316284,
+          "timings": {
+            "responseHeadersMs": 12.400000095367432,
+            "responseBodyMs": 2.8999998569488525,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 13684,
+          "requestKind": "prefetch",
+          "startedAtMs": 584.2999999523163,
+          "loadDurationMs": 12.600000143051147,
+          "timings": {
+            "responseHeadersMs": 10.900000095367432,
+            "responseBodyMs": 1.7000000476837158,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 14585,
+          "requestKind": "prefetch",
+          "startedAtMs": 584.6000001430511,
+          "loadDurationMs": 14.899999856948853,
+          "timings": {
+            "responseHeadersMs": 10.899999856948853,
+            "responseBodyMs": 3.9000000953674316,
+            "preparePositionsMs": 0.09999990463256836
+          }
+        }
+      ],
+      "hit": {
+        "targetTimeMs": 14500,
+        "cacheStatus": "hit",
+        "loadLabel": "캐시로 생략"
+      },
+      "playback": [
+        {
+          "currentTimeMs": 1000,
+          "pointCount": 34720,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 2000,
+          "pointCount": 34688,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 3000,
+          "pointCount": 34784,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 4000,
+          "pointCount": 34720,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 5000,
+          "pointCount": 34688,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 6000,
+          "pointCount": 34720,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 7000,
+          "pointCount": 34752,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 8000,
+          "pointCount": 34784,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 9000,
+          "pointCount": 34752,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 10000,
+          "pointCount": 34688,
+          "fps": 75
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "mode": "actual",
+      "misses": [
+        {
+          "targetTimeMs": 1000,
+          "pointCount": 34720,
+          "loadDurationMs": 16.5,
+          "loadMeasurement": {
+            "timestampMs": 535,
+            "requestKind": "current",
+            "startedAtMs": 276.5,
+            "loadDurationMs": 16.5,
+            "timings": {
+              "responseHeadersMs": 14.899999856948853,
+              "responseBodyMs": 1.4000000953674316,
+              "preparePositionsMs": 0.09999990463256836
+            }
+          }
+        },
+        {
+          "targetTimeMs": 5000,
+          "pointCount": 34688,
+          "loadDurationMs": 15,
+          "loadMeasurement": {
+            "timestampMs": 4585,
+            "requestKind": "current",
+            "startedAtMs": 358.2999999523163,
+            "loadDurationMs": 15,
+            "timings": {
+              "responseHeadersMs": 12.5,
+              "responseBodyMs": 2.5,
+              "preparePositionsMs": 0
+            }
+          }
+        },
+        {
+          "targetTimeMs": 10000,
+          "pointCount": 34688,
+          "loadDurationMs": 13.2,
+          "loadMeasurement": {
+            "timestampMs": 9586,
+            "requestKind": "current",
+            "startedAtMs": 434,
+            "loadDurationMs": 13.200000047683716,
+            "timings": {
+              "responseHeadersMs": 11.199999809265137,
+              "responseBodyMs": 1.9000000953674316,
+              "preparePositionsMs": 0
+            }
+          }
+        },
+        {
+          "targetTimeMs": 12400,
+          "pointCount": 34752,
+          "loadDurationMs": 16.1,
+          "loadMeasurement": {
+            "timestampMs": 12085,
+            "requestKind": "current",
+            "startedAtMs": 497,
+            "loadDurationMs": 16.100000143051147,
+            "timings": {
+              "responseHeadersMs": 10.099999904632568,
+              "responseBodyMs": 5.900000095367432,
+              "preparePositionsMs": 0
+            }
+          }
+        },
+        {
+          "targetTimeMs": 14500,
+          "pointCount": 34752,
+          "loadDurationMs": 27.7,
+          "loadMeasurement": {
+            "timestampMs": 14185,
+            "requestKind": "current",
+            "startedAtMs": 557.9000000953674,
+            "loadDurationMs": 27.700000047683716,
+            "timings": {
+              "responseHeadersMs": 11,
+              "responseBodyMs": 16.600000143051147,
+              "preparePositionsMs": 0
+            }
+          }
+        }
+      ],
+      "prefetchLoads": [
+        {
+          "timestampMs": 35,
+          "requestKind": "prefetch",
+          "startedAtMs": 293,
+          "loadDurationMs": 12.400000095367432,
+          "timings": {
+            "responseHeadersMs": 10.299999952316284,
+            "responseBodyMs": 2.1000001430511475,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 1085,
+          "requestKind": "prefetch",
+          "startedAtMs": 293.2999999523163,
+          "loadDurationMs": 14.900000095367432,
+          "timings": {
+            "responseHeadersMs": 13.300000190734863,
+            "responseBodyMs": 1.5,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 4085,
+          "requestKind": "prefetch",
+          "startedAtMs": 373.5,
+          "loadDurationMs": 14.5,
+          "timings": {
+            "responseHeadersMs": 12.900000095367432,
+            "responseBodyMs": 1.5,
+            "preparePositionsMs": 0.09999990463256836
+          }
+        },
+        {
+          "timestampMs": 5034,
+          "requestKind": "prefetch",
+          "startedAtMs": 374,
+          "loadDurationMs": 19.40000009536743,
+          "timings": {
+            "responseHeadersMs": 17,
+            "responseBodyMs": 2.4000000953674316,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 9086,
+          "requestKind": "prefetch",
+          "startedAtMs": 447.2999999523163,
+          "loadDurationMs": 12.700000047683716,
+          "timings": {
+            "responseHeadersMs": 10.5,
+            "responseBodyMs": 2.200000047683716,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 10085,
+          "requestKind": "prefetch",
+          "startedAtMs": 447.60000014305115,
+          "loadDurationMs": 13.899999856948853,
+          "timings": {
+            "responseHeadersMs": 12.099999904632568,
+            "responseBodyMs": 1.7000000476837158,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 11534,
+          "requestKind": "prefetch",
+          "startedAtMs": 513.1000001430511,
+          "loadDurationMs": 13.099999904632568,
+          "timings": {
+            "responseHeadersMs": 11.200000047683716,
+            "responseBodyMs": 1.7999999523162842,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 12585,
+          "requestKind": "prefetch",
+          "startedAtMs": 513.5,
+          "loadDurationMs": 14.299999952316284,
+          "timings": {
+            "responseHeadersMs": 12.900000095367432,
+            "responseBodyMs": 1.3999998569488525,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 13684,
+          "requestKind": "prefetch",
+          "startedAtMs": 585.7000000476837,
+          "loadDurationMs": 9.900000095367432,
+          "timings": {
+            "responseHeadersMs": 8.200000047683716,
+            "responseBodyMs": 1.7000000476837158,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 14585,
+          "requestKind": "prefetch",
+          "startedAtMs": 585.9000000953674,
+          "loadDurationMs": 11.099999904632568,
+          "timings": {
+            "responseHeadersMs": 9.799999952316284,
+            "responseBodyMs": 1.2999999523162842,
+            "preparePositionsMs": 0
+          }
+        }
+      ],
+      "hit": {
+        "targetTimeMs": 14500,
+        "cacheStatus": "hit",
+        "loadLabel": "캐시로 생략"
+      },
+      "playback": [
+        {
+          "currentTimeMs": 1000,
+          "pointCount": 34720,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 2000,
+          "pointCount": 34688,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 3000,
+          "pointCount": 34784,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 4000,
+          "pointCount": 34720,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 5000,
+          "pointCount": 34688,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 6000,
+          "pointCount": 34720,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 7000,
+          "pointCount": 34752,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 8000,
+          "pointCount": 34784,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 9000,
+          "pointCount": 34752,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 10000,
+          "pointCount": 34688,
+          "fps": 75
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "mode": "mock",
+      "misses": [
+        {
+          "targetTimeMs": 1000,
+          "pointCount": 15,
+          "loadDurationMs": 0.3,
+          "loadMeasurement": null
+        },
+        {
+          "targetTimeMs": 5000,
+          "pointCount": 15,
+          "loadDurationMs": 0.3,
+          "loadMeasurement": null
+        },
+        {
+          "targetTimeMs": 10000,
+          "pointCount": 21,
+          "loadDurationMs": 0.4,
+          "loadMeasurement": null
+        },
+        {
+          "targetTimeMs": 12400,
+          "pointCount": 21,
+          "loadDurationMs": 0.6,
+          "loadMeasurement": null
+        },
+        {
+          "targetTimeMs": 14500,
+          "pointCount": 21,
+          "loadDurationMs": 0.6,
+          "loadMeasurement": null
+        }
+      ],
+      "prefetchLoads": [],
+      "hit": {
+        "targetTimeMs": 14500,
+        "cacheStatus": "hit",
+        "loadLabel": "캐시로 생략"
+      },
+      "playback": [
+        {
+          "currentTimeMs": 1000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 2000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 3000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 4000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 5000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 6000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 7000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 8000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 9000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 10000,
+          "pointCount": 21,
+          "fps": 75
+        }
+      ]
+    },
+    {
+      "round": 3,
+      "mode": "mock",
+      "misses": [
+        {
+          "targetTimeMs": 1000,
+          "pointCount": 15,
+          "loadDurationMs": 0.8,
+          "loadMeasurement": null
+        },
+        {
+          "targetTimeMs": 5000,
+          "pointCount": 15,
+          "loadDurationMs": 0.3,
+          "loadMeasurement": null
+        },
+        {
+          "targetTimeMs": 10000,
+          "pointCount": 21,
+          "loadDurationMs": 0.4,
+          "loadMeasurement": null
+        },
+        {
+          "targetTimeMs": 12400,
+          "pointCount": 21,
+          "loadDurationMs": 0.6,
+          "loadMeasurement": null
+        },
+        {
+          "targetTimeMs": 14500,
+          "pointCount": 21,
+          "loadDurationMs": 0.5,
+          "loadMeasurement": null
+        }
+      ],
+      "prefetchLoads": [],
+      "hit": {
+        "targetTimeMs": 14500,
+        "cacheStatus": "hit",
+        "loadLabel": "캐시로 생략"
+      },
+      "playback": [
+        {
+          "currentTimeMs": 1000,
+          "pointCount": 0,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 2000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 3000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 4000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 5000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 6000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 7000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 8000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 9000,
+          "pointCount": 15,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 10000,
+          "pointCount": 21,
+          "fps": 75
+        }
+      ]
+    },
+    {
+      "round": 3,
+      "mode": "actual",
+      "misses": [
+        {
+          "targetTimeMs": 1000,
+          "pointCount": 34720,
+          "loadDurationMs": 31.2,
+          "loadMeasurement": {
+            "timestampMs": 535,
+            "requestKind": "current",
+            "startedAtMs": 203.90000009536743,
+            "loadDurationMs": 31.199999809265137,
+            "timings": {
+              "responseHeadersMs": 27.59999990463257,
+              "responseBodyMs": 3.5,
+              "preparePositionsMs": 0.09999990463256836
+            }
+          }
+        },
+        {
+          "targetTimeMs": 5000,
+          "pointCount": 34688,
+          "loadDurationMs": 14.2,
+          "loadMeasurement": {
+            "timestampMs": 4585,
+            "requestKind": "current",
+            "startedAtMs": 277.90000009536743,
+            "loadDurationMs": 14.199999809265137,
+            "timings": {
+              "responseHeadersMs": 11,
+              "responseBodyMs": 3,
+              "preparePositionsMs": 0
+            }
+          }
+        },
+        {
+          "targetTimeMs": 10000,
+          "pointCount": 34688,
+          "loadDurationMs": 12.4,
+          "loadMeasurement": {
+            "timestampMs": 9586,
+            "requestKind": "current",
+            "startedAtMs": 355.2999999523163,
+            "loadDurationMs": 12.400000095367432,
+            "timings": {
+              "responseHeadersMs": 9.799999952316284,
+              "responseBodyMs": 2.6000001430511475,
+              "preparePositionsMs": 0
+            }
+          }
+        },
+        {
+          "targetTimeMs": 12400,
+          "pointCount": 34752,
+          "loadDurationMs": 13.3,
+          "loadMeasurement": {
+            "timestampMs": 12085,
+            "requestKind": "current",
+            "startedAtMs": 416.5,
+            "loadDurationMs": 13.299999952316284,
+            "timings": {
+              "responseHeadersMs": 11.299999952316284,
+              "responseBodyMs": 2,
+              "preparePositionsMs": 0
+            }
+          }
+        },
+        {
+          "targetTimeMs": 14500,
+          "pointCount": 34752,
+          "loadDurationMs": 15,
+          "loadMeasurement": {
+            "timestampMs": 14185,
+            "requestKind": "current",
+            "startedAtMs": 481.90000009536743,
+            "loadDurationMs": 15,
+            "timings": {
+              "responseHeadersMs": 12.799999952316284,
+              "responseBodyMs": 2.0999999046325684,
+              "preparePositionsMs": 0
+            }
+          }
+        }
+      ],
+      "prefetchLoads": [
+        {
+          "timestampMs": 35,
+          "requestKind": "prefetch",
+          "startedAtMs": 235.20000004768372,
+          "loadDurationMs": 12,
+          "timings": {
+            "responseHeadersMs": 10.599999904632568,
+            "responseBodyMs": 1.4000000953674316,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 1085,
+          "requestKind": "prefetch",
+          "startedAtMs": 235.40000009536743,
+          "loadDurationMs": 13.199999809265137,
+          "timings": {
+            "responseHeadersMs": 11.900000095367432,
+            "responseBodyMs": 1.1999998092651367,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 4085,
+          "requestKind": "prefetch",
+          "startedAtMs": 292.09999990463257,
+          "loadDurationMs": 9.700000047683716,
+          "timings": {
+            "responseHeadersMs": 8.200000047683716,
+            "responseBodyMs": 1.3999998569488525,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 5034,
+          "requestKind": "prefetch",
+          "startedAtMs": 292.5,
+          "loadDurationMs": 10.599999904632568,
+          "timings": {
+            "responseHeadersMs": 9.5,
+            "responseBodyMs": 1.0999999046325684,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 9086,
+          "requestKind": "prefetch",
+          "startedAtMs": 367.7000000476837,
+          "loadDurationMs": 16.09999990463257,
+          "timings": {
+            "responseHeadersMs": 14.599999904632568,
+            "responseBodyMs": 1.5,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 10085,
+          "requestKind": "prefetch",
+          "startedAtMs": 368.09999990463257,
+          "loadDurationMs": 19,
+          "timings": {
+            "responseHeadersMs": 15.800000190734863,
+            "responseBodyMs": 3.0999999046325684,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 11534,
+          "requestKind": "prefetch",
+          "startedAtMs": 429.7999999523163,
+          "loadDurationMs": 14.700000047683716,
+          "timings": {
+            "responseHeadersMs": 11.700000047683716,
+            "responseBodyMs": 3,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 12585,
+          "requestKind": "prefetch",
+          "startedAtMs": 430,
+          "loadDurationMs": 14.599999904632568,
+          "timings": {
+            "responseHeadersMs": 11.799999952316284,
+            "responseBodyMs": 2.799999952316284,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 13684,
+          "requestKind": "prefetch",
+          "startedAtMs": 496.90000009536743,
+          "loadDurationMs": 13.799999952316284,
+          "timings": {
+            "responseHeadersMs": 10.5,
+            "responseBodyMs": 3.299999952316284,
+            "preparePositionsMs": 0
+          }
+        },
+        {
+          "timestampMs": 14585,
+          "requestKind": "prefetch",
+          "startedAtMs": 497.2000000476837,
+          "loadDurationMs": 13.5,
+          "timings": {
+            "responseHeadersMs": 10.5,
+            "responseBodyMs": 3,
+            "preparePositionsMs": 0
+          }
+        }
+      ],
+      "hit": {
+        "targetTimeMs": 14500,
+        "cacheStatus": "hit",
+        "loadLabel": "캐시로 생략"
+      },
+      "playback": [
+        {
+          "currentTimeMs": 1000,
+          "pointCount": 34720,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 2000,
+          "pointCount": 34688,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 3000,
+          "pointCount": 34784,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 4000,
+          "pointCount": 34720,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 5000,
+          "pointCount": 34688,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 6000,
+          "pointCount": 34720,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 7000,
+          "pointCount": 34752,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 8000,
+          "pointCount": 34784,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 9000,
+          "pointCount": 34752,
+          "fps": 75
+        },
+        {
+          "currentTimeMs": 10000,
+          "pointCount": 34688,
+          "fps": 75
+        }
+      ]
+    }
+  ],
+  "runtimeExceptionCount": 0
+}

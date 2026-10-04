@@ -8,6 +8,7 @@ import { PlaybackControls } from "./_components/playback-controls";
 import { SelectedObjectPanel } from "./_components/selected-object-panel";
 import { SynchronizedFramesPanel } from "./_components/synchronized-frames-panel";
 import { ViewerMetrics } from "./_components/viewer-metrics";
+import { LidarLoadDetails } from "./_components/lidar-load-details";
 import { ViewerHeader } from "./_components/viewer-header";
 import {
   ViewerSourceSelector,
@@ -24,7 +25,7 @@ import { selectScenarioFrames } from "./_data/select-scenario-frames";
 import { useBufferedCameraFrame } from "./_hooks/use-buffered-camera-frame";
 import { useDriveScopeDataSource } from "./_hooks/use-drivescope-data-source";
 import { useLidarFrameCache } from "./_hooks/use-lidar-frame-cache";
-import type { LidarFrameSource } from "./_hooks/use-lidar-frame-cache";
+import type { LidarFrameSource } from "./_data/lidar-frame-source";
 import { useObjectSelection } from "./_hooks/use-object-selection";
 import { usePlayback } from "./_hooks/use-playback";
 import { useThreeViewer } from "./_hooks/use-three-viewer";
@@ -34,14 +35,16 @@ import styles from "./viewer-canvas.module.css";
 const MOCK_LIDAR_SOURCE: LidarFrameSource = {
   id: "mock:emergency-braking",
   frames: mockScenario.lidarFrames,
-  loadFrame: (timestampMs) =>
-    loadMockLidarFrame(mockScenario.lidarFrames, timestampMs),
+  loadFrame: async (timestampMs) => ({
+    frame: await loadMockLidarFrame(mockScenario.lidarFrames, timestampMs),
+    timings: null,
+  }),
 };
 
 const LOADING_LIDAR_SOURCE: LidarFrameSource = {
   id: "loading:drivescope-manifest",
   frames: [],
-  loadFrame: async () => null,
+  loadFrame: async () => ({ frame: null, timings: null }),
 };
 
 export default function ViewerCanvas() {
@@ -94,6 +97,8 @@ function ViewerSession({ mode }: { mode: ViewerMode }) {
     entryCount: cachedLidarFrameCount,
     capacity: lidarCacheCapacity,
     loadDurationMs: lidarLoadDurationMs,
+    loadMeasurement,
+    prefetchMeasurements,
     error: lidarError,
     retry: retryLidar,
   } = useLidarFrameCache({
@@ -217,6 +222,14 @@ function ViewerSession({ mode }: { mode: ViewerMode }) {
               isDataLoading={isActualDataLoading}
             />
           </ViewerSceneStage>
+
+          {isActualData && (
+            <LidarLoadDetails
+              measurement={loadMeasurement}
+              prefetchMeasurements={prefetchMeasurements}
+              status={lidarCacheStatus}
+            />
+          )}
 
           <PlaybackControls
             currentTimeMs={currentTimeMs}

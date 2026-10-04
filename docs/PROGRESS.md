@@ -5,8 +5,8 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: 포트폴리오 홈을 밝은 배경·본문 중심 구성으로 정리하고 60초 영상 자막을 크게·굵게·위로 수정했다. 마지막 모바일 최소 높이 보정까지 build·Chrome 검사 8개 묶음과 4개 반응형 너비를 통과했다. 수정 MP4 전체 디코딩·재생·탐색과 문서 검증도 통과했다. 최종 마감 상태는 아래 최신 기록을 따른다.
-- 다음 한 단계: 수정한 CSS·자막 스타일과 홈의 Server/Client 경계·로딩 지표·CPU 캐시와 GPU 표시 Buffer의 차이를 함께 검토한다. 사용자 push와 새 Vercel build 뒤 공개 홈·영상·Viewer 이동을 확인한다. 여러 scene의 선택 목록과 다중 카메라는 의견만 검토했으며 구현하지 않았다. 방화벽 설정은 사용자 요청으로 나중에 진행한다.
+- 현재 작업: 실제 LiDAR의 응답 헤더·본문 읽기·좌표 준비·전체 시간과 최초 요청 종류를 기록했다. 현재 요청과 prefetch를 구분하고 기본 접힌 세부 표시·벤치마크·로더 검증을 연결했다. build·로더 4개 검사·Chrome 6개 묶음·단독 벤치마크 3회를 통과했다. 기존 13.9ms 기준선과 새 관측은 구분한다.
+- 다음 한 단계: 로더의 네 시각·시간 차이·Frame/측정 반환 계약·prefetch 공유 시 최초 요청 기록을 함께 설명하고 이해를 확인한다. 그 뒤 평균·P95·메인 스레드 정지 측정 중 한 단계를 정한다. 사용자 push와 새 Vercel build 뒤 새 표시를 확인한다. 여러 scene의 선택 목록과 다중 카메라는 의견만 검토했으며 방화벽 설정은 사용자 요청으로 나중에 진행한다.
 - 아직 구현하지 않은 것: ego pose 보간과 Camera smoothing, 실제 scene 선택 목록과 다중 카메라.
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
@@ -21,6 +21,18 @@
 7. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 8. 현재 Route Handler는 로컬 개발용이다. 배포에서는 로컬 C 드라이브를 읽을 수 없으므로 같은 scene 디렉터리를 정적 파일 서버·CDN·오브젝트 스토리지에 올리고 로더의 기준 URL을 바꿔야 한다.
 9. 실제 센서 연결·오류 처리·Viewer 디자인·README 재현과 아키텍처를 정리했다. 공개 실제 연결과 데모 선택 UI 반영·전환도 검증했다. DEMO_SCRIPT의 촬영 순서·대본·코드 연결을 따라 1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### 배포 후 개선 1: 실제 LiDAR 로딩 구간 분리 (2026-10-04)
+
+- 사용자가 추천 순서의 1번인 로더 구간 측정부터 진행하도록 승인했다. 시작 시 worktree는 깨끗하고 main과 원격 main은 `bba2d88`로 같았다. 기준 문서와 설치된 Next.js Server/Client 가이드를 확인했다. Worker·P95·이진 탐색·추가 scene·카메라 구현으로 넘어가지 않았다.
+- `load-drivescope-data-source.ts`에서 fetch 전·Response 수신·arrayBuffer 완료·크기 검사/좌표 해석 완료의 네 시각을 기록한다. 공통 `lidar-frame-source.ts`에 `{ frame, timings }` 계약과 요청별 측정 타입을 정의했다. 가상/연결 중 소스도 반환 계약을 맞추고 가상 HTTP 구간은 null로 둔다. 기존 전체 Promise 시간의 구간은 유지한다.
+- `use-lidar-frame-cache.ts`는 실제 새 로딩을 만들 때 current/prefetch와 최초 시작 시각을 기록한다. 진행 중 Promise를 공유할 때 해당 기록도 그대로 반환한다. 센서 Frame만 LRU에 저장하고 현재 성공 측정 하나·마지막 완료 주변 묶음 최대 두 개만 표시 state에 둔다. hit·loading·failure·retry에서 과거 현재 측정을 지우며 prefetch와 늦은 완료가 현재 결과를 덮어쓰지 않도록 기존 guard를 유지한다.
+- `lidar-load-details.tsx`는 실제 모드에서만 기본 접힌 세부 시간을 제공한다. 캐시 hit의 생략, 진행 중 prefetch 공유, 각 구간의 범위를 표시한다. `viewer-canvas.tsx`는 결과 전달·표시 조합만 추가했다. Three.js 루프·GPU Buffer·카메라 디코딩 코드는 수정하지 않았다. `benchmark-viewer.mjs`는 raw 측정을 읽고 최초 current 15개·prefetch 30개를 따로 집계한다.
+- `pnpm.cmd build`의 compile·TypeScript·정적 페이지 생성, `pnpm.cmd validate:manifest`를 통과했다. 새 `pnpm.cmd verify:lidar-timings`는 가짜 clock·fetch로 구간 분리·좌표 보존, 미존재 Frame, HTTP 404, 잘린 바이너리의 4개 검사를 통과했다. 실제 TS를 메모리에서 실행하며 개인 데이터·네트워크를 사용하지 않는다.
+- 격리 Chrome 기능 검사 `check-lidar-timings.mjs`의 6개 묶음·예외 0개를 확인했다. prefetch 완료 후 현재 값 유지, 현재/prefetch 분리, 캐시 hit에서 측정 제거, 진행 중 prefetch를 seek로 공유할 때 HTTP 한 번·종류 유지, HTTP 실패·retry의 새 값, 모드 전환 후 늦은 완료 차단을 검증했다. 인접 Frame 왕복으로 hit를 확인하며 1440/390/320px의 펼친 패널에 페이지 overflow가 없었다. 스크린샷을 확인했고 실제 모바일 기기 검증으로 확대하지 않는다.
+- 기능 검증과 겹친 초기 벤치마크는 공유 수치로 쓰지 않고, 기능 Chrome 종료 뒤 `DRIVESCOPE_BENCHMARK_URL=http://localhost:3100 pnpm.cmd benchmark:viewer`를 단독 재실행했다. 각 모드 3회, 실제 current 15개·prefetch 30개, cache hit 각 3/3, FPS 각 30개 75, 예외 0개를 확인했다. 실제 current의 헤더/본문/좌표/전체 중앙값은 11.20/2.50/0.00/15.00ms, prefetch는 11.75/1.70/0.00/14.00ms다. 각 중앙값은 더하지 않는다.
+- PERFORMANCE에 구간 정의·새 표본·범위·재실행을 기록하고 원본 JSON을 `docs/benchmarks/lidar-load-timings-2026-10-04.json`에 보관했다. 기존 13.9ms와 홈페이지 기준선은 덮어쓰지 않았다. 브라우저 대기와 서버 파일 읽기·메인 스레드 정지·GPU 시간을 혼동하지 않는다. 표본의 0.00ms는 clock 해상도와 view 방식에 따른 관찰이며 Worker 효과를 결론내리지 않는다.
+- 기준 문서·README·학습 노트를 갱신했다. 문서 검사에서 8개 문서·내부 링크 122개·앵커 10개·Mermaid 2개·코드 블록 짝과 `git diff --check`를 통과했다. 검증 Chrome은 종료하고 3100 production 서버는 로컬 Viewer 확인용으로 유지한다. 승인된 단계는 main에 commit까지만 하며 push·공개 반영은 사용자에게 맡긴다. 개인 환경·실제 자산·영상·Vercel 설정은 변경하지 않았다. 현재 코드 설명 뒤 사용자 이해 확인은 남아 있다.
 
 ### Phase 7: 홈과 영상 자막 가독성 개선 (2026-10-04)
 
