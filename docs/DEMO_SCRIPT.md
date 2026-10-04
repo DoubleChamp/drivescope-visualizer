@@ -1,6 +1,8 @@
-# DriveScope 1분 데모 촬영 대본
+# DriveScope 1분 데모 영상과 촬영 대본
 
-기준: 2026-10-04의 [공개 Viewer](https://drivescope-visualizer.vercel.app/viewer). 실제/가상 선택 UI가 반영된 화면을 사용한다. 이 문서는 영상 구성·조작 순서·내레이션을 준비하며, 녹화·편집·영상 링크 추가는 다음 단계다.
+기준: 2026-10-04의 [공개 Viewer](https://drivescope-visualizer.vercel.app/viewer). 실제/가상 선택 UI가 반영된 화면을 사용한다. 사용자가 선택한 자막 방식으로 녹화·편집을 완료했다.
+
+결과물: [60초 MP4](../public/demo/drivescope-demo.mp4) · [한국어 자막 SRT](../public/demo/drivescope-demo.ko.srt) · [포스터](../public/demo/drivescope-demo-poster.jpg). 아래 내레이션 초안의 의미를 13개 자막으로 나누었으며 음성 트랙은 포함하지 않는다.
 
 ## 촬영 전에 준비할 화면
 
@@ -20,7 +22,7 @@
 | 5~18초 | 실제 모드 1.0초에서 재생해 점군·사진·차량 이동을 보여준다. 정지하고 12.4초로 탐색한다. | “실제 주행 로그의 라이다와 전방 사진, 차량 위치를 함께 재생합니다. 약 삼만 오천 개 포인트를 표시하고, 타임라인으로 원하는 시점을 찾습니다.” |
 | 18~38초 | 상단에서 가상을 선택하고 장면 패널로 돌아온다. 10.0 → 11.0초에서 보행자 박스를 클릭한다. 선택 패널이 커지면 스크롤 구도를 다시 맞춘다. 12.0 → 12.4초는 편집에서 보행자·차량·경로 주변을 확대해 비교한다. | “가상 데모에서는 십 초에 보행자가 등장하고, 십일 초에 인식됩니다. 박스를 선택하면 객체 정보를 확인할 수 있습니다. 십이 초의 예상 충돌 구간은 십이 점 사 초 급제동 후 사라집니다.” |
 | 38~48초 | 가상 12.4초에서 타임라인·Camera 12.0초·Frame 동기화의 차이를 확대한다. | “센서는 수집 주기가 다릅니다. 재생 시각이 십이 점 사 초여도 카메라는 그 이전의 최신 사진인 십이 초를 보여줍니다.” |
-| 48~57초 | 가상 12.5초를 방문하고 12.4초로 돌아와 `hit · 재사용`과 `캐시로 생략`을 보여준다. 사진 교체 설명 자막을 넣는다. | “라이다는 캐시와 재사용 버퍼로 처리하고, 사진은 디코딩이 끝난 뒤 교체합니다.” |
+| 48~57초 | 가상 12.5초를 방문하고 12.4초로 돌아와 `hit · 재사용`과 `캐시로 생략`을 확대한다. 마지막 3초는 13.0 → 12.4초로 사진을 바꾸며 디코딩 후 교체를 설명한다. | “라이다는 캐시와 재사용 버퍼로 처리하고, 사진은 디코딩이 끝난 뒤 교체합니다.” |
 | 57~60초 | 공개 Viewer와 저장소 링크를 끝 화면에 표시한다. | “공개 데모와 코드는 여기서 확인하세요.” |
 
 ## 가상 장면에서 확인할 변화
@@ -54,10 +56,44 @@
 - 코드: [DoubleChamp/drivescope-visualizer](https://github.com/DoubleChamp/drivescope-visualizer)
 - 기술 표기: Next.js · React · TypeScript · Three.js
 
-녹화 뒤 영상이 약 60초인지, 타임라인·객체 정보·Frame 시각이 읽히는지, 가상 12.0 → 12.4초의 충돌 강조 변화가 보이는지 확인한다. 파일을 재생해 검증하고 README에 실제 영상 링크를 추가하면 [ROADMAP](./ROADMAP.md)의 영상 항목을 완료로 바꾼다.
+완성한 영상에서 가상 12.0 → 12.4초의 경로 변화, 센서 시각과 캐시 표시를 확대해 읽을 수 있게 했다. README에 영상 링크를 추가하고 [ROADMAP](./ROADMAP.md)의 영상 항목을 완료로 바꿨다.
 
 ## 조작 리허설 결과
 
 2026-10-04, 공개 Viewer의 격리된 Chrome에서 `node node_modules/.cache/drivescope-browser-check/rehearse-demo.mjs`를 실행해 검사 6개 묶음을 통과했다. 실제 재생·탐색, 가상 10초 등장·11초 객체 클릭, 12초 빨간 선 렌더·12.4초 제거, 100ms 방향키 이동과 12.0초·-400ms 센서 표시, cache hit를 확인했다. 객체 선택 뒤 구도를 다시 맞춘 1920×1080 화면에 Canvas·Camera·타임라인·동기화 패널이 함께 들어왔다. JS runtime exception은 0개였다.
 
-편집 구간 6개가 끊김 없이 0~60초로 이어지는 것도 확인했다. 내레이션 실제 낭독 시간과 영상 파일 길이는 녹화 단계에서 검증한다. 리허설 보고서·스크린샷은 Git 제외 캐시에 보관한다.
+편집 구간 6개가 끊김 없이 0~60초로 이어지는 것도 확인했다. 리허설 보고서·스크린샷은 Git 제외 캐시에 보관한다.
+
+## 녹화·편집 방식과 검증
+
+개인 데스크톱을 녹화하지 않고 격리된 Chrome에서 공개 Viewer를 조작했다. CDP `Page.startScreencast`가 보내는 JPEG 화면을 받아 15fps로 900장을 인코더에 전달했다. 로딩·조작 대기 구간은 촬영 구간 밖에 두었다. 실제 재생 장면 8초를 촬영한 뒤 Viewer 시각이 1.0초에서 8.9초로 진행했음을 확인했다.
+
+촬영 도구의 핵심 흐름은 다음과 같다. Viewer의 React·Three.js 코드는 변경하지 않았다.
+
+```javascript
+await send('Page.startScreencast', { format: 'jpeg', quality: 90 });
+
+// Chrome이 새 화면을 보내면 최신 JPEG를 보관하고 수신을 확인한다.
+if (message.method === 'Page.screencastFrame') {
+  latestFrame = Buffer.from(message.params.data, 'base64');
+  send('Page.screencastFrameAck', { sessionId: message.params.sessionId });
+}
+
+// 1/15초 간격으로 현재 화면을 FFmpeg의 입력 스트림에 전달한다.
+encoder.stdin.write(latestFrame);
+```
+
+FFmpeg 9.0.2로 캡처 화면 일부를 확대하고, 한글 자막을 영상 하단 여백에 넣어 H.264·yuv420p MP4로 편집했다. 출력은 **60.000초·1920×1080·30fps·1,800프레임·3,900,283바이트**다. 15fps 캡처를 30fps로 출력할 때 기존 화면을 반복하며 새 움직임을 보간하지 않는다. 촬영·출력 fps는 앱 통계의 rAF FPS와 별개다. 마지막 링크 화면은 페이지 이동 완료 후 고정 캡처해 이전 화면이 남지 않게 했다.
+
+검증 명령은 이번 컴퓨터의 Git 제외 캐시에 있는 임시 보조 스크립트다. 이 스크립트·브라우저 프로필·원본 영상·FFmpeg 실행 파일은 추적하지 않고, 최종 영상·자막·포스터와 촬영 설명을 저장소에 포함한다.
+
+```powershell
+node node_modules/.cache/drivescope-browser-check/record-demo.mjs
+node node_modules/.cache/drivescope-browser-check/edit-demo.mjs
+node node_modules/.cache/drivescope-browser-check/verify-demo-video.mjs
+```
+
+- FFprobe로 길이·크기·codec·pixel format·프레임 수를 확인하고 모든 프레임을 오류 없이 디코딩했다.
+- 격리된 Chrome에서 MP4 시작 재생, 14·30·35·40·51·58초 탐색과 끝까지 재생을 통과했다. video error와 JS runtime exception은 0개였다.
+- 주요 화면을 추출해 자막, 충돌 강조 전후, 12.0초·-400ms 센서 정보, `hit · 재사용`과 마지막 링크 화면을 확인했다.
+- 로컬 Next.js 서버의 `/demo/drivescope-demo.mp4`는 HTTP 200·`video/mp4`로 제공된다. `public` 파일의 URL 규칙은 설치된 Next.js 가이드를 확인했다. 공개 사이트의 영상 경로는 사용자 push와 새 Vercel build 뒤에 확인한다.

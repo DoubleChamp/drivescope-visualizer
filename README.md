@@ -14,7 +14,13 @@ Next.js App Router, React, TypeScript와 Three.js를 사용합니다. React는 U
 | 차량 | 가상 차량 위치 | 실제 ego 위치·방향과 추적 3D Camera |
 | 분석 | 보행자 박스·선택·예상 경로·충돌 구간·급제동 마커 | 현재 연결 범위는 점군·전방 이미지·차량 pose |
 
-실제 데이터에는 객체 인식·예상 경로·급제동 이벤트를 아직 연결하지 않았습니다. 가상 급제동 데모는 분석 UI와 시간 동기화를 확인하도록 작성한 데이터이며 실제 사고 기록이나 AI 추론 결과가 아닙니다. [공개 Viewer](https://drivescope-visualizer.vercel.app/viewer)에서 실제 센서 로그와 가상 급제동 데모를 선택해 재생할 수 있습니다. [1분 데모 촬영 대본](docs/DEMO_SCRIPT.md)을 준비하고 화면 조작을 검증했습니다. 영상 녹화·편집은 [로드맵](docs/ROADMAP.md)의 다음 단계입니다.
+실제 데이터에는 객체 인식·예상 경로·급제동 이벤트를 아직 연결하지 않았습니다. 가상 급제동 데모는 분석 UI와 시간 동기화를 확인하도록 작성한 데이터이며 실제 사고 기록이나 AI 추론 결과가 아닙니다. [공개 Viewer](https://drivescope-visualizer.vercel.app/viewer)에서 실제 센서 로그와 가상 급제동 데모를 선택해 재생할 수 있습니다.
+
+[1분 데모 영상 보기 / 다운로드](public/demo/drivescope-demo.mp4) · [한국어 자막 원본](public/demo/drivescope-demo.ko.srt) · [촬영 순서와 핵심 코드 설명](docs/DEMO_SCRIPT.md)
+
+[![실제 센서 로그를 탐색하는 DriveScope 데모 화면](public/demo/drivescope-demo-poster.jpg)](public/demo/drivescope-demo.mp4)
+
+공개 Viewer를 촬영한 60초 자막 영상입니다. 실제 센서 재생·탐색, 가상 객체 선택·급제동 전후, 센서 Frame 시각과 LiDAR 캐시를 보여줍니다. 1920×1080 H.264 MP4이며 약 3.9MB입니다. 변경을 push하고 Vercel build가 끝나면 `/demo/drivescope-demo.mp4`에서도 제공됩니다.
 
 ## 빠르게 실행하기
 
