@@ -5,9 +5,9 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: 현재 코드를 기준으로 최종 데이터 흐름·Frame 선택·캐시와 표시 Buffer·이미지 준비·리소스 생명주기를 아키텍처 문서에 정리했다.
-- 다음 한 단계: 아키텍처의 책임 경계를 확인한 뒤 배포 환경과 데이터 제공 범위를 정하고 웹 배포를 진행한다.
-- 아직 구현하지 않은 것: ego pose 보간과 Camera 이동 smoothing, 배포용 데이터 호스팅과 데모 영상
+- 현재 작업: 사용자가 기존 Vercel 배포를 확인해 데이터 주소 외의 배포 준비를 점검했다. 저장소·production build와 공식 문서를 대조하고 DEPLOYMENT에 설정·변경 범위·실사이트 검증 기준을 기록했다.
+- 다음 한 단계: manifest URL을 환경별로 선택하는 작은 변경을 구현·검증한다. 이후 공개 데이터 연결·Vercel 설정·데모 선택과 실사이트 검증을 진행한다.
+- 아직 구현하지 않은 것: 원격 manifest URL 설정 지원, 배포용 데이터 호스팅과 가상/실제 데모 선택, ego pose 보간과 Camera smoothing, 데모 영상
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
 ## 다른 컴퓨터에서 이어서 시작하기
@@ -20,7 +20,18 @@
 6. 로컬에서는 산출물 scene 디렉터리를 `.env.local`의 `DRIVESCOPE_DATA_ROOT`로 지정한다. 절대 경로는 Git과 브라우저 bundle에 포함되지 않는다.
 7. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 8. 현재 Route Handler는 로컬 개발용이다. 배포에서는 로컬 C 드라이브를 읽을 수 없으므로 같은 scene 디렉터리를 정적 파일 서버·CDN·오브젝트 스토리지에 올리고 로더의 기준 URL을 바꿔야 한다.
-9. 실제 센서 연결·오류 처리·Viewer 디자인·README 재현을 검증하고 최종 아키텍처를 정리했다. 이후 배포·1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+9. 실제 센서 연결·오류 처리·Viewer 디자인·README 재현과 아키텍처를 정리했다. 기존 Vercel 사이트의 최신 코드·실제 데이터 연결을 검증한 뒤 1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### Phase 7: 기존 Vercel 배포 준비 점검 (2026-10-04)
+
+- 사용자가 웹앱은 이미 Vercel에 배포되어 있고 실제 데이터는 로컬에서만 읽는다고 확인했다. 이어 데이터 경로 외의 설정과 준비 사항도 확인하도록 요청했다. 이번 범위는 점검·문서 기록이며 앱 코드·개인 환경·Vercel 설정·데이터 업로드는 변경하지 않았다.
+- 미커밋 변경이 없는 main에서 시작했다. 시작 시 main은 `3e131fe`, 원격 main은 `eed3e94`로 로컬 commit 9개가 앞서 있었다. GitHub Desktop 내장 Git으로 원격을 읽기 전용 조회했다. Git 연동 deployment라면 사용자 push 뒤 배포 commit도 대조해야 한다.
+- `pnpm.cmd build`, `pnpm.cmd exec tsc --noEmit --incremental false`, `pnpm.cmd validate:manifest`가 통과했다. Next.js 16.3.3의 기본 구성에서 홈·Viewer는 prerender, 데이터 API는 동적 Route로 빌드됐다. 실제 Vercel build를 실행한 결과로 확대하지 않는다.
+- Vercel 공식 문서의 Framework·Root·Build·Output·Node 24.x·패키지 매니저·Corepack 설정과 설치된 Next.js의 공개 환경변수 안내를 대조했다. pnpm 11.24.0 지정과 lockfile 9.0 자동 선택은 같은 정보가 아니므로 실제 설치 로그 확인을 남겼다.
+- 로컬 API로 고정된 manifest 입구, manifest 기준 상대 자산 URL, 서버 로컬 파일 읽기, 일반 img decode를 확인했다. 공개 HTTPS 파일·상대 경로·bin 크기·CORS와 새 build가 원격 데이터 연결의 검증 경계다.
+- 실제 연결 오류가 있어야 가상 분석을 표시하는 현재 분기를 확인했다. 실제 데이터를 공개 연결하면 두 데모를 직접 선택하는 작은 단계가 필요하다. benchmark는 localhost만 허용하고 로컬 manifest API를 가로채므로 실사이트 검증 도구로 그대로 사용할 수 없다.
+- DEPLOYMENT에 제안 설정과 코드 변경 위치·두 데모 노출·실제 검증 순서를 기록했다. 배포 주소를 요청했으며 실제 사이트와 계정 설정·로그·원격 자산은 아직 확인하지 않았다. Phase 7 항목 9는 완료로 표시하지 않는다.
+- 문서 검증 명령 `node node_modules/.cache/drivescope-browser-check/check-architecture.mjs`로 관련 문서·README 7개의 내부 링크 70개·목차 앵커 10개·코드 블록 짝을 확인했고 `git diff --check`도 통과했다. 검증기는 Git 제외 캐시에 보관한다.
 
 ### Phase 7: 최종 데이터 흐름과 아키텍처 정리 (2026-10-04)
 

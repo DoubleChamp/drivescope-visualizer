@@ -649,9 +649,18 @@
 - manifest의 abort와 LiDAR·이미지의 완료 결과 차단은 다른 동작이다. 현재 LiDAR fetch에는 AbortSignal이 없어 오래된 HTTP 요청이 완료될 수 있지만 현재 표시 state를 덮어쓰지 못하게 한다.
 - scene.clear는 참조 관계를 끊고 Geometry·Material dispose는 GPU 해제를 요청한다. rAF·리스너가 남긴 closure 참조를 먼저 끊어야 런타임 JS 객체도 GC 대상이 될 수 있다.
 
+### Vercel 앱 배포와 데이터 제공 경계 (2026-10-04, 사용자 이해 확인 대기)
+
+- 사용자가 Vercel에 이미 웹앱을 배포했다고 확인했다. 저장소의 현재 로더는 로컬 API를 요청하고 API는 서버 디스크를 읽으므로 앱 배포와 실제 데이터 공개 연결은 별도 작업이다.
+- 공개 환경변수는 Next.js build에서 브라우저 코드에 들어간다. manifest URL 설정을 바꾸면 해당 값으로 새 build가 필요하다. 이 경계는 설치된 가이드와 공식 문서를 대조했다.
+- packageManager의 pnpm 11.24.0 지정, lockfile 9.0과 Vercel의 자동 버전 선택을 구분한다. 실제 사용 버전은 로그로 확인하며 Vercel은 Corepack을 켜 packageManager 기준으로 선택하는 절차를 제공한다.
+- CORS는 데이터를 제공하는 origin의 응답 정책이다. 원격 파일 URL이 열리는 것과 브라우저 fetch로 JSON·bin을 읽는 것은 다른 확인 항목이다. 실제 원격 파일 응답은 아직 검사하지 않았다.
+- 연결 오류에 따른 fallback과 사용자 데모 선택은 다른 상태다. 현재 코드에서 가상 인식·경로·이벤트는 actualDataError가 있을 때만 표시되므로 실제 연결 성공 후에는 가상 데모의 선택 입구가 필요하다.
+- 로컬 commit과 원격 push·Vercel deployment는 별도 결과다. 시작 시 원격보다 9개 앞선 상태와 로컬 build 성공을 확인했으나 현재 실사이트가 같은 commit을 실행하는지는 미확인이다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 7의 센서 연결·오류 복구·성능 기준선·표시·README 재현을 검증하고 최종 데이터 흐름과 리소스 생명주기를 정리했다. 책임 경계를 확인한 뒤 배포 환경과 웹 데이터 제공 방식을 정한다. 아래 이전 학습 항목의 사용자 이해 확인도 남아 있다.
+Phase 7의 센서 연결·오류 복구·성능 기준선·표시·README 재현과 아키텍처를 정리하고 기존 Vercel 배포 준비를 점검했다. 다음은 manifest 입구를 환경별로 선택하는 작은 변경이다. 웹 자산·설정·두 데모 노출·실사이트 검증과 아래 이전 학습 항목의 사용자 이해 확인도 남아 있다.
 
 - Canvas DOM 좌표를 NDC로 변환하는 식과 Y 부호를 뒤집는 이유
 - Camera 광선과 Mesh 삼각형의 교차, `visible`과 wireframe이 선택 판정에 미치는 영향
