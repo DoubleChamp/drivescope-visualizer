@@ -36,11 +36,14 @@ flowchart TD
     Select --> Pose["ego pose: 차량·3D Camera 갱신"]
     Buffer --> Render["rAF: renderer.render"]
     Pose --> Render
+    Storage["배포용 웹 저장소: 준비 중"] --> Manifest
+    Storage --> Lidar
+    Storage --> Image
 ```
 
 Python은 개발 시 실행하는 오프라인 전처리 도구다. 브라우저 재생이나 API 요청마다 Python을 실행하지 않는다. 이미 변환한 v3 scene 전체가 있으면 Viewer 실행에 Python은 필요 없다.
 
-서버는 `DRIVESCOPE_DATA_ROOT`가 가리키는 scene에서 파일을 읽는다. 브라우저는 `/api/drivescope-data/manifest.json`과 manifest 기준 상대 자산 URL을 요청한다. 개인 디스크 경로는 서버 환경에만 두며 데이터 산출물은 Git·클라이언트 bundle에 포함하지 않는다.
+로컬 서버는 `DRIVESCOPE_DATA_ROOT`가 가리키는 scene에서 파일을 읽는다. 브라우저는 `NEXT_PUBLIC_DRIVESCOPE_MANIFEST_URL`이 있으면 해당 주소를, 생략하면 `/api/drivescope-data/manifest.json`을 요청한다. 이미지·bin은 manifest 응답 URL 기준의 상대 경로로 요청한다. 개인 디스크 경로는 서버 환경에만 두며 데이터 산출물은 Git·클라이언트 bundle에 포함하지 않는다.
 
 manifest를 읽으면 Frame 목록과 ego pose를 확보한다. 모든 LiDAR 바이너리와 이미지를 즉시 다운로드하지 않는다. LiDAR는 선택된 시점과 주변 시점을 요청하고, 이미지는 선택된 URL을 숨긴 img에 지정할 때 브라우저가 요청한다.
 
@@ -272,6 +275,6 @@ JS GC는 도달할 수 없는 객체 메모리를 나중에 회수한다. rAF �
 
 [benchmark-viewer.mjs](../scripts/benchmark-viewer.mjs)는 Node.js에서 Chrome DevTools Protocol로 production Viewer를 조작하고 DOM의 기존 지표를 읽어 결과 JSON을 저장한다. 화면 픽셀·OCR로 시간을 추정하지 않는다. FPS는 2.2초 준비 후 1초 간격 10회, 가상·실제 각 3회 기준선을 측정했다. 조건·한계·재실행 명령은 PERFORMANCE 문서에 둔다.
 
-웹앱은 기존에 Vercel에 배포되어 있다(사용자 확인). 최신 코드의 배포 반영·실제 데이터 호스팅과 1분 영상은 아직 검증·완료하지 않았다. 배포 서버는 개발자 PC의 scene 디렉터리를 읽을 수 없으므로 웹에서 접근 가능한 파일 제공 경계가 필요하다. 외부 호스팅을 쓰면 manifest 기준 URL과 origin이 달라질 수 있으며 현재 Hook의 기본 URL은 로컬 API로 고정되어 있어 연결 변경도 필요하다. 설정과 실제 검증 기준은 [DEPLOYMENT.md](./DEPLOYMENT.md)에 기록한다.
+웹앱은 Vercel에 배포되어 있으며 공개 홈·Viewer의 HTTP 200과 기존 API의 미설정 503을 확인했다. 실제 데이터 호스팅·배포 센서 재생과 1분 영상은 아직 완료하지 않았다. 배포 서버는 개발자 PC의 scene 디렉터리를 읽을 수 없으므로 웹 파일 제공 경계가 필요하다. 로더에 공개 manifest URL 설정 지원을 구현했고 원격 자산·CORS·새 deployment 검증은 남아 있다. 설정과 실제 검증 기준은 [DEPLOYMENT.md](./DEPLOYMENT.md)에 기록한다.
 
 ego pose 보간·Camera smoothing, 센서 sweeps 재생·누적, 실제 annotation·Planning 연결은 현재 범위 밖이다. 실제 모드의 차량 박스 크기는 현재 가상 시나리오 값을 재사용한다. Worker와 Frame 선택의 cursor·이진 탐색, 세부 시간·P95·메인 스레드 정지 측정은 로드맵의 후속 개선으로 남긴다. 측정하지 않은 병목을 근거로 복잡한 계층을 먼저 추가하지 않는다.

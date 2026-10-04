@@ -5,9 +5,9 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: 사용자가 기존 Vercel 배포를 확인해 데이터 주소 외의 배포 준비를 점검했다. 저장소·production build와 공식 문서를 대조하고 DEPLOYMENT에 설정·변경 범위·실사이트 검증 기준을 기록했다.
-- 다음 한 단계: manifest URL을 환경별로 선택하는 작은 변경을 구현·검증한다. 이후 공개 데이터 연결·Vercel 설정·데모 선택과 실사이트 검증을 진행한다.
-- 아직 구현하지 않은 것: 원격 manifest URL 설정 지원, 배포용 데이터 호스팅과 가상/실제 데모 선택, ego pose 보간과 Camera smoothing, 데모 영상
+- 현재 작업: 공개 Vercel 주소의 홈·Viewer 200과 manifest API 503을 확인하고 manifest URL을 환경별로 선택하는 작은 변경을 구현·빌드 검증했다. 프로젝트 화면에서 Blob 저장소를 만드는 순서를 안내한다.
+- 다음 한 단계: 사용자가 생성한 공개 Blob 저장소에 v3 scene을 경로에 맞춰 업로드하고 원격 manifest·참조 파일·CORS를 검증한다. 이후 Vercel URL 환경변수·새 deployment·브라우저 실제 재생을 확인한다.
+- 아직 구현하지 않은 것: 배포용 데이터 업로드와 가상/실제 데모 선택, ego pose 보간과 Camera smoothing, 데모 영상
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
 ## 다른 컴퓨터에서 이어서 시작하기
@@ -21,6 +21,16 @@
 7. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 8. 현재 Route Handler는 로컬 개발용이다. 배포에서는 로컬 C 드라이브를 읽을 수 없으므로 같은 scene 디렉터리를 정적 파일 서버·CDN·오브젝트 스토리지에 올리고 로더의 기준 URL을 바꿔야 한다.
 9. 실제 센서 연결·오류 처리·Viewer 디자인·README 재현과 아키텍처를 정리했다. 기존 Vercel 사이트의 최신 코드·실제 데이터 연결을 검증한 뒤 1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### Phase 7: 배포 URL 확인과 원격 manifest 설정 입구 (2026-10-04)
+
+- 사용자가 `https://drivescope-visualizer.vercel.app/`와 Vercel Projects 화면을 제공하고 현재 화면에서의 다음 작업을 물었다. 앞서 설명한 작은 변경인 manifest URL 설정 지원을 준비하고 Storage·Blob·Public 생성과 파일 업로드 뒤 환경변수 연결 순서를 안내했다.
+- 시작 시 main·원격 main이 모두 `eb1473d`임을 확인했다. 이전 점검의 미push 상태는 해소됐지만 Vercel deployment의 정확한 commit은 계정 화면에서 아직 대조하지 않았다.
+- 공개 홈과 `/viewer`를 읽기 전용 요청으로 확인해 HTTP 200을 받았다. `/api/drivescope-data/manifest.json`은 503과 `DRIVESCOPE_DATA_ROOT가 설정되지 않았습니다`를 반환했다. 웹 앱 응답과 실제 파일 연결이 다른 상태임을 직접 확인했다.
+- `load-drivescope-data-source.ts`의 기본 URL을 공개 환경변수의 trim 결과 또는 기존 API로 선택하도록 바꿨다. 소스 Hook은 기존 상수를 사용하므로 별도 Hook 변경 없이 적용된다. manifest 기준 상대 URL·LiDAR 캐시·이미지 decode·Three.js 책임은 같은 연결 흐름을 사용한다.
+- 설치된 Next.js 환경변수 가이드와 현재 Vercel Blob 생성 안내를 확인했다. NEXT_PUBLIC 값은 새 build에 포함되므로 파일 업로드 뒤 공개 manifest URL 설정과 새 deployment가 필요하다.
+- 검증: `pnpm.cmd build`, `pnpm.cmd exec tsc --noEmit --incremental false`, `pnpm.cmd validate:manifest` 통과. 외부 URL의 실제 자산·CORS·브라우저 재생은 저장소 업로드와 공개 URL 확보 후 검증한다.
+- 개인 `.env.local`, Vercel 계정 설정과 웹 데이터는 변경하지 않았다. 실제 센서 배포 재생과 데모 선택 UI는 완료로 기록하지 않는다.
 
 ### Phase 7: 기존 Vercel 배포 준비 점검 (2026-10-04)
 

@@ -159,6 +159,12 @@ benchmark는 브라우저를 자동 제어해 가상·실제 모드를 같은 �
 
 Frame 로딩 시간은 비동기 HTTP 대기를 포함한 로더 Promise의 경과 시간이고, FPS는 rAF에서 `renderer.render()`를 호출한 빈도입니다. 순수 렌더링 시간·GPU 시간·순간 정지를 직접 측정한 값으로 해석하지 않습니다. 측정 환경·기준선·한계는 [PERFORMANCE.md](docs/PERFORMANCE.md)에 있습니다.
 
+## Vercel 실제 데이터 연결
+
+공개 Viewer는 [drivescope-visualizer.vercel.app](https://drivescope-visualizer.vercel.app/viewer)에서 실행합니다. 실제 데이터 공개 연결은 준비 중입니다. 웹앱 배포와 센서 파일 업로드·연결은 별도이며 개발자 PC의 데이터 디렉터리는 Vercel에서 읽을 수 없습니다.
+
+로더는 `NEXT_PUBLIC_DRIVESCOPE_MANIFEST_URL`이 있으면 해당 manifest를, 생략하면 기존 로컬 API를 사용합니다. 웹 저장소에 manifest·Camera·LiDAR를 상대 경로에 맞게 제공한 뒤 Vercel 프로젝트에 공개 HTTPS manifest URL을 설정하고 새 build를 만듭니다. 로컬 파일로 실행하거나 기존 로컬 benchmark를 사용할 때는 이 URL 설정을 비워 둡니다. Storage·Blob·Public 생성과 설정·검증 순서는 [DEPLOYMENT.md](docs/DEPLOYMENT.md)를 따릅니다.
+
 ## 문제 해결
 
 | 상태 | 확인할 내용 |

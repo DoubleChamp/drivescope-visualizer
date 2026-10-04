@@ -1,6 +1,6 @@
 # DriveScope Vercel 배포 점검
 
-점검일: 2026-10-04. 사용자 확인에 따르면 웹앱은 이미 Vercel에 배포되어 있다. 이번 점검은 현재 저장소·로컬 production build와 공식 문서를 기준으로 했다. 배포 주소·프로젝트 설정·빌드 로그·원격 데이터 URL은 아직 제공되지 않아 실제 서비스 검증은 대기 중이다.
+점검일: 2026-10-04. 공개 사이트는 [drivescope-visualizer.vercel.app](https://drivescope-visualizer.vercel.app/)이다. 주소 제공 후 홈·Viewer HTTP 200과 manifest API 503을 확인했다. 원격 데이터 URL·Vercel 계정 설정·빌드 로그는 아직 확인하지 않았으며 실제 센서의 배포 재생 검증은 대기 중이다.
 
 ## 확인된 상태
 
@@ -9,10 +9,11 @@
 | production build | `pnpm.cmd build` 통과. `/`, `/viewer`는 prerender, 데이터 API는 동적 Route Handler |
 | 타입 검사 | `pnpm.cmd exec tsc --noEmit --incremental false` 통과 |
 | manifest 규칙 | `pnpm.cmd validate:manifest` 통과. fixture의 LiDAR·Camera·ego 각 2개 검사 |
-| Git | 점검 시작 시 main은 `3e131fe`, 원격 main은 `eed3e94`, 로컬 커밋 9개가 앞서 있었음 |
+| Git | 초기 점검에서는 로컬 커밋 9개가 앞섰고, 이번 변경 시작 전에는 main·원격 main 모두 `eb1473d`로 push 완료를 확인함 |
 | Next.js 설정 | `next.config.ts`는 기본 설정. 이번 점검에서 추가 설정이 필요한 렌더링 문제는 발견하지 못함 |
-| 실제 데이터 입구 | manifest URL이 `/api/drivescope-data/manifest.json`으로 고정되어 있음 |
+| 실제 데이터 입구 | NEXT_PUBLIC_DRIVESCOPE_MANIFEST_URL을 설정하면 해당 주소, 생략하면 기존 로컬 API 사용 |
 | 실제 파일 제공 | API가 `DRIVESCOPE_DATA_ROOT`의 서버 로컬 파일을 readFile로 읽음 |
+| 공개 manifest API | HTTP 503: DRIVESCOPE_DATA_ROOT가 설정되지 않았습니다 |
 | 데모 선택 | 실제 연결 실패 시에만 가상 fallback. 사용자 모드 선택 UI는 아직 없음 |
 
 Git 연동 배포라면 로컬 commit만으로 Vercel에 코드가 반영되지 않는다. 사용자가 GitHub Desktop에서 push한 뒤 Vercel의 성공한 deployment가 해당 commit을 가리키는지 확인한다. CLI로 별도 배포했는지는 이번 점검에서 확인하지 않았다.
@@ -42,7 +43,7 @@ Framework·Root·Build·Output은 [Vercel 빌드 설정](https://vercel.com/docs
 
 ### 브라우저의 manifest 입구
 
-현재 [load-drivescope-data-source.ts](../app/viewer/_data/load-drivescope-data-source.ts)는 임의 manifestUrl을 받을 수 있지만 기본 주소는 로컬 API로 고정되어 있다. 다음 구현에서는 공개 환경변수를 읽어 배포용 주소를 선택할 수 있게 한다. 아래는 제안 코드이며 아직 적용하지 않았다.
+[load-drivescope-data-source.ts](../app/viewer/_data/load-drivescope-data-source.ts)에 공개 환경변수로 manifest 입구를 선택하는 변경을 적용했다. URL을 설정하지 않은 기존 로컬 사용은 같은 API를 요청한다.
 
 ```ts
 export const DRIVE_SCOPE_MANIFEST_URL =
@@ -53,6 +54,19 @@ export const DRIVE_SCOPE_MANIFEST_URL =
 로컬에서는 URL을 생략해 기존 API를 사용하고 Vercel에는 웹 저장소의 HTTPS manifest URL을 넣는다. 현재 `DRIVESCOPE_DATA_ROOT`는 서버 로컬 디렉터리 설정이므로 개발자 PC 경로를 Vercel에 넣는 것으로 실제 파일이 제공되지는 않는다.
 
 NEXT_PUBLIC 값은 Next.js build에서 브라우저 코드에 들어간다. 대시보드 값을 변경한 뒤 새 deployment를 만들어야 한다. 이 변수에는 공개 읽기 주소를 사용한다. [Next.js 환경변수 문서](https://nextjs.org/docs/app/guides/environment-variables)
+
+### Vercel 화면에서 시작하기
+
+사용자가 제공한 화면은 팀의 Projects 목록이다. 다음은 데이터 파일을 둘 Blob 저장소를 만드는 순서다.
+
+1. `drivescope-visualizer` 프로젝트 카드를 연다.
+2. 프로젝트의 Storage에서 Create Storage를 누르고 Blob을 선택한다.
+3. Continue 뒤 access를 Public으로 선택하고 이름을 `drivescope-data`로 지정한다.
+4. Create a new Blob store를 선택하고 해당 프로젝트와 연결을 확인한다. 원격 읽기 구성은 공개 파일 URL을 사용한다.
+
+메뉴·접근 모드 기준은 [Blob 생성 안내](https://vercel.com/docs/vercel-blob/using-blob-sdk#getting-started)를 따른다. 계정 화면에서 저장소 생성은 사용자가 수행하며 이번 단계에서 파일을 업로드하지 않았다.
+
+다음에는 scene의 manifest·camera·lidar를 경로에 맞춰 올리고 manifest의 공개 URL을 확인한다. 그 뒤 프로젝트 Settings의 환경변수에 NEXT_PUBLIC_DRIVESCOPE_MANIFEST_URL을 넣고 새 코드 push·새 deployment를 확인한다. 저장소를 생성하는 것만으로 파일이나 URL 설정이 자동 완성되지는 않는다.
 
 ### 웹 저장소의 파일과 응답
 
@@ -100,4 +114,4 @@ CORS는 데이터를 제공하는 웹 저장소의 응답 정책이다. 앱과 �
 
 ## 이번 점검의 경계
 
-앱 코드·Vercel 설정·웹 저장소 업로드는 이번 점검에서 변경하지 않았다. 저장소 기준의 준비 사항을 확인했고 배포 URL·원격 데이터 URL·실제 프로젝트 설정과 로그 검증이 남아 있다. 배포 결과가 확인되기 전까지 ROADMAP의 Phase 7 항목 9는 완료로 표시하지 않는다.
+이번 작은 변경은 manifest 주소를 환경별로 선택하는 입구다. production build·타입·fixture manifest 검증이 통과했다. 공개 홈·Viewer·API의 HTTP 상태도 확인했다. 계정 설정·웹 저장소 생성과 파일 업로드는 실행하지 않았고 원격 자산·CORS·브라우저 실제 재생 검증은 남아 있다. 배포 결과가 확인되기 전까지 ROADMAP의 Phase 7 항목 9는 완료로 표시하지 않는다.

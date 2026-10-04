@@ -4,7 +4,9 @@ import {
 } from "./drivescope-manifest";
 import type { CameraFrame, LidarFrame } from "./frame-types";
 
-export const DRIVE_SCOPE_MANIFEST_URL = "/api/drivescope-data/manifest.json";
+export const DRIVE_SCOPE_MANIFEST_URL =
+  process.env.NEXT_PUBLIC_DRIVESCOPE_MANIFEST_URL?.trim() ||
+  "/api/drivescope-data/manifest.json";
 
 type LidarManifestFrame = DriveScopeManifest["lidar"]["frames"][number];
 
