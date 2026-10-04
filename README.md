@@ -4,6 +4,10 @@
 
 Next.js App Router, React, TypeScript와 Three.js를 사용합니다. React는 UI·입력·재생 상태를, Three.js는 3D 장면·GPU 리소스·렌더 루프를 담당합니다.
 
+홈(`/`)은 **데이터 처리·성능 측정을 설명하는 포트폴리오 페이지**입니다. 전처리→manifest→CPU 캐시→GPU Buffer의 흐름, 좌표·바이너리 계약, 최적화 핵심 코드와 측정 조건을 보여줍니다. 타임라인 예시를 직접 조작하고 1분 자막 영상을 재생한 뒤 `/viewer`에서 실제 센서 로그를 탐색할 수 있습니다. [프로젝트 소개](https://drivescope-visualizer.vercel.app/)의 이번 변경은 push와 새 Vercel build 뒤 반영됩니다.
+
+13.9ms는 HTTP 대기가 포함된 로더 Promise의 경과 시간입니다. 소개 페이지에서도 이를 순수 렌더링 시간이나 최적화 전후 향상률로 표현하지 않으며 [원본 측정 기록](docs/PERFORMANCE.md)과 코드 링크를 함께 제공합니다.
+
 ## 현재 확인할 수 있는 데모
 
 | 항목 | 가상 급제동 데모 | 실제 nuScenes mini |
@@ -195,6 +199,10 @@ manifest 연결 문제를 해결한 뒤 **실제 데이터 다시 연결**을 �
 
 | 관심사 | 시작 파일 |
 | --- | --- |
+| 포트폴리오 홈의 섹션 조합·메타데이터 | [app/page.tsx](app/page.tsx) |
+| 데이터 흐름 설명 / 조작 가능한 Frame 선택 예시 | [project-architecture.tsx](app/_components/project-architecture.tsx), [frame-selection-demo.tsx](app/_components/frame-selection-demo.tsx) |
+| 최적화 결정·핵심 코드 / 측정 결과·해석 | [project-optimizations.tsx](app/_components/project-optimizations.tsx), [project-results.tsx](app/_components/project-results.tsx) |
+| 사이트 안에서 재생하는 1분 영상·텍스트 설명 | [project-demo.tsx](app/_components/project-demo.tsx) |
 | 소스·재생 시계·센서 선택·패널 조합 | [viewer-canvas.tsx](app/viewer/viewer-canvas.tsx) |
 | 실제/가상 데모 선택 입력 | [viewer-source-selector.tsx](app/viewer/_components/viewer-source-selector.tsx) |
 | 제목·요약 / 3D 표시 마크업 | [viewer-header.tsx](app/viewer/_components/viewer-header.tsx), [viewer-scene-panel.tsx](app/viewer/_components/viewer-scene-panel.tsx) |

@@ -5,8 +5,8 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: 승인한 1분 영상을 자막 방식으로 촬영·편집했다. 60초·1920×1080 MP4·SRT·포스터와 README 링크를 추가하고 전체 디코딩·브라우저 재생·6개 시점 탐색·끝까지 재생을 검증했다.
-- 다음 한 단계: 영상을 함께 검토하고 Frame 시각·CPU 캐시·GPU 표시 Buffer·이미지 교체의 원리를 확인한 뒤 후속 단계 하나를 정한다. 여러 scene의 선택 목록과 다중 카메라는 의견만 검토했으며 구현하지 않았다. 방화벽 설정은 사용자 요청으로 나중에 진행한다.
+- 현재 작업: 데이터 처리·성능 측정 중심의 포트폴리오 홈을 구현했다. 데이터 흐름·좌표/바이너리 계약·최적화 코드·측정 조건·Frame 선택 예시·60초 자막 영상·Viewer 체험을 한 페이지로 연결했다. build와 로컬 production Chrome 검사 8개 묶음을 통과했다.
+- 다음 한 단계: 소개 페이지를 함께 검토하고 Server/Client 경계·로딩 지표·CPU 캐시와 GPU 표시 Buffer의 차이를 설명한다. 사용자 push와 새 Vercel build 뒤 공개 홈·영상·Viewer 이동을 확인한다. 여러 scene의 선택 목록과 다중 카메라는 의견만 검토했으며 구현하지 않았다. 방화벽 설정은 사용자 요청으로 나중에 진행한다.
 - 아직 구현하지 않은 것: ego pose 보간과 Camera smoothing, 실제 scene 선택 목록과 다중 카메라.
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
@@ -21,6 +21,19 @@
 7. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 8. 현재 Route Handler는 로컬 개발용이다. 배포에서는 로컬 C 드라이브를 읽을 수 없으므로 같은 scene 디렉터리를 정적 파일 서버·CDN·오브젝트 스토리지에 올리고 로더의 기준 URL을 바꿔야 한다.
 9. 실제 센서 연결·오류 처리·Viewer 디자인·README 재현과 아키텍처를 정리했다. 공개 실제 연결과 데모 선택 UI 반영·전환도 검증했다. DEMO_SCRIPT의 촬영 순서·대본·코드 연결을 따라 1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### Phase 7: 데이터 처리·성능 측정 포트폴리오 홈 (2026-10-04)
+
+- 사용자가 프로젝트 구조·최적화·영상으로 역량을 설명하는 페이지 제작을 승인했고, 추가 질문에서 데이터 처리·성능 측정을 선택했다. 중단 뒤 이어서 진행하도록 요청했으므로 같은 승인 범위를 완료했다. 별도 기능·scene 목록·다중 카메라·업로드·Vercel 계정 설정은 추가하지 않았다.
+- 시작 시 main·원격 main이 영상 commit `1ba6475`로 같고 worktree는 깨끗했다. GitHub Desktop 내장 Git으로 원격을 확인하고 fetch해 origin/main과 일치시켰다. 작업 기준 문서와 설치된 Next.js Server/Client·use-client·Image·video·metadata·icon 가이드를 확인했다.
+- `app/page.tsx`를 포트폴리오 섹션 조합으로 바꾸고 `app/_components`에 소개·구조·최적화·측정·영상 표시를 나눴다. 홈과 `/viewer`를 연결하며 title·description·Open Graph 포스터와 SVG 아이콘을 추가했다. `home.module.css`는 섹션별 주석과 선언별 줄로 정리했다. Viewer 구현과 기존 영상 파일은 수정하지 않았다.
+- 구조 설명에는 Python 전처리→v3 manifest/자산→브라우저 로더→CPU LRU/Promise→GPU Buffer를 표시한다. 오른손 좌표 `[-y,z,-x]`, 바이너리 크기·little-endian 계약을 실제 코드에 연결한다. 요청 공유·최대 5개 CPU 캐시, 기존 GPU Buffer 갱신, 두 img의 decode 완료 후 교체는 문제·선택·핵심 코드·원본 링크로 설명한다.
+- 측정 표는 PERFORMANCE의 가상/실제 각 3회 로컬 기준선을 그대로 사용했다. 실제 cache miss 중앙값 13.9ms의 HTTP·서버 읽기·바이너리 준비 범위와 GPU/React/이미지 제외를 명시한다. 포인트 34,752개·cache hit 관찰·FPS 75를 최적화 전후 향상률로 바꾸지 않는다. Worker·P95·세부 시간 분리는 향후 계획으로 표시한다.
+- 홈에서 새 Client Component는 `FrameSelectionDemo` 하나다. 작은 시간 state와 다섯 timestamp로 Viewer의 기존 선택 함수를 재사용한다. 영상은 네이티브 controls·playsInline·preload none이며 자동 재생하지 않는다. 별도 센서 요청·Three.js 런타임·렌더 루프를 홈에 만들지 않는다.
+- 검증 명령: `pnpm.cmd build`, `pnpm.cmd start --port 3100`, `node node_modules/.cache/drivescope-browser-check/check-portfolio.mjs`. 최종 build의 compile·TypeScript·정적 페이지 생성과 Chrome 검사 8개 묶음을 통과했다. 초기 홈 센서/MP4 요청 0개·Canvas 0개, 메타데이터·아이콘 HTTP 200, 모든 섹션 앵커와 원본 파일 링크를 확인했다.
+- 기본 12.4초→12.0초/-400ms와 방향키 6회 뒤 13.0초→13.0초/0ms, 입력과 함께 바뀌는 설명, Enter로 핵심 코드 펼치기를 확인했다. 영상은 60초 길이·재생·35초 seek·오류 없음과 네 구간 텍스트 설명을 검사했다. 실제 Viewer 연결→가상 선택→홈 복귀 후 Canvas 해제와 예시 초기화를 확인했다. 이번 검사는 기존 전체 센서 오류 복구 회귀 검사의 반복이 아니다.
+- 1440px desktop과 320·390·768·1024px viewport에서 가로 페이지 overflow가 없었다. 코드 블록은 자체 가로 스크롤을 사용한다. desktop·mobile 스크린샷을 확인하고 320px의 포인트 범위 숫자가 중간에서 끊기지 않도록 수정했다. runtime exception은 0개였으며 실제 모바일 기기·장시간 성능 검증으로 확대하지 않는다. 검증 도구·보고서·프로필·스크린샷은 Git 제외 캐시에 보관한다.
+- 문서·학습 노트를 갱신하고 문서 검사에서 8개 문서·내부 링크 111개·앵커 10개·Mermaid 2개·코드 블록 짝과 `git diff --check`를 통과했다. 검증용 3100 서버와 격리 Chrome을 종료했다. 마지막에 3000 포트의 개발 서버가 없음을 확인해 `pnpm.cmd dev --port 3000`으로 실행하고 홈 HTTP 200을 확인했다. 구현·검증·문서 갱신 후 main에 commit까지만 하며 공개 소개 페이지의 배포 완료는 사용자 push 뒤 별도 확인한다. 사용자가 새 페이지의 원리를 직접 설명한 것으로 기록하지 않는다.
 
 ### Phase 7: 1분 자막 영상 촬영·편집 (2026-10-04)
 
@@ -854,6 +867,7 @@
 2. 사용자가 CPU Frame 캐시와 Three.js 표시 Buffer, 목표 사진과 실제 표시 사진의 차이를 설명한다.
 3. 사용자가 실제 모드의 연결 범위와 로컬 데이터 루트를 배포 서버에서 그대로 읽을 수 없는 이유를 확인한다.
 4. 완성한 자막 영상에서 영상 시간축과 Viewer 시간축, 12.4초의 12.0초 사진 표시, 가상 분석과 실제 센서 범위를 확인한다. 영상 촬영·편집 승인은 받았고 구현·검증을 마쳤다. 후속 기능은 원리 확인 뒤 한 단계씩 범위를 정한다.
+5. 포트폴리오 홈의 Server Component와 작은 Frame 선택 Client Component, 네이티브 영상의 로딩 시점, HTTP를 포함한 기준선과 최적화 향상률의 차이를 확인한다. 소개 페이지 구현은 승인·완료했고 공개 반영 확인은 사용자 push 뒤 진행한다.
 
 ## 추천 커밋 메시지
 

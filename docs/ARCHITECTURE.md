@@ -16,6 +16,14 @@ DriveScope는 Next.js App Router·React·TypeScript로 UI와 재생 상태를 �
 
 찾아보기: [전체 흐름](#전체-데이터-흐름) · [코드와 책임](#코드와-책임) · [데이터 계약](#데이터-계약과-좌표) · [시간 선택](#재생-시계와-frame-선택) · [LiDAR](#lidar-로딩캐시buffer) · [이미지](#카메라-이미지의-준비와-교체) · [오류](#오류와-재시도) · [가상 분석](#가상-시나리오의-분석) · [cleanup](#소유권과-리소스-생명주기) · [측정과 한계](#측정-범위와-남은-작업).
 
+## 소개 페이지와 Viewer 경계
+
+홈(`/`)은 데이터 처리·성능 측정을 보여주는 포트폴리오다. [app/page.tsx](../app/page.tsx)는 메타데이터와 섹션을 조합하는 Server Component이고, 소개·구조·최적화·측정·영상은 [app/_components](../app/_components)의 표시 컴포넌트로 나눈다. 실제 코드를 찾아볼 수 있도록 원본 파일과 측정 문서 링크를 함께 제공한다.
+
+새 홈에서 `"use client"`가 필요한 부분은 [frame-selection-demo.tsx](../app/_components/frame-selection-demo.tsx)뿐이다. 작은 `timeMs` state와 다섯 timestamp로 기존 `findLatestFrameAtOrBefore`를 재사용한다. Three.js·manifest 로더·센서 파일·rAF는 홈에 연결하지 않는다. Viewer 링크는 `prefetch={false}`로 조작 화면의 미리 로딩도 생략한다.
+
+영상은 [project-demo.tsx](../app/_components/project-demo.tsx)의 네이티브 `<video controls playsInline preload="none">`이다. 별도 플레이어·React state·자동 재생을 추가하지 않는다. 포스터는 먼저 표시하고 사용자가 재생할 때 MP4를 가져온다. 실제 Chrome에서 초기 홈의 센서·MP4 요청 0개, Frame 방향키 조작·코드 Enter 펼치기·영상 재생/탐색·Viewer 왕복을 확인했다. 텍스트로 영상 흐름을 읽을 수 있는 설명도 제공한다.
+
 ## 전체 데이터 흐름
 
 ```mermaid
@@ -55,6 +63,8 @@ manifest를 읽으면 Frame 목록과 ego pose를 확보한다. 모든 LiDAR 바
 
 | 코드 | 맡는 일 |
 | --- | --- |
+| [app/page.tsx](../app/page.tsx), [app/_components](../app/_components) | 포트폴리오 홈의 섹션·메타데이터·설계 근거·측정 결과·영상 조합 |
+| [frame-selection-demo.tsx](../app/_components/frame-selection-demo.tsx) | 홈에서 작은 state로 최신 과거 Frame 선택 원리를 체험하는 Client Component |
 | [convert_nuscenes_mini.py](../scripts/convert_nuscenes_mini.py) | keyframe 추출, 센서·ego 좌표 변환, 상대 시간 정규화, v3 scene 출력 |
 | [Route Handler](../app/api/drivescope-data/[...assetPath]/route.ts) | 서버 파일 읽기, 허용 경로 검사, JSON·바이너리·JPEG HTTP 응답 |
 | [drivescope-manifest.ts](../app/viewer/_data/drivescope-manifest.ts) | 디스크 계약·timestamp·상대 경로·pose 검증 |
