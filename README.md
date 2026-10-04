@@ -14,7 +14,7 @@ Next.js App Router, React, TypeScript와 Three.js를 사용합니다. React는 U
 | 차량 | 가상 차량 위치 | 실제 ego 위치·방향과 추적 3D Camera |
 | 분석 | 보행자 박스·선택·예상 경로·충돌 구간·급제동 마커 | 현재 연결 범위는 점군·전방 이미지·차량 pose |
 
-실제 데이터에는 객체 인식·예상 경로·급제동 이벤트를 아직 연결하지 않았습니다. 가상 급제동 데모는 분석 UI와 시간 동기화를 확인하도록 작성한 데이터이며 실제 사고 기록이나 AI 추론 결과가 아닙니다. [공개 Viewer](https://drivescope-visualizer.vercel.app/viewer)에서 실제 센서 로그와 가상 급제동 데모를 선택해 재생할 수 있습니다. 1분 데모 영상은 [로드맵](docs/ROADMAP.md)의 후속 단계입니다.
+실제 데이터에는 객체 인식·예상 경로·급제동 이벤트를 아직 연결하지 않았습니다. 가상 급제동 데모는 분석 UI와 시간 동기화를 확인하도록 작성한 데이터이며 실제 사고 기록이나 AI 추론 결과가 아닙니다. [공개 Viewer](https://drivescope-visualizer.vercel.app/viewer)에서 실제 센서 로그와 가상 급제동 데모를 선택해 재생할 수 있습니다. [1분 데모 촬영 대본](docs/DEMO_SCRIPT.md)을 준비하고 화면 조작을 검증했습니다. 영상 녹화·편집은 [로드맵](docs/ROADMAP.md)의 다음 단계입니다.
 
 ## 빠르게 실행하기
 
@@ -207,4 +207,5 @@ manifest 연결 문제를 해결한 뒤 **실제 데이터 다시 연결**을 �
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md): 데이터 흐름·책임·리소스 생명주기
 - [DATA_FORMAT.md](docs/DATA_FORMAT.md): v3 manifest·바이너리·좌표 계약
 - [PERFORMANCE.md](docs/PERFORMANCE.md): 성능 기준선과 측정 방법
+- [DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md): 1분 영상 구성·촬영 조작·내레이션과 코드 설명
 - [PROGRESS.md](docs/PROGRESS.md), [LEARNING_NOTES.md](docs/LEARNING_NOTES.md): 검증 결과와 학습 기록
