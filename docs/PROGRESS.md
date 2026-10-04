@@ -5,9 +5,9 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: Next.js 기본 README를 DriveScope 설치·가상 데모 탐색·실제 v3 데이터 준비·검증·오류 해결 안내로 바꾸고 재현 절차를 확인했다.
-- 다음 한 단계: README의 실행 경계와 검증 명령을 확인한 뒤 최종 데이터 흐름·책임·리소스 생명주기를 아키텍처 문서에 정리한다.
-- 아직 구현하지 않은 것: ego pose 보간과 Camera 이동 smoothing, 최종 아키텍처 정리, 배포용 데이터 호스팅과 데모 영상
+- 현재 작업: 현재 코드를 기준으로 최종 데이터 흐름·Frame 선택·캐시와 표시 Buffer·이미지 준비·리소스 생명주기를 아키텍처 문서에 정리했다.
+- 다음 한 단계: 아키텍처의 책임 경계를 확인한 뒤 배포 환경과 데이터 제공 범위를 정하고 웹 배포를 진행한다.
+- 아직 구현하지 않은 것: ego pose 보간과 Camera 이동 smoothing, 배포용 데이터 호스팅과 데모 영상
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
 ## 다른 컴퓨터에서 이어서 시작하기
@@ -20,7 +20,20 @@
 6. 로컬에서는 산출물 scene 디렉터리를 `.env.local`의 `DRIVESCOPE_DATA_ROOT`로 지정한다. 절대 경로는 Git과 브라우저 bundle에 포함되지 않는다.
 7. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 8. 현재 Route Handler는 로컬 개발용이다. 배포에서는 로컬 C 드라이브를 읽을 수 없으므로 같은 scene 디렉터리를 정적 파일 서버·CDN·오브젝트 스토리지에 올리고 로더의 기준 URL을 바꿔야 한다.
-9. 실제 LiDAR·카메라 연결, 오류 처리·Viewer 디자인과 README 재현 안내를 검증했다. 이후 최종 아키텍처·배포·1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+9. 실제 센서 연결·오류 처리·Viewer 디자인·README 재현을 검증하고 최종 아키텍처를 정리했다. 이후 배포·1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### Phase 7: 최종 데이터 흐름과 아키텍처 정리 (2026-10-04)
+
+- README 단계 설명 뒤 사용자가 다음 단계 진행을 요청했다. 이번 범위는 로드맵 8번의 현재 구현 아키텍처 정리이며 앱 동작 코드와 개인 환경 설정은 변경하지 않았다.
+- 미커밋 변경이 없는 main에서 시작했고 기존 commit 8개가 origin/main보다 앞서 있었다. GitHub Desktop 내장 Git으로 원격 main이 기존 `eed3e94`와 같음을 확인했다.
+- ARCHITECTURE의 과거 단계 설명·완료된 캐시의 계획 표기를 현재 구조로 다시 정리했다. 전처리→HTTP→Frame 선택→CPU 캐시/이미지 decode→Three.js/React 표시의 흐름도와 기능별 코드 링크를 추가했다.
+- 실제·가상·연결 중 범위, v3 좌표와 시간/공간 원점, 재생 시계와 센서 timestamp·rAF의 차이를 명시했다. 실제 모드에 인식·Planning·급제동을 연결하지 않은 것과 차량 박스 크기를 가상 설정에서 재사용하는 한계도 기록했다.
+- 최대 5개는 완료된 CPU Frame 제한이며 진행 중 Promise·GPU Buffer·브라우저 전체 메모리 제한이 아님을 설명했다. 실제 manifest 최대 포인트 용량으로 런타임을 만들고 같은 용량 안에서 Buffer를 재사용하는 흐름을 코드와 대조했다.
+- 두 img 슬롯은 목표 사진의 다운로드·디코딩 완료 후 표시 교체를 위한 것이며 전체 사진 선로딩과 다름을 정리했다. 표시 timestamp 유지·500ms UI 지연 기준과 manifest abort/LiDAR·이미지 완료 결과 차단의 차이를 명시했다.
+- Three.js 초기화 effect의 실제 의존성, 용량 변경 시 재생성, rAF·리스너 중지와 공유 Geometry의 단일 dispose를 확인했다. PROJECT_BRIEF의 실제 센서 연결 전이라는 오래된 현재 설명과 PROGRESS 하단의 다음 단계 진입 조건도 맞췄다.
+- 검증: `node node_modules/.cache/drivescope-browser-check/check-architecture.mjs`로 관련 문서·README 6개의 내부 링크 63개·목차 앵커 10개·코드 블록 짝을 확인했다. Mermaid 흐름도 2개의 블록과 연결을 검토했다. 설치된 Three.js의 needsUpdate version 증가와 bounding sphere의 전체 Attribute 순회도 소스와 대조했다.
+- `pnpm.cmd validate:manifest`로 fixture의 LiDAR·Camera·ego 각 2개를, 기존 `check-readme.mjs`로 실제 v3 각 39개와 참조 자산을 검증했다. 실제 manifest에 현재 Frame 선택 함수를 실행해 0초의 Camera 0ms/LiDAR·ego 없음, 첫 LiDAR·ego 35ms, 12.4초의 Camera 12,050ms/LiDAR·ego 12,085ms 예시도 확인했다. 임시 문서 검증기는 Git 제외 캐시에 보관하며 문서 단계에서 production build·브라우저 회귀·성능 기준선을 다시 실행하지 않았다.
+- 아키텍처에 대한 사용자 이해 확인은 대기 중이며 배포·영상 단계는 시작하지 않았다.
 
 ### Phase 7: 설치·실행·데모 재현 README (2026-10-04)
 
@@ -745,9 +758,10 @@
 
 ## 다음 구현 진입 조건
 
-1. 사용자가 Camera Frame에는 URL만 저장하고 실제 이미지 요청·디코딩은 브라우저가 담당하는 이유를 설명한다.
-2. 사용자가 12.4초에 13초 Camera Frame을 미리 보여 주지 않고 12초 Frame을 유지하는 이유를 설명한다.
-3. 이해 확인 후 Phase 6 첫 번째 항목인 Frame 캐시의 범위를 설명하고 승인받는다.
+1. 사용자가 Python 전처리·서버 파일 제공·브라우저 로더·React·Three.js의 책임을 설명한다.
+2. 사용자가 CPU Frame 캐시와 Three.js 표시 Buffer, 목표 사진과 실제 표시 사진의 차이를 설명한다.
+3. 사용자가 실제 모드의 연결 범위와 로컬 데이터 루트를 배포 서버에서 그대로 읽을 수 없는 이유를 확인한다.
+4. 이해 확인 후 Phase 7의 웹 배포 범위·환경·데이터 제공 방식을 설명하고 승인받는다.
 
 ## 추천 커밋 메시지
 

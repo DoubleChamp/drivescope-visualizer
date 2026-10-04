@@ -1,269 +1,277 @@
 # DriveScope 아키텍처
 
-## 현재 상태
+현재 구현 기준: 2026-10-04. 설치·데모 재현은 [README](../README.md), 디스크 계약은 [DATA_FORMAT.md](./DATA_FORMAT.md), 측정 결과는 [PERFORMANCE.md](./PERFORMANCE.md)를 따른다. 구현 순서와 과거 검증은 [ROADMAP.md](./ROADMAP.md)와 [PROGRESS.md](./PROGRESS.md)에 보관한다.
+
+## 현재 범위
 
-Next.js App Router와 TypeScript가 동작하며 Three.js는 설치되어 있다. `/viewer` 아래에 React가 소유하는 Canvas와 작은 Client Component 경계를 만들고, 컴포넌트가 마운트될 때 Scene, PerspectiveCamera, WebGLRenderer와 `GridHelper(80, 16)`를 생성한다. 창 크기가 바뀌면 Canvas의 CSS 크기를 다시 읽어 Camera의 종횡비와 투영 행렬, Renderer의 drawing buffer를 갱신한다. `requestAnimationFrame` 콜백은 Scene을 렌더링한 뒤 다음 프레임을 하나씩 다시 예약한다. 컴포넌트 해제 시 최신 animation frame과 resize·Canvas click 리스너를 먼저 취소하고 Grid와 런타임이 소유한 Geometry·Material, Scene과 Renderer를 정리한다.
+DriveScope는 Next.js App Router·React·TypeScript로 UI와 재생 상태를 구성하고, Three.js의 WebGLRenderer로 3D 장면을 직접 그린다. React Three Fiber는 사용하지 않는다.
 
-Phase 2에서는 같은 effect에서 포인트 10,000개의 좌표를 숫자 30,000개인 `Float32Array`에 생성한다. XZ 방향으로 간격 0.1인 100×100 배열을 원점 중심의 `-4.95~4.95` 범위에 놓고 높이는 `y = 0.25`로 고정한다. 좌표 데이터 크기는 120,000바이트다. `BufferAttribute(pointPositions, 3)`가 연속된 숫자 세 개를 한 점의 `x`, `y`, `z`로 해석하고, 이를 `BufferGeometry`의 `position` 속성으로 직접 연결한다. 하나의 `PointsMaterial`에서 모든 점에 공통으로 적용할 색상을 `0x38bdf8`, 크기를 `0.06`으로 지정한다. 기본값인 `sizeAttenuation: true`가 PerspectiveCamera에서 거리에 따라 화면상의 점 크기를 줄인다. 하나의 `Points`가 Geometry와 Material을 묶으며 좌표 Buffer, Geometry와 Material은 마운트할 때 생성하고 기존 렌더 루프에서 재사용한다. cleanup에서는 예약과 이벤트를 차단한 뒤 포인트의 Geometry와 Material도 각각 `dispose()`한다.
+| 모드 | 현재 연결된 데이터 | 표시와 분석 |
+| --- | --- | --- |
+| 실제 | nuScenes mini의 LIDAR_TOP·CAM_FRONT keyframe과 ego pose | 점군, 전방 JPEG, 차량 위치·방향, 차량을 따라가는 3D Camera |
+| 가상 | 0~15초 급제동 시나리오의 센서·인식·경로·차량 상태·이벤트 | 보행자 선택, 예상 경로·충돌 구간, 12.4초 급제동 이벤트 |
+| 연결 중 | manifest 요청·검증 진행 | 빈 센서 상태와 연결 안내, 재생 입력 비활성화 |
 
-이전 `Vector3[]`와 `setFromPoints()` 경로는 좌표를 중간 JavaScript 배열과 새 `Float32Array`로 복사했다. 현재 `BufferAttribute`는 직접 만든 `Float32Array`를 같은 참조로 보관하므로 이 변환 단계를 거치지 않는다.
+실제 모드에는 객체 인식·Planning·급제동 이벤트를 아직 연결하지 않았다. 실제 센서 데이터 위에 가상 분석 결과를 섞지 않는다. manifest 연결이 실패하면 오류와 가상 데모임을 알리고 가상 모드로 전환한다.
 
-Scene 순회는 Attribute 배열 전체를 비교하거나 GPU Buffer를 읽어 변경 여부를 찾지 않는다. 애플리케이션이 Attribute의 `needsUpdate`를 `true`로 설정하면 `version`이 증가하고, Renderer가 캐시한 이전 버전보다 클 때만 CPU 배열을 GPU Buffer에 다시 전송한다. 현재 좌표는 생성 뒤 바뀌지 않아 GPU Buffer를 재사용하지만, `renderer.render()`가 실행될 때는 기존 Buffer를 사용한 draw call이 다시 발생한다.
+찾아보기: [전체 흐름](#전체-데이터-흐름) · [코드와 책임](#코드와-책임) · [데이터 계약](#데이터-계약과-좌표) · [시간 선택](#재생-시계와-frame-선택) · [LiDAR](#lidar-로딩캐시buffer) · [이미지](#카메라-이미지의-준비와-교체) · [오류](#오류와-재시도) · [가상 분석](#가상-시나리오의-분석) · [cleanup](#소유권과-리소스-생명주기) · [측정과 한계](#측정-범위와-남은-작업).
 
-현재 LiDAR 런타임은 모든 가상 Frame 중 최대 크기인 숫자 63개, 즉 포인트 21개를 담는 `Float32Array`와 `BufferAttribute`를 마운트 시 한 번만 만든다. 선택된 `LidarFrame`이 바뀌면 그 `positions`를 기존 배열 앞부분에 복사하고 `needsUpdate = true`로 GPU 재전송을 예약한다. `setDrawRange(0, selectedLidarPointCount)`는 최대 Buffer 뒤쪽에 남아 있는 이전 값이나 초기값을 그리지 않게 한다. 이 방식은 Frame마다 Geometry와 GPU Buffer를 새로 만들지 않는다.
+## 전체 데이터 흐름
 
-좌표를 바꾼 뒤 호출하는 `computeBoundingSphere()`는 GPU 명령이 아니라 브라우저의 JavaScript/CPU에서 `position` Attribute를 읽어 Geometry를 감싸는 구를 다시 계산하는 작업이다. Three.js Renderer는 이 구와 Camera의 frustum을 CPU에서 먼저 비교해 객체 전체가 시야 밖이면 draw call을 생략한다. 통과한 객체의 각 정점 변환과 최종 clipping·rasterization은 그다음 GPU가 담당한다. bounding sphere는 `drawRange`가 아니라 전체 Attribute 용량을 기준으로 계산하므로 뒤쪽 값 때문에 실제 표시 범위보다 커질 수 있지만, 현재 최대 21개인 Buffer에서는 안전한 보수적 판정이고 비용도 작다.
+```mermaid
+flowchart TD
+    Raw["nuScenes mini 원본"] --> Convert["Python CLI: 좌표·시간 전처리"]
+    Convert --> Files["scene 디렉터리: manifest, LiDAR bin, JPEG"]
+    Files --> Route["Next.js Route Handler: HTTP 파일 제공"]
+    Route --> Manifest["브라우저: manifest 요청·검증"]
+    Manifest --> Source["데이터 소스: 메타데이터와 loadFrame"]
+    Clock["React: currentTimeMs"] --> Select["센서별 최신 과거 Frame 선택"]
+    Source --> Select
+    Select --> Lidar["LiDAR: Promise 공유·최대 5개 CPU 캐시"]
+    Route --> Lidar
+    Lidar --> Buffer["Three.js: 기존 position Buffer 갱신"]
+    Select --> Image["이미지: 숨긴 img 로드·decode"]
+    Route --> Image
+    Image --> Panel["React: 표시 사진과 timestamp 교체"]
+    Select --> Pose["ego pose: 차량·3D Camera 갱신"]
+    Buffer --> Render["rAF: renderer.render"]
+    Pose --> Render
+```
 
-Three.js rAF 콜백은 지역 변수에 렌더 횟수와 샘플 시작 시각을 보관하고, rAF timestamp의 실제 경과 시간이 1초 이상일 때 `렌더 횟수 × 1000 / 경과 밀리초`로 평균 FPS를 계산한다. React는 현재 재생 시간, 재생 여부, 선택된 센서 정보와 약 1초마다 바뀌는 표시용 FPS state를 소유한다. 이 state로 Client Component가 다시 렌더링돼도 Canvas의 타입과 트리 위치가 같고 초기화 effect 의존성 배열이 비어 있어 기존 Canvas, Renderer와 rAF는 유지된다. FPS 측정용 별도 interval은 없으므로 `cancelAnimationFrame()`이 렌더링과 측정을 함께 중지한다. 재생 시계의 `setInterval()`은 별도 effect가 소유하고 정지·해제 시 `clearInterval()`로 정리한다. 표시되는 FPS는 rAF 콜백에서 수행한 `renderer.render()` 호출 빈도이며 GPU 명령 하나의 실행 시간을 직접 측정하는 값은 아니다.
+Python은 개발 시 실행하는 오프라인 전처리 도구다. 브라우저 재생이나 API 요청마다 Python을 실행하지 않는다. 이미 변환한 v3 scene 전체가 있으면 Viewer 실행에 Python은 필요 없다.
 
-이 문서에서 **계획**으로 표시한 내용은 설계 방향일 뿐 아직 구현된 기능이 아니다.
+서버는 `DRIVESCOPE_DATA_ROOT`가 가리키는 scene에서 파일을 읽는다. 브라우저는 `/api/drivescope-data/manifest.json`과 manifest 기준 상대 자산 URL을 요청한다. 개인 디스크 경로는 서버 환경에만 두며 데이터 산출물은 Git·클라이언트 bundle에 포함하지 않는다.
 
-## 계층별 책임
+manifest를 읽으면 Frame 목록과 ego pose를 확보한다. 모든 LiDAR 바이너리와 이미지를 즉시 다운로드하지 않는다. LiDAR는 선택된 시점과 주변 시점을 요청하고, 이미지는 선택된 URL을 숨긴 img에 지정할 때 브라우저가 요청한다.
 
-### React / Next.js
+## 코드와 책임
 
-- App Router를 이용한 페이지와 레이아웃 구성
-- 타임라인, 재생·정지, 선택 정보 등 화면 UI 구성
-- 사용자 입력과 재생 상태 관리
-- Three.js가 사용할 `<canvas>` DOM 요소와 컴포넌트 생명주기 제공
-- Three.js 런타임의 생성과 정리 시점 연결
+| 코드 | 맡는 일 |
+| --- | --- |
+| [convert_nuscenes_mini.py](../scripts/convert_nuscenes_mini.py) | keyframe 추출, 센서·ego 좌표 변환, 상대 시간 정규화, v3 scene 출력 |
+| [Route Handler](../app/api/drivescope-data/[...assetPath]/route.ts) | 서버 파일 읽기, 허용 경로 검사, JSON·바이너리·JPEG HTTP 응답 |
+| [drivescope-manifest.ts](../app/viewer/_data/drivescope-manifest.ts) | 디스크 계약·timestamp·상대 경로·pose 검증 |
+| [load-drivescope-data-source.ts](../app/viewer/_data/load-drivescope-data-source.ts) | manifest로 소스 생성, 상대 URL 해석, LiDAR 요청·바이너리 해석 |
+| [viewer-canvas.tsx](../app/viewer/viewer-canvas.tsx) | 소스 모드 파생, 공통 시계와 센서 선택, Hook 연결, 패널 조합 |
+| [use-drivescope-data-source.ts](../app/viewer/_hooks/use-drivescope-data-source.ts) | manifest 연결 상태·오류·재연결과 AbortController |
+| [use-playback.ts](../app/viewer/_hooks/use-playback.ts) | 재생·정지·seek, 실제 경과 시간 기반 시계 |
+| [find-latest-frame-at-or-before.ts](../app/viewer/_data/find-latest-frame-at-or-before.ts) | 재생 시각 이하의 최신 Frame 선택 |
+| [use-lidar-frame-cache.ts](../app/viewer/_hooks/use-lidar-frame-cache.ts), [frame-cache.ts](../app/viewer/_data/frame-cache.ts) | 진행 중 Promise 공유, 현재 Frame 로딩, 양옆 prefetch, LRU |
+| [use-buffered-camera-frame.ts](../app/viewer/_hooks/use-buffered-camera-frame.ts), [camera-panel.tsx](../app/viewer/_components/camera-panel.tsx) | 이미지 준비·활성 슬롯 결정, img 표시와 지연·오류 안내 |
+| [use-object-selection.ts](../app/viewer/_hooks/use-object-selection.ts) | 선택 ID state와 현재 인식 Frame의 선택 객체 파생 |
+| [use-three-viewer.ts](../app/viewer/_hooks/use-three-viewer.ts) | Scene·Camera·Renderer·Buffer·Mesh·Raycaster 생성, 갱신, 렌더 루프, 정리 |
+| [find-axis-aligned-trajectory-collision-segments.ts](../app/viewer/_analysis/find-axis-aligned-trajectory-collision-segments.ts) | 가상 경로와 축 정렬 footprint의 순수 충돌 구간 계산 |
+| [viewer-header.tsx](../app/viewer/_components/viewer-header.tsx), [viewer-scene-panel.tsx](../app/viewer/_components/viewer-scene-panel.tsx), [_components](../app/viewer/_components) | 제목·요약·Canvas 마크업·정보·재생 입력 표시 |
 
-매 프레임 바뀌는 포인트 위치나 Three.js 객체 자체를 React state에 저장하지 않는다. React의 렌더링 주기와 Three.js의 렌더 루프를 분리하기 위해서다.
+`app/viewer/page.tsx`는 서버 페이지이고 `ViewerCanvas`의 `"use client"`가 브라우저 경계다. 이 경계가 import하는 Hook·표시 컴포넌트도 Client 모듈 그래프에 포함된다. Three.js의 생성과 DOM 접근은 effect 안에서 수행한다.
 
-### Three.js 런타임
+React가 Canvas·img DOM과 사용자 입력을 소유하고, Three.js가 Canvas의 WebGL 렌더링을 소유한다. 전방 센서 사진의 `<img>`와 3D 시점을 정하는 `PerspectiveCamera`는 별개다. 현재 전방 사진을 Three.js Texture로 만들지 않는다.
 
-- React가 제공한 Canvas에 `WebGLRenderer`를 연결하고 렌더링 표면 상태 관리
-- `Scene`, `Camera`, 조명·도우미와 시각화 객체 관리
-- Geometry, Material, Texture와 GPU Buffer 관리
-- `requestAnimationFrame` 렌더 루프 실행
-- 크기 변경 반영과 카메라 투영 행렬 갱신
-- 컴포넌트 해제 시 렌더 루프 중단 및 GPU 리소스 `dispose`
+`ViewerCanvas`는 조합 지점이다. 타이머·파일 로더·GPU 리소스 생성·패널 마크업을 직접 구현하지 않고 각 책임을 연결한다. Three.js Hook은 생성과 정리의 소유권을 한곳에서 추적하며, 순수 분석 계산은 `_analysis`에 둔다.
 
-React Three Fiber는 사용하지 않는다. Three.js 객체의 생성, 변경, 정리를 직접 구현해 각 객체의 소유권과 렌더링 원리를 학습한다.
+## 데이터 계약과 좌표
 
-### 데이터 계층
+브라우저의 [Frame 타입](../app/viewer/_data/frame-types.ts)은 Three.js 객체를 포함하지 않는다.
 
-- Camera, LiDAR, Object Detection, Trajectory, Vehicle State, Event 프레임 타입 정의
-- 센서별 timestamp 보관과 특정 재생 시간에 대응하는 프레임 선택
-- 가상 시나리오 데이터 제공, 이후 nuScenes mini 데이터로 교체
-- 프레임 로딩, 파싱, 캐시와 prefetch 정책 담당
-- Three.js가 사용할 수 있는 연속 메모리 형태의 데이터 제공
+| 타입 | 주요 값 | 의미 |
+| --- | --- | --- |
+| `LidarFrame` | `timestampMs`, `positions: Float32Array` | CPU 좌표 `[x, y, z, ...]`; 포인트 수는 배열 길이 ÷ 3 |
+| `CameraFrame` | `timestampMs`, `imageUrl` | 촬영 시각과 이미지 주소; 픽셀 준비 상태는 별도로 관리 |
+| `EgoPoseFrame` | `timestampMs`, `position`, `yawRadians` | 실제 차량의 기록 위치·방향 |
+| `ObjectDetectionFrame` | `timestampMs`, `objects` | 가상 인식 결과의 ID·분류·confidence·박스 |
+| `TrajectoryFrame` | `timestampMs`, `points` | 가상 계획 생성 시각과 미래 `offsetMs`별 예상 위치 |
+| `VehicleStateFrame`, `ScenarioEvent` | pose·속도·가속도, 이벤트 시각·종류 | 가상 차량 반응과 급제동 사건 |
 
-데이터 계층은 UI 표현이나 Three.js 객체를 직접 소유하지 않는다.
+실제 디스크 계약은 `schemaVersion: 3`, `float32-le-xyz`, `x-right-y-up-z-backward-meters`다. manifest는 자산의 상대 경로·timestamp·포인트 수와 ego pose를 담으며, LiDAR 좌표는 별도 little-endian Float32 파일에 저장한다. 파일 크기는 `pointCount × 3 × 4`바이트여야 한다.
 
-Phase 7의 실제 데이터 경계는 [DATA_FORMAT.md](./DATA_FORMAT.md)의 DriveScope 디스크 포맷 v3를 따른다. Python 변환기는 `manifest.json`, 전방 카메라 이미지와 LiDAR Float32 바이너리를 시나리오 디렉터리에 출력한다. manifest에는 파일 자체가 아니라 manifest 기준 상대 경로, timestamp·포인트 수와 ego vehicle pose 같은 메타데이터만 둔다. LiDAR 좌표는 `x, y, z` little-endian Float32 연속 배열로 저장해 JSON 문자열 파싱을 피한다. v3는 v2의 반사 축 변환을 수정한 계약이며 로더는 v2를 거부한다.
+시간 원점은 변환 대상 Camera·LiDAR 중 가장 이른 timestamp다. microsecond 원본에서 `floor((sourceTimestampUs - timestampOriginUs) / 1000)`으로 상대 정수 밀리초를 만든다. 공간 원점은 첫 LiDAR keyframe의 ego pose다. 시간 원점과 공간 원점이 같은 센서 시각일 필요는 없다.
 
-외부 JSON은 TypeScript 타입 선언만으로 검증되지 않는다. 브라우저 로더는 JSON을 `unknown`으로 받은 뒤 `parseDriveScopeManifest()`에서 schema version, 필드 타입, 정수 timestamp, Frame 순서와 안전한 상대 경로를 확인하고 나서 `DriveScopeManifest`로 사용한다. 검증된 manifest의 LiDAR 바이너리를 읽어 만든 `Float32Array`가 기존 `LidarFrame.positions` 경계로 들어가며, manifest 타입에 Three.js 객체를 넣지 않는다.
+LiDAR의 센서 보정과 차량의 시각별 pose를 Python에서 적용한다.
 
-원본 nuScenes timestamp는 microsecond 정수지만 시나리오 내부 시간은 가장 이른 변환 대상 센서 Frame을 `0ms`로 삼는다. Python 변환기는 `floor((sourceTimestampUs - timestampOriginUs) / 1000)`으로 상대 정수 밀리초를 만든다. 모든 실제 위치는 변환 단계에서 `X=오른쪽, Y=위, Z=뒤, meter`인 첫 sample 기준 오른손 좌표계로 맞춘다. 실제 전방은 -Z이며 기존 mock의 +Z 전방과 구분한다. 따라서 브라우저와 Three.js는 nuScenes 보정 행렬이나 절대 시각 변환을 다시 수행하지 않는다.
+```text
+sensor → 현재 ego → global → 첫 LiDAR ego 기준 시나리오 → Viewer 축
+scenarioFromSensor = scenarioFromGlobal × globalFromCurrentEgo × egoFromSensor
+Viewer xyz = [-sourceY, sourceZ, -sourceX]
+```
 
-구현된 `scripts/convert_nuscenes_mini.py`는 공식 nuScenes devkit으로 선택 scene의 sample 연결 목록을 순회하며 `LIDAR_TOP`·`CAM_FRONT` keyframe을 읽는다. LiDAR 점에는 `scenarioFromGlobal × globalFromCurrentEgo × currentEgoFromSensor` 순서의 동차 변환을 적용한다. 여기서 scenario 기준은 첫 sample의 `LIDAR_TOP` ego pose이며, 그 뒤 `viewerX = -sourceY`, `viewerY = sourceZ`, `viewerZ = -sourceX`로 축을 바꾼다. 변환 결과는 기존 출력에 덮어쓰지 않고 임시 디렉터리에서 완성한 뒤 scene 디렉터리로 이동한다.
+v3의 +X는 오른쪽, +Y는 위, +Z는 뒤이고 실제 전방은 -Z다. 이전 v2의 `[-y, z, x]`는 determinant -1인 반사였고 v3의 `[-y, z, -x]`는 +1로 오른손 좌표를 유지한다. ego 위치·yaw와 3D Camera도 같은 계약을 사용한다.
 
-같은 `scenarioFromGlobal × globalFromCurrentEgo` 행렬에서 ego vehicle의 위치와 진행 방향도 추출해 manifest v3의 `egoVehicle.frames`에 저장한다. 점군 변환에 pose를 잠깐 사용하는 것만으로는 Viewer가 차량의 실제 위치를 알 수 없으므로, LiDAR keyframe과 같은 timestamp의 `position`·`yawRadians`를 별도 데이터로 보존한다. yaw는 변환된 전방 벡터의 `atan2(-forwardX, -forwardZ)`로 계산하며 Three.js Y축 회전에 직접 대응한다. 속도·가속도는 현재 원본에서 직접 읽지 않았으므로 추정해 넣지 않는다.
+```text
+yawRadians = atan2(-forwardX, -forwardZ)
+Three.js에서 yaw를 적용한 전방 = [-sin(yaw), 0, -cos(yaw)]
+```
 
-첫 mini scene `scene-0061`의 실제 v3 결과는 LiDAR·Camera keyframe이 각각 39개이고 ego vehicle pose도 39개이며 시간 범위는 `0~19,185ms`다. 가장 이른 Camera Frame이 origin이고 첫 LiDAR·ego Frame은 `35ms`이므로 모든 스트림의 첫 Frame이 반드시 `0ms`일 필요는 없다. 첫 ego pose는 시나리오 원점과 yaw 0이고 마지막 위치는 약 `[-35.00, 1.48, -68.41]m`, 첫 위치로부터의 직선 이동 거리는 약 `76.86m`다.
+변환기는 JPEG를 그대로 복사한다. 브라우저는 좌표 변환이나 사진 좌우 반전을 다시 수행하지 않는다. 기존 가상 시나리오는 +Z 전방과 고정 3D Camera를 사용한다. 로더는 v2를 거부하므로 이전 파일의 버전 숫자만 v3로 바꾸면 안 된다.
 
-로컬 산출물은 JavaScript bundle이나 Git에 넣지 않는다. `.env.local`의 서버 전용 `DRIVESCOPE_DATA_ROOT`는 scene 디렉터리를 가리키고, `/api/drivescope-data/[...assetPath]` Route Handler가 manifest·LiDAR 바이너리·전방 JPEG 이미지를 same-origin HTTP로 제공한다. 브라우저는 로컬 절대 경로를 알지 못하며 `fetch()`로 manifest를 검증한 뒤 현재·양옆 LiDAR Frame만 요청한다. 응답 바이트는 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 경계에서 `LidarFrame` 객체로 바뀐다. 배포 환경은 개발자 PC의 로컬 디스크를 읽을 수 없으므로 이 산출물을 정적 파일 서버·CDN·오브젝트 스토리지로 옮기고 같은 상대 경로 계약을 유지한다.
+실제 3D Camera는 위 전방 벡터를 기준으로 ego 뒤 18m·위 12m에 놓이고 전방 12m·높이 1.5m를 바라본다. 점군과 Scene은 고정된 시나리오 좌표를 유지하고 Camera만 차량 pose를 따라간다. 현재 이동·yaw를 보간하거나 Camera를 smoothing하지 않는다.
 
-데이터 소스의 `cameraFrames`는 검증된 manifest의 상대 이미지 경로를 manifest 응답 URL 기준으로 해석한 `CameraFrame` 목록이다. Viewer는 같은 재생 시각에서 최신 과거 카메라 Frame을 선택한다. `useBufferedCameraFrame`은 패널에 유지되는 img 두 개 중 숨겨진 쪽에 URL을 지정하고 `decode()`가 완료된 뒤 표시 슬롯과 촬영 시각을 함께 바꾼다. 다운로드·디코딩 중과 이미지 실패 시에는 이전 사진을 유지하고 상태 문구를 표시한다. 동기화 패널도 목표 Frame이 아니라 실제 표시 중인 Frame의 timestamp를 사용하며, 뒤로 seek하는 동안에는 잠시 목표보다 늦은 이전 사진이 남을 수 있다. effect cleanup은 폐기된 요청의 완료 결과와 unmount 후 state 갱신을 차단한다. 소스 변경·빈 Frame에는 이전 소스 사진을 숨긴다. img DOM은 슬롯별로 재사용하며 URL별 key로 교체하지 않는다. LiDAR CPU 캐시와 Three.js 런타임은 이미지 버퍼를 소유하지 않는다. 수동 재시도와 manifest·LiDAR 오류 복구는 아래의 실제 데이터 오류와 복구 경계에서 처리한다.
+## 재생 시계와 Frame 선택
 
-실제 Viewer는 공통 재생 시각 이하의 최신 `egoVehicle.frames`를 선택해 차량 Mesh의 위치와 yaw를 갱신한다. 실제 pose의 최소 계약은 `EgoPoseFrame`이며, 가상 `VehicleStateFrame`은 이를 확장해 속도와 가속도를 추가한다. 이 분리는 실제 manifest에 존재하지 않는 동역학 값을 임의로 채우지 않으면서 같은 차량 Mesh 갱신 경계를 재사용하게 한다.
+서로 다른 세 시각을 구분한다.
 
-실제 데이터 모드의 가상 Three.js Camera는 고정된 시나리오 좌표 안에서 ego 차량을 따라간다. v3 yaw의 진행 벡터 `[-sin(yaw), 0, -cos(yaw)]`를 기준으로 차량 뒤 18m·위 12m에 Camera를 놓고 진행 방향 12m 앞·높이 1.5m를 바라본다. LiDAR 좌표나 Scene 자체를 매 Frame 차량 원점으로 옮기지 않으므로 첫 LiDAR ego 기준의 실제 차량 궤적과 정적 환경 관계가 유지된다. 현재는 keyframe pose를 보간하지 않고 Camera도 즉시 이동하며, 보간과 smoothing은 별도 판단한다.
+| 시각 | 소유자 | 용도 |
+| --- | --- | --- |
+| `currentTimeMs` | React의 `usePlayback` | 사용자가 탐색하는 시나리오 시간 |
+| `frame.timestampMs` | 센서·계획 데이터 | 해당 데이터의 기록·생성 시각 |
+| `performance.now()`·rAF timestamp | 브라우저 | 재생 경과 시간·로딩 시간·FPS 측정 |
 
-실제 소스 상태는 로딩 중, 준비 완료, 실패 후 mock fallback으로 구분한다. 로딩 중에는 mock Camera·Object Detection·Trajectory·Vehicle State·Event를 표시하지 않아 서로 다른 장면의 일시적인 혼합을 막는다. 실제 첫 ego pose보다 이른 시각에는 미래 pose를 당겨 쓰지 않고 차량 Mesh를 숨긴 채 기본 Camera를 유지한다.
+재생 중에는 100ms interval이 UI 갱신 기회를 제공하고, 실제 재생 시간은 `시작 시나리오 시간 + performance.now()의 경과 시간`으로 계산한다. 고정 `+100ms`를 누적하지 않는다. seek는 재생을 정지하고 목표 시간을 설정한다. 종료 시각은 소스의 duration으로 제한하고 끝에서 다시 재생하면 0초로 돌아간다. 실제 duration은 manifest를 따르고 가상 duration은 15초다.
 
-현재 `LidarFrame`은 측정 시점인 `timestampMs`와 `[x, y, z, ...]` 순서의 `Float32Array`인 `positions`만 보관한다. 포인트 수는 중복 필드로 저장하지 않고 `positions.length / 3`으로 계산한다. intensity처럼 아직 사용하지 않는 값은 미리 추가하지 않는다.
+Three.js rAF는 재생·정지와 별도로 계속 장면을 그린다. 재생 시각이 바뀌면 선택된 데이터에 대한 effect가 Buffer·transform을 갱신하고, rAF는 그 결과를 렌더링한다. 매 rAF마다 센서 좌표를 React state에 복사하지 않는다. 로딩 Hook의 state에는 완료된 Frame 참조와 표시 상태를 보관한다.
 
-`LidarFrame`에는 Three.js의 `BufferAttribute`, `BufferGeometry`나 `Points`를 넣지 않는다. 데이터 계층은 CPU의 순수 좌표를 제공하고, Three.js 런타임이 좌표 해석과 GPU 전송 상태를 관리할 `BufferAttribute`를 소유한다. CPU 배열을 바꾼 뒤에는 Attribute의 `needsUpdate`를 설정해야 다음 `renderer.render()`에서 변경 데이터가 GPU로 전송되고 새 화면에 사용된다.
+기본 선택은 각 센서 배열에 독립적으로 `findLatestFrameAtOrBefore(frames, currentTimeMs)`를 적용한다. 같은 배열 인덱스로 Camera·LiDAR·ego를 묶지 않는다. 미래 Frame은 목표로 선택하지 않으며 이전 Frame이 없으면 `null`이다.
 
-현재 `CameraFrame`은 촬영 시점인 `timestampMs`와 이미지 위치를 나타내는 문자열 `imageUrl`만 보관한다. 전방 카메라 하나만 다루는 현재 범위에서는 `cameraId`, 이미지 크기와 브라우저 객체를 미리 추가하지 않는다.
+실제 scene-0061의 12.4초에서는 Camera 12,050ms와 LiDAR·ego 12,085ms가 선택된다. 0초에는 Camera가 있지만 첫 LiDAR·ego는 35ms여서 해당 데이터만 비어 있다. 이는 연결 실패와 다른 상태다.
 
-`CameraFrame`에는 `HTMLImageElement`, `ImageBitmap`이나 Three.js `Texture`를 넣지 않는다. 직렬화 가능한 URL은 Server Component에서 Client Component로 전달할 수 있으며, React가 카메라 패널의 `<img>` UI를 구성하면 브라우저가 실제 파일을 요청하고 디코딩한다. 향후 3D Texture로 사용할 때만 Three.js 런타임이 Texture 로딩과 `dispose()`를 책임진다.
+비동기 준비 때문에 **목표 Frame**과 **표시 Frame**은 잠시 다를 수 있다. [동기화 패널](../app/viewer/_components/synchronized-frames-panel.tsx)은 실제 표시 사진·로드된 LiDAR·선택된 pose의 timestamp를 사용한다. 이전 사진을 유지하며 뒤로 seek하면 사진의 시간 차이가 잠시 양수일 수도 있다. 센서별 보간이나 지연 허용 한계는 아직 적용하지 않는다.
 
-현재 `ObjectDetectionFrame`은 인식 결과의 `timestampMs`와 같은 시점에 인식된 `ObjectDetection[]`를 보관한다. 각 객체는 프레임 사이에서 같은 대상을 식별할 `id`, 현재 MVP가 다루는 `vehicle | pedestrian` 분류, `confidence`, 3D 박스 중심과 `width, length, height` 크기, 수직축 회전 `yawRadians`를 가진다.
+`findNearestFrame`은 기본 재생에서 사용하지 않는다. 미래 예측 시각과 이후 관측값을 비교하는 용도로 남아 있으며, 현재 Frame 선택은 선형 탐색이다.
 
-배열 인덱스는 프레임마다 객체 수와 정렬 순서가 달라질 수 있으므로 객체 정체성을 나타내지 않는다. 같은 실제 객체의 `id`는 tracker나 변환 데이터가 프레임 사이에서 유지해 객체 선택과 시간에 따른 추적에 사용한다. 데이터 타입은 숫자와 문자열만 보관하고 Three.js의 Box Geometry나 Object3D는 렌더링 시 Three.js 런타임이 생성·재사용한다.
+## LiDAR 로딩·캐시·Buffer
 
-현재 `TrajectoryFrame`은 Planning이 예측 경로를 생성한 시점인 `timestampMs`와 순서가 있는 `TrajectoryPoint[]`를 보관한다. 각 점의 `offsetMs`는 생성 시점으로부터의 미래 시간 차이이고 `position`은 그 미래 시점에 예상한 차량 위치다. 따라서 한 점의 예상 시각은 `TrajectoryFrame.timestampMs + TrajectoryPoint.offsetMs`다.
+### 요청과 CPU 캐시
 
-DriveScope가 과거 로그를 재생하는 현재 시점에서는 Trajectory 전체가 과거 데이터지만, 각 Frame은 당시 Planning이 바라본 미래 예측의 스냅샷이다. 예측 위치는 같은 시각의 실제 차량 위치가 아니며 이후 `VehicleState`와 비교할 수 있다. Planning이 다시 계산할 때마다 새 `TrajectoryFrame`이 생기므로 급제동 전후 경로 변화를 보존한다.
+`loadDriveScopeDataSource`는 manifest를 요청·검증하고 timestamp별 메타데이터 Map과 `loadFrame(timestampMs)`를 만든다. 이 함수는 선택된 `.bin`을 fetch하고 파일 크기를 확인한 뒤 `LidarFrame`을 반환한다. little-endian 환경에서는 `new Float32Array(arrayBuffer)`로 받은 메모리를 해석하며, 다른 endian 환경에서는 `DataView`로 읽어 별도 배열을 만든다.
 
-현재 `TrajectoryFrame`은 내 차량의 Planning 결과만 나타낸다. 관찰한 물체의 과거 이동은 여러 `ObjectDetectionFrame`에서 같은 `id`의 `center`를 timestamp 순서로 연결해 얻고, 관측 속도는 위치와 시간의 차이로 계산할 수 있다. 움직이는 물체의 미래 위치까지 비교해야 할 때는 내 차 Trajectory에 섞지 않고 객체 ID와 미래 offset을 가진 별도 예측 타입을 추가한다. 현재 가상 보행자는 Z 20m에 정지한 것으로 단순화했다.
+`useLidarFrameCache`는 소스별로 다음 두 Map을 유지한다.
 
-가상 시나리오의 Trajectory 5개는 실제 Planning 주기를 표현하지 않고 경로가 의미 있게 달라지는 핵심 시점만 남긴 최소 스냅샷이다. 실제 Planning은 더 짧은 주기로 경로를 다시 계산하며, 이 축약 데이터에서는 선택한 Trajectory timestamp와 재생 시각의 차이가 커질 수 있다.
+| 저장소 | 내용 | 정책 |
+| --- | --- | --- |
+| `FrameCache<LidarFrame>` | 완료된 Frame·CPU 좌표 배열 | timestamp 키, 최대 5개, get 성공 시 최근 사용 순서 갱신 |
+| `inFlightLoads` | 완료 전 로더 Promise | 같은 timestamp의 현재 요청·prefetch가 Promise 공유; 완료·실패 시 finally에서 제거 |
 
-현재 `EgoPoseFrame`은 실제 상태를 측정한 `timestampMs`, 차량의 `position`과 `yawRadians`를 보관한다. 가상 `VehicleStateFrame`은 이 타입을 확장해 실제 속도 `speedMetersPerSecond`와 진행 방향 기준 가속도 `accelerationMetersPerSecondSquared`를 보관한다. 가속도는 가속할 때 양수, 속도를 유지할 때 0, 감속할 때 음수로 해석한다.
+현재 요청이 cache hit이면 같은 Frame 참조를 즉시 반환한다. miss이면 로더를 시작하거나 진행 중 Promise를 공유한다. 현재 Frame이 준비된 뒤 양옆 한 Frame을 같은 경로로 prefetch한다. 다음 Frame을 미리 보관해도 표시 시점 선택은 재생 시간 규칙을 따른다.
 
-Trajectory의 예상 위치와 실제 위치를 비교할 때는 `TrajectoryFrame.timestampMs + TrajectoryPoint.offsetMs`로 예상 시각을 구하고, 시나리오 공통 시간축에서 같거나 가장 가까운 `VehicleStateFrame.timestampMs`를 선택한다. 급제동 발생 여부는 물리 상태에 boolean으로 중복 저장하지 않고 별도의 Event로 표현한다.
+최대 5개는 **완료된 캐시 항목 수**의 제한이다. 진행 중 요청 수나 전체 브라우저 메모리를 5개로 제한하지 않는다. 빠른 seek 중 요청은 더 많이 남을 수 있다. 가상 모드에서는 원본 배열 전체가 이미 메모리에 있고 모의 로더가 좌표를 복사하므로 실제 데이터와 메모리·로딩 비용이 다르다.
 
-현재 `ScenarioEvent`는 개별 사건을 구별하는 `id`, 공통 시간축의 발생 시각 `timestampMs`, 사건 종류 `type`을 보관한다. 첫 데모의 `type`은 문자열 유니온인 `"emergency-braking"`만 허용하며 다른 사건이 실제로 필요해질 때 유니온을 확장한다.
+### Three.js 표시 Buffer
 
-Event는 주기적으로 샘플링되는 Vehicle State와 달리 특정 순간에 발생하는 이산 데이터다. 각 상태 Frame에 boolean을 반복 저장하지 않고 독립 Event 스트림으로 관리하면 전체 상태 배열을 검색하거나 중복 여부를 검사하지 않고도 사건 목록, 타임라인 마커와 사건 시점 이동을 처리할 수 있다.
+```mermaid
+flowchart LR
+    Cache["CPU 캐시: Frame별 Float32Array"] -->|"선택 Frame 좌표를 set으로 복사"| Attribute["런타임 CPU 배열: BufferAttribute"]
+    Attribute -->|"needsUpdate 후 render에서 전송"| GPU["GPU position Buffer"]
+    GPU --> Draw["drawRange만큼 Points 그리기"]
+```
 
-`ScenarioData`는 시나리오 `id`와 `durationMs`, Camera·LiDAR·Object Detection·Trajectory·Vehicle State Frame 배열 및 Event 배열을 하나의 데이터 단위로 묶는다. `mockScenario`는 0~15초의 보행자 급제동 장면을 이 타입으로 구현하며 UI나 Three.js 객체를 포함하지 않는다. 가상 카메라 URL은 이후 이미지 패널 단계에서 만들 파일의 경로만 나타낸다.
+`ViewerCanvas`는 실제 manifest의 최대 `pointCount × 3`을 `lidarPositionCapacity`로 전달한다. 초기화 effect는 이 값과 가상 원본의 최대 배열 길이 중 큰 용량으로 position 배열·Attribute·Geometry·Material을 만든다. 가상 모드의 최대 21포인트는 실제 모드의 용량 제한이 아니다.
 
-가상 공간의 단위는 미터이며 X는 좌우, Y는 높이, 양의 Z는 차량 진행 방향으로 사용한다. 모든 가상 위치는 같은 시나리오 좌표계에 있어 Object Detection의 보행자 중심, Trajectory와 Vehicle State를 직접 비교할 수 있다. 실제 nuScenes 데이터는 로딩 경계에서 이 좌표계로 변환한다.
+Frame 변경 effect의 핵심은 다음과 같다.
 
-Camera Frame은 1,000ms 간격으로 16개, LiDAR Frame은 500ms 간격으로 31개를 생성해 서로 다른 센서 주기를 표현한다. 10초에 카메라 URL과 LiDAR 포인트에 보행자가 등장하고, Object Detection은 11초부터 같은 `pedestrian-1`을 제공한다. 12초 Trajectory의 2,000ms 뒤 예상 위치 `[0, 0, 20]`은 보행자 중심과 겹친다. 12.4초 급제동 Event와 `-4m/s²` 감속 이후 차량은 13.4초에 Z 15.6m에서 정지하며 이후 Trajectory도 그 위치를 넘지 않는다.
+```ts
+(attribute.array as Float32Array).set(lidarFrame.positions);
+attribute.needsUpdate = true;
+geometry.setDrawRange(0, lidarFrame.positions.length / 3);
+geometry.computeBoundingSphere();
+```
 
-현재 Viewer는 `findLatestFrameAtOrBefore`로 선택한 Camera의 `imageUrl`과 Object Detection의 객체 수·ID를 React 정보 카드에 표시한다. 같은 Camera URL은 전방 카메라 `<img>`의 `src`에도 반영되며 브라우저가 `public/mock-camera/`의 가상 SVG를 요청하고 디코딩한다. 촬영 시각을 함께 표시하며 Camera Frame 주기 사이에서는 최신 과거 이미지를 유지한다. 선택된 LiDAR Frame은 Three.js 포인트 장면에 실제 좌표로 반영되어 10초 전에는 도로 포인트 15개, 이후에는 보행자 포인트를 포함한 21개를 그린다. 선택된 Object Detection의 보행자는 11초부터 3D 박스로 표시한다.
+`set()`은 캐시 좌표를 런타임 배열 앞부분에 복사한다. `needsUpdate`는 다음 render에서 GPU 전송이 필요함을 알리고, `drawRange`는 남은 용량을 그리지 않게 한다. 같은 런타임 안에서는 Frame마다 Geometry와 position 배열을 새로 만들지 않는다. 목표 Frame이 로딩 중이거나 실패하면 drawRange를 0으로 두어 이전 시점 점군을 현재 데이터처럼 표시하지 않는다.
 
-Phase 5의 보행자와 차량 박스는 단위 크기 `BoxGeometry(1, 1, 1)` 하나를 공유한다. 보행자는 주황색, 차량은 초록색이며 조명이 필요 없는 wireframe `MeshBasicMaterial`은 서로 다른 색상을 위해 각각 소유한다. 선택된 Object Detection Frame에서 `category === "pedestrian"`인 객체가 없으면 보행자 Mesh를 숨기고, 있으면 `center`, `size`와 `yawRadians`를 반영한다. 데이터의 `size` 순서 `[width, length, height]`는 Three.js 장면 축 X·Y·Z에 맞춰 `scale(width, height, length)`로 바꾼다.
+`needsUpdate = true`는 Attribute의 version을 증가시킨다. CPU 배열을 바꾼 것만으로 GPU 좌표가 바뀌지 않으며 Renderer가 이 갱신을 처리해야 화면에 반영된다.
 
-Canvas click 좌표는 `getBoundingClientRect()`로 구한 CSS 영역 안의 비율로 바꾼 뒤 X는 `비율 × 2 - 1`, Y는 DOM과 WebGL의 증가 방향이 반대이므로 `-(비율 × 2 - 1)`인 NDC로 변환한다. `Raycaster.setFromCamera()`는 Camera 위치에서 이 NDC가 가리키는 3D 방향으로 광선을 만들고, 현재 보이는 보행자 Mesh의 `BoxGeometry` 삼각형 면과 교차하는지 검사한다. wireframe은 그리는 방식이므로 선 사이의 면도 선택 영역이며, Three.js Raycaster는 `visible = false`를 자동으로 제외하지 않아 click handler가 표시 여부를 먼저 검사한다.
+`computeBoundingSphere()`는 CPU가 position 배열을 읽어 객체의 시야 밖 판정에 쓸 구를 계산한다. drawRange와 별개로 Attribute 전체 용량을 읽으므로 뒤쪽 이전 값 때문에 구가 크게 잡힐 수 있다. 현재 구현은 이를 그대로 사용하며 계산 비용을 별도 측정하지 않았다.
 
-선택 상태는 Frame마다 새 참조가 될 수 있는 Detection 객체나 Three.js Mesh 대신 안정적인 `ObjectDetection.id`를 React state에 저장한다. 현재 Mesh의 `userData.objectId`가 최신 Frame의 ID를 보관하므로 마운트 시 만들어진 click handler도 오래된 Frame closure를 읽지 않는다. 같은 ID가 다음 Detection Frame에 있으면 선택을 유지하고, 대상이 사라지거나 빈 공간을 클릭하면 해제한다. Three.js는 기존 보행자 Material의 색만 주황색에서 자홍색으로 바꾸며 Color uniform 값 변경에는 `needsUpdate`가 필요하지 않다. Raycaster와 NDC용 Vector2는 GPU 리소스가 아니므로 `dispose()`하지 않고 Canvas click listener만 cleanup에서 제거한다.
+## 카메라 이미지의 준비와 교체
 
-선택 정보 패널은 React가 `selectedObjectId`와 현재 선택된 Object Detection Frame을 대조해 객체를 파생한다. ID만 state에 저장하므로 같은 객체의 새 Frame이 선택되면 confidence·크기·인식 시각은 현재 Frame 값으로 갱신된다. ID가 없거나 현재 Frame에 객체가 없으면 안내 문구를 표시한다. 정보 패널은 Three.js Geometry나 Material을 만들지 않는다.
+`CameraFrame.imageUrl`은 사진 주소다. `new URL(frame.imageFile, manifestResponse.url)`은 상대 경로를 HTTP URL로 해석할 뿐 다운로드·디코딩을 완료하지 않는다. 이미지 다운로드와 JPEG·SVG 디코딩은 브라우저가 수행한다.
 
-차량 크기 `[1.8, 4.5, 1.5]`는 Frame마다 변하지 않으므로 각 `VehicleStateFrame`에 반복하지 않고 `ScenarioData.egoVehicleSize`에 한 번 저장한다. Vehicle State의 `position`은 지면 위 차량 footprint 중심을 나타내므로 차량 Mesh의 중심 Y에는 `groundY + height / 2`를 사용한다. 보행자 Detection의 `center`는 이미 3D 박스 중심이어서 같은 보정을 하지 않는다. 두 박스 모두 Y가 수직축이므로 `yawRadians`는 `rotation.y`에 적용한다.
+`CameraPanel`은 슬롯 0·1의 img DOM을 유지하고 CSS로 활성 슬롯만 표시한다. Hook은 현재 보이는 슬롯의 반대편에서 목표 사진을 준비한다.
 
-현재 차량 박스는 `findLatestFrameAtOrBefore`로 선택한 가상 Vehicle State 또는 실제 Ego Pose의 기록 위치로 즉시 이동한다. 두 Frame 사이의 위치나 yaw 중간값은 아직 계산하지 않으므로 기록 간격 사이에서는 같은 위치를 유지하다 다음 Frame 시각에 이동한다. 이후 보간을 도입한다면 목표 재생 시각이 이전·다음 Frame 사이에서 차지하는 비율로 위치와 yaw를 계산하며, 부드러운 움직임은 그 계산 결과다.
+```ts
+const nextSlot = activeSlotRef.current === 0 ? 1 : 0;
+const image = imageRefs.current[nextSlot];
+image.src = targetFrame.imageUrl;
 
-예상 주행 경로도 `findLatestFrameAtOrBefore`로 현재 재생 시각에 이미 생성돼 있던 최신 `TrajectoryFrame`을 선택한다. `timestampMs`는 계획을 생성한 시각이고 각 `TrajectoryPoint.offsetMs`는 그 계획 안의 미래 시간이다. 점의 `position`은 이미 공통 시나리오 좌표계의 절대 위치이므로 선의 좌표를 만들 때 offset을 더하지 않는다. 각 점이 의미하는 예상 시각은 분석할 때 `timestampMs + offsetMs`로 계산한다.
+void image.decode().then(() => {
+  if (cancelled) return;
+  activeSlotRef.current = nextSlot;
+  setDisplayed({ sourceId, frame: targetFrame, slot: nextSlot });
+  setFailure(null);
+});
+```
 
-경로 렌더링은 모든 가상 Trajectory 중 최대 4점을 담는 숫자 12개의 `Float32Array`와 `BufferAttribute`, `BufferGeometry`, 노란색 `LineBasicMaterial`과 `Line`을 마운트 시 한 번 생성한다. 선택된 계획이 바뀌면 기존 배열 앞부분에 위치를 복사하고 `needsUpdate = true`로 GPU Buffer 갱신을 예약하며, `drawRange`로 현재 계획의 점 개수만 `LINE_STRIP`으로 그린다. Grid와 같은 높이에서 깊이 충돌이 생기지 않도록 렌더링할 때만 Y에 0.05m를 더하고 원본 데이터는 바꾸지 않는다. 좌표 갱신 뒤 bounding sphere를 다시 계산하고 컴포넌트 해제 시 경로 Geometry와 Material을 명시적으로 정리한다.
+위 코드는 성공 경로의 발췌다. 실제 구현은 빈 Frame·img 검사를 먼저 하고 decode 실패도 처리한다.
 
-서로 다른 `TrajectoryFrame` 사이를 보간하지 않는 이유는 화면을 부드럽게 만드는 대신 플래너가 실제로 출력하지 않은 중간 계획을 만들어 낼 수 있기 때문이다. 12.0초의 기존 계획이 보행자 위치까지 이어지고 12.4초 급제동 시점의 새 계획이 정지 위치에서 끝나는 변화 자체가 분석 대상이다. 과거 계획점의 예상 시각에 실제 Vehicle State를 맞춰 위치 오차를 계산할 수 있지만, 이후 새 계획이 안전하게 갱신됐다면 기존 계획과 실제 위치의 차이를 곧바로 실패로 단정하지 않고 계획 변경 원인과 차량 반응을 함께 본다.
+```text
+목표 Frame 선택 → 숨긴 img의 src 지정 → 브라우저 다운로드·디코딩
+→ decode Promise 성공 → 활성 슬롯·표시 Frame 함께 갱신 → 준비된 사진 표시
+```
 
-충돌 판정은 현재 가상 시나리오의 차량과 보행자가 모두 `yaw = 0`이고 보행자가 정지해 있다는 조건에서 XZ footprint를 사용한다. `TrajectoryPoint.position`을 차량 footprint 중심으로 보고, 보행자 사각형을 차량 반폭과 반길이만큼 확장한다. 그러면 차량 박스 전체를 경로를 따라 옮기는 대신 차량 중심 선분이 이 확장 영역에 들어오는지 검사해 두 footprint의 겹침을 판정할 수 있다. 현재 보행자 폭·길이 0.6m와 차량 폭 1.8m·길이 4.5m를 합치면 확장 영역은 X `[-1.2, 1.2]`, Z `[17.45, 22.55]`다.
+준비 중에는 이전 사진과 그 촬영 시각을 유지한다. `key={slot}`을 쓰므로 URL마다 DOM을 교체하지 않는다. 이 두 슬롯은 **선택된 사진의 표시 준비**를 위한 것이며 시나리오의 모든 사진이나 시간상 다음 사진을 항상 미리 읽는 기능은 아니다.
 
-연속한 경로점 두 개를 `P(t) = start + t(end - start)`, `0 <= t <= 1`인 선분으로 표현하고 X·Z 두 축에서 확장 영역 안에 들어오는 `t` 범위를 차례로 좁힌다. 이 slab clipping은 양 끝점이 모두 밖이어도 가운데가 영역을 통과하는 경우를 찾고, 겹치는 부분의 정확한 시작점과 끝점을 반환한다. 12.0초 계획의 마지막 선분은 Z `16 → 20` 중 `17.45 → 20`이 충돌 구간이고, 12.4초 급제동 계획은 최대 Z 15.6에서 끝나므로 충돌 구간이 없다.
+정상적인 짧은 교체에는 사진 위 loading 문구를 표시하지 않는다. 같은 표시 사진이 loading으로 500ms 유지될 때만 헤더에 `이미지 지연`을 표시한다. 타이머는 `[status, frame]`에 의존하므로 목표가 바뀌어도 같은 사진을 계속 표시하면 지연 시간을 이어간다. cleanup은 timeout을 취소하고, 지연 Frame과 현재 표시 Frame이 같은 경우에만 문구를 보여준다. 헤더 공간은 미리 확보한다. 500ms는 UI 기준이며 센서 수집 주기가 아니다.
 
-전체 예상 경로는 기존 노란 `Line`으로 유지한다. 충돌 구간은 최대 `(경로점 수 - 1) × 2`개 정점을 담는 별도 `Float32Array`, `BufferAttribute`, `BufferGeometry`와 빨간 `LineSegments`를 마운트 시 한 번 만들고 재사용한다. 선택된 Trajectory나 보행자가 바뀔 때 clipped 선분을 Buffer 앞부분에 복사하고 `needsUpdate`, `drawRange`와 bounding sphere를 갱신한다. 빨간 선은 노란 선보다 Y를 0.02m 더 올려 깊이 충돌을 피하고, cleanup에서 Geometry와 Material을 정리한다.
+첫 사진 준비·빈 상태·실패에는 안내를 표시한다. 소스가 바뀌거나 목표 Frame이 없으면 이전 소스 사진을 숨긴다. cleanup의 `cancelled`는 오래된 decode 완료가 현재 표시를 덮어쓰지 못하게 한다.
 
-이 판정은 현재 축 정렬 가상 데이터에서 정확하지만 일반적인 곡선 주행 충돌 판정은 아니다. 차량과 객체의 yaw가 서로 다르면 각 미래 시각의 회전 박스(OBB)를 SAT 같은 방법으로 비교해야 하고, Frame 사이의 회전·이동 중 충돌까지 놓치지 않으려면 swept volume이나 연속 충돌 판정이 필요하다. 현재 Trajectory에는 미래 차량 yaw와 움직이는 보행자 예측이 없으므로 이 범위는 구현하지 않는다.
+## 오류와 재시도
 
-## 소유권과 생명주기
+| 경계 | 실패 시 동작 | 재시도 |
+| --- | --- | --- |
+| manifest | HTTP·계약·timestamp 오류를 표시하고 가상 fallback | 재생 정지·0초 이동, 요청 번호 증가, manifest 재연결 |
+| 현재 LiDAR | 오류 표시, 해당 점군 숨김 | 현재 시각에서 재생 정지, 같은 timestamp 요청 번호 증가 |
+| 주변 LiDAR prefetch | allSettled로 처리, 현재 정상 Frame 유지 | 실패 Promise 제거 후 해당 시점 요청 시 재시도 |
+| 이미지 | 이전 사진·timestamp 유지, 실패 안내 | 재생 정지, 같은 URL을 숨긴 슬롯에서 다시 로드·decode |
 
-| 대상 | 소유 계층 | 생성 시점 | 정리 시점 |
-| --- | --- | --- | --- |
-| 페이지, 컨트롤, 재생 상태 | React | 컴포넌트 렌더링 시 | 컴포넌트 해제 시 |
-| `<canvas>` DOM 요소 | React | 3D 뷰 렌더링 시 | 3D 뷰 해제 시 |
-| Scene, Camera, Renderer | Three.js 런타임 | 3D 뷰 마운트 시 | 3D 뷰 해제 시 |
-| Grid와 Geometry, Material, Texture, Buffer | Three.js 런타임 | 시각화 객체 준비 시 | 교체 또는 런타임 해제 시 |
-| 센서 프레임과 이벤트 | 데이터 계층 | 데이터 생성·로딩 시 | 캐시 축출 또는 세션 종료 시 |
+`requestAttempt`가 effect 의존성에 있어 번호를 증가시키면 동일 URL·timestamp에서도 다시 실행된다. 번호는 네트워크 재시도 횟수의 자동 정책이 아니라 수동 요청을 다시 실행하는 신호다.
 
-Three.js 객체는 필요한 경우 React `ref` 또는 React 바깥의 런타임 객체로 참조한다. 같은 리소스를 여러 계층이 임의로 생성하거나 정리하지 않는다.
+manifest effect는 cleanup에서 AbortController를 abort하고 이후 결과도 검사한다. LiDAR의 `ignoreResult`와 이미지의 `cancelled`는 오래된 결과의 **state 반영**을 차단한다. 현재 LiDAR fetch에는 AbortSignal을 전달하지 않으므로 seek·unmount가 모든 HTTP 요청을 취소하는 것은 아니다. 늦은 LiDAR 완료는 캐시에 들어갈 수 있으나 폐기된 요청이 표시 state를 바꾸지 않는다.
 
-## GC와 명시적 cleanup
+LiDAR 반환 state는 소스 참조와 목표 timestamp가 모두 일치해야 사용한다. 이미지도 sourceId가 일치하는 표시 Frame만 사용한다. 실패한 Promise를 진행 중 Map에서 제거해 다음 요청이 실패 결과를 계속 공유하지 않게 한다.
 
-JavaScript GC는 도달할 수 없게 된 JS 객체의 힙 메모리를 나중에 회수한다. 변수의 지역·전역 여부보다 현재 참조 경로가 남아 있는지가 중요하다. `window`의 이벤트 목록과 브라우저의 animation frame 큐가 콜백을 참조하면 콜백의 closure를 통해 Scene, Camera와 Renderer도 계속 도달 가능한 상태로 남을 수 있다.
+Route Handler는 `manifest.json`, `lidar/*.bin`, `camera/*.jpg|jpeg`의 허용 패턴과 루트 내부 경로를 검사한다. 미설정은 503, 누락·허용되지 않은 자산은 404다. 파일 제공과 브라우저 manifest 검증은 서로 다른 경계이며 JSON·바이너리·JPEG에 각각 올바른 Content-Type을 사용한다. 현재 Route 응답과 manifest·LiDAR fetch는 no-store다.
 
-탭을 닫아 해당 페이지 실행 영역과 WebGL context 자체가 파괴되면 브라우저와 GPU 드라이버가 그 context의 GPU 리소스를 회수한다. 반면 Next.js SPA 안에서 컴포넌트만 해제될 때는 같은 `window`와 WebGL context가 계속 살아 있으므로 탭 종료에 기대지 않고 명시적으로 정리한다.
+## 가상 시나리오의 분석
 
-- `cancelAnimationFrame()`과 resize·Canvas click의 `removeEventListener()`는 브라우저가 보관한 콜백 참조와 이후 실행을 끊는다.
-- `grid.dispose()`는 Grid JS 객체를 삭제하지 않고 Geometry와 Material의 dispose 이벤트를 통해 GPU 리소스 해제를 요청한다.
-- `scene.clear()`는 Scene과 자식의 참조 관계를 끊지만 GPU 리소스를 해제하지 않는다.
-- 현재처럼 Scene 전체가 다른 곳에 보관되지 않고 함께 도달 불가능해진다면 JS GC는 자식 관계가 남아 있어도 그래프 전체를 회수할 수 있다. `scene.clear()`는 즉시 연결을 명시적으로 끊고 이후 Scene 재사용이나 외부 참조가 생겨도 소유권을 분명히 하기 위해 유지한다.
-- `renderer.dispose()`는 Renderer 내부 WebGL 캐시와 Canvas context 이벤트를 정리하지만 Canvas DOM이나 사용자 Geometry, Material과 Texture를 자동으로 제거하지 않는다.
-- 명시적 cleanup 뒤 남은 JS 객체는 다른 참조가 없어지면 GC 대상이 된다.
+가상 모드는 인식 Frame에서 보행자를 고르고 기존 박스 Mesh의 위치·크기·yaw·visible을 갱신한다. 차량 박스와 예상 경로도 최신 과거 Frame을 반영한다. 위치·yaw를 Frame 사이에서 보간하지 않는다.
 
-## 공통 시간 기준
+예상 경로의 각 점은 공통 시나리오 좌표의 위치와 미래 `offsetMs`를 가진다. 예상 시각은 `TrajectoryFrame.timestampMs + offsetMs`다. 서로 다른 계획 Frame을 보간하면 실제 출력되지 않은 중간 계획을 만들 수 있어 현재는 기록된 계획을 그대로 교체한다.
 
-- 모든 Frame과 Event의 시간 필드 이름은 `timestampMs`로 통일한다.
-- 단위는 정수 밀리초이며 가상 시나리오가 시작하는 순간을 `0ms`로 본다.
-- 예를 들어 보행자 등장 `10초`는 `10_000ms`, 급제동 `12.4초`는 `12_400ms`로 저장한다.
-- 화면에 초 단위로 표시할 때만 `timestampMs / 1_000`으로 변환한다.
-- 실제 데이터가 절대 시각이나 더 작은 단위를 사용하면 데이터 로딩 경계에서 시나리오 상대 밀리초로 정규화한다.
+충돌 계산은 yaw 0인 차량·정지한 보행자의 XZ footprint에 한정한다. 보행자 영역을 차량 반폭·반길이만큼 확장한 뒤, 차량 중심 경로 선분이 그 영역과 겹치는 부분을 slab clipping으로 구한다. 양 끝점이 영역 밖이어도 중간을 통과하는 선분을 찾는다. 12.0초 계획의 Z `16 → 20` 중 `17.45 → 20`이 위험 구간이고 12.4초 새 계획은 Z 15.6에서 끝나 겹치지 않는다.
 
-`ViewerCanvas`는 현재 재생 시각을 `currentTimeMs` React state로 소유한다. 초기값은 시나리오 시작인 `0ms`이고 전체 길이는 `mockScenario.durationMs`인 `15_000ms`다. 화면에만 `0.0 / 15.0초`처럼 초 단위로 변환해 표시한다. 이 시각에서 Camera·LiDAR·Object Detection Frame을 각각 선택하고 LiDAR Buffer와 보행자 박스를 갱신한다.
+노란 경로는 Line, 빨간 충돌 구간은 LineSegments의 별도 재사용 Buffer로 그린다. Grid와의 깊이 충돌을 줄이기 위해 렌더 좌표의 Y만 각각 0.05m·0.07m 올리고 원본 데이터는 바꾸지 않는다. 회전 박스·움직이는 객체의 미래 예측과 연속 충돌 판정은 구현하지 않았다.
 
-재생 여부는 `isPlaying` React state가 소유하고 버튼은 이 값을 `재생`과 `정지` 사이에서 전환한다. 재생을 시작할 때의 시나리오 시간과 브라우저 시각은 화면 렌더링에 필요하지 않으므로 각각 `playbackTimeAtStartRef`와 `playbackStartedAtRef`에 보관한다. 100ms `setInterval`은 UI 갱신 기회만 제공하고 실제 재생 시간은 `재생 시작 시나리오 시간 + (현재 performance.now() - 재생 시작 performance.now())`로 계산한다. 따라서 callback 지연을 고정 `+100ms`로 누적하지 않는다.
+객체 선택은 CSS Canvas 좌표를 NDC `[-1, 1]`로 바꾸고 DOM과 WebGL의 Y 방향 차이를 뒤집어 Raycaster로 검사한다. click handler는 보이는 보행자만 검사하고 Mesh의 최신 `userData.objectId`를 읽는다. wireframe 박스도 삼각형 면을 선택 영역으로 사용한다.
 
-정지하면 `isPlaying` 변화에 따른 effect cleanup이 interval을 제거하고 현재 재생 시간은 유지된다. 15초에 도달하면 정확히 시나리오 길이로 제한하고 자동 정지하며, 끝에서 다시 재생하면 0초로 되돌린다. 이 state 변경은 React UI를 다시 렌더링하지만 의존성 배열이 빈 Three.js 초기화 effect를 다시 실행하지 않으므로 기존 Scene, Renderer와 GPU 리소스는 유지된다. 별도 갱신 effect가 선택된 Frame 데이터만 기존 Three.js 객체에 반영한다.
+React state는 선택 객체의 ID를 저장하고 최신 Detection Frame에서 객체 정보를 파생한다. ID가 사라지거나 빈 공간을 클릭하면 해제한다. Three.js는 선택 피드백으로 기존 Material 색을 바꾸며 새 Material을 만들지 않는다.
 
-타임라인은 `currentTimeMs`를 `value`로 사용하는 제어된 range input이다. 범위는 `0~mockScenario.durationMs`, 간격은 100ms다. `onChange`에서 `valueAsNumber`를 읽어 문자열 변환 없이 `currentTimeMs`에 반영한다. 사용자가 타임라인을 조작하면 먼저 `isPlaying`을 false로 바꿔 기존 재생 interval이 옛 기준 시각으로 계산한 값으로 seek 결과를 덮어쓰지 않게 한다. 이동한 시각에서 재생 버튼을 누르면 새 재생 기준 ref를 설정하고 이어서 재생한다.
+## 소유권과 리소스 생명주기
 
-range의 실제 값은 밀리초지만 `aria-valuetext`는 이를 `12.4초`처럼 사람이 이해하기 쉬운 문자열로 접근성 API에 제공한다. 이 값은 화면 표시나 재생 계산을 바꾸지 않으며 `<label>`의 `타임라인` 텍스트와 함께 스크린 리더가 컨트롤의 이름과 현재 값을 이해하게 한다.
+| 대상 | 소유자 | 정리 |
+| --- | --- | --- |
+| Canvas·img DOM, 패널·선택 ID·표시 상태 | React | 컴포넌트 해제; 비동기 effect 완료 결과 차단 |
+| 재생 interval | usePlayback | 정지·effect 교체·해제 시 clearInterval |
+| manifest 요청 | useDriveScopeDataSource | effect 교체·해제 시 abort |
+| CPU Frame 캐시·진행 중 Promise Map | useLidarFrameCache | 소스별 새 저장소; 이전 캐시 clear, Promise는 settle 후 제거 |
+| 이미지 준비·지연 timeout | 이미지 Hook·CameraPanel | decode 결과 차단·clearTimeout |
+| Scene·Camera·Renderer·Grid·Geometry·Material·rAF·리스너 | useThreeViewer | 런타임 effect cleanup |
 
-타임라인 이벤트 마커의 가로 위치는 `event.timestampMs / mockScenario.durationMs * 100`으로 계산한다. `12_400ms` 급제동 이벤트는 전체 `15_000ms` 중 `82.666…%` 위치에 고정된다. 이벤트 시각과 시나리오 길이에서 다시 만들 수 있는 파생값이므로 별도 React state에 복제하지 않는다. 재생 손잡이는 `currentTimeMs`에 따라 이동하지만 사건 마커는 로그에 기록된 발생 시각을 계속 가리킨다.
+Three.js 초기화 effect의 실제 의존성은 `[canvasRef, lidarPositionCapacity, scenario, setSelectedObjectId]`다. 재생 시간·FPS state 갱신만으로 런타임을 다시 만들지 않는다. manifest 연결 등으로 용량이 바뀌면 기존 런타임을 정리하고 새 용량으로 생성한다. 따라서 “앱 전체에서 한 번 생성”보다 “같은 용량의 런타임 동안 재사용”이 정확하다.
 
-현재 마커는 `mockScenario.events`를 순회해 만들며 이벤트 종류와 시각을 화면 문구, `title`과 접근성 이름으로 제공한다. range 손잡이 중심의 실제 이동 구간에 맞도록 마커 레이어의 좌우를 손잡이 반지름만큼 줄이고, `pointer-events: none`으로 두어 마커가 드래그 입력을 막지 않게 한다. 이번 단계의 마커는 탐색 버튼이 아니라 고정된 정보 표시다.
+cleanup은 rAF와 resize·Canvas click listener를 먼저 중지하고 ref를 비운 뒤, 생성한 Geometry·Material·Grid·Renderer를 정리한다. 차량과 보행자가 공유하는 BoxGeometry는 한 번만 dispose한다.
 
-`requestAnimationFrame`이 콜백에 전달하는 `timestamp`도 밀리초 단위지만 센서 데이터의 시각은 아니다. 이 값은 브라우저 실행 시계이므로 프레임 사이의 경과 시간을 계산하는 데 사용하고, 그 차이만큼 별도의 시나리오 재생 시간을 전진시킨다.
+```ts
+window.cancelAnimationFrame(animationFrameId);
+window.removeEventListener("resize", handleResize);
+canvas.removeEventListener("click", handleCanvasClick);
+// ref 해제, 소유한 Geometry·Material 각각 dispose, grid.dispose()
+scene.clear();
+renderer.dispose();
+```
 
-센서마다 수집 주기가 다르므로 Camera, LiDAR와 Object Detection의 같은 배열 인덱스를 같은 시각으로 간주하지 않는다. 각 배열에 동일한 `currentTimeMs`를 적용하고 센서별 `timestampMs`를 비교해 사용할 Frame을 독립적으로 고른다. 선택된 Frame 시각이 서로 같아야 동기화된 것이 아니라, 하나의 공통 목표 시각과 명시적인 선택 규칙을 함께 사용하는 것이 동기화다.
+JS GC는 도달할 수 없는 객체 메모리를 나중에 회수한다. rAF 큐·이벤트 리스너가 closure를 참조하면 런타임도 계속 살아 있을 수 있다. `scene.clear()`는 부모·자식 참조를 끊고 `dispose()`는 GPU 리소스 해제를 요청한다. Renderer dispose가 사용자 Geometry·Material을 대신 정리하지 않으므로 각각 해제한다. 현재 별도 Texture는 만들지 않으며 이후 추가하면 생성한 소유자가 dispose해야 한다.
 
-`findNearestFrame`은 `timestampMs`가 있는 Frame 배열과 목표 재생 시각을 받아 시간 차이의 절댓값이 가장 작은 원본 Frame을 반환한다. 배열이 비어 있으면 `null`을 반환하며, 이전 Frame과 다음 Frame의 거리가 같으면 미래 데이터를 먼저 선택하지 않도록 더 이른 Frame을 고른다. 현재 가상 데이터는 작으므로 모든 Frame을 한 번 확인하는 `O(n)` 선형 탐색으로 원리를 우선 확인한다. 실제 데이터의 Frame 수와 탐색 비용을 측정해 병목이 확인될 때 정렬된 배열의 이진 탐색을 검토한다.
+## 측정 범위와 남은 작업
 
-기본 센서 재생에는 `findLatestFrameAtOrBefore`를 사용해 `timestampMs <= currentTimeMs`인 Frame 중 가장 최신 값을 고른다. 따라서 해당 시점에 아직 획득하지 않은 미래 센서 Frame을 미리 보여 주지 않는다. 선택된 Frame과 재생 시각의 차이인 `frame.timestampMs - currentTimeMs`는 0 또는 음수이며, 음수의 절댓값이 클수록 화면에 표시된 센서 데이터가 오래된 상태임을 뜻한다. 배열이 비었거나 목표 시각 이전의 Frame이 없으면 `null`을 반환한다.
+| 지표 | 현재 측정 범위 | 해석 |
+| --- | --- | --- |
+| FPS | rAF render 횟수 ÷ 실제 경과 시간, 약 1초마다 React 표시 | render 호출 빈도; GPU 개별 작업 시간은 미측정 |
+| Frame 로딩 ms | 로더 Promise 시작부터 완료까지의 경과 시간 | 실제는 HTTP·서버 파일 읽기·응답·바이너리 해석 포함 |
+| cache hit | 로더 호출 생략, 같은 Frame 반환 | 현재 요청의 로딩 시간은 `캐시로 생략` |
+| 포인트·캐시 수 | 표시 Frame의 배열 길이 ÷ 3, 완료 항목 수/5 | 장치 전체 메모리·진행 중 요청 수는 미표시 |
 
-`findNearestFrame`은 그대로 유지한다. Trajectory가 예상한 미래 시각과 이후 실제 Vehicle State처럼 과거와 미래 양쪽 후보 중 시간상 가장 가까운 관측값을 비교할 때 사용할 수 있다. 즉 기본 재생의 인과적 선택과 예측 평가의 최근접 선택은 목적이 다른 정책이다.
+진행 중 Promise를 공유하면 로딩 ms는 그 요청의 최초 시작부터 계산된다. prefetch 완료는 현재 표시 로딩 시간을 바꾸지 않는다. 실제 13.9ms는 기존 비교의 miss 중앙값으로, 순수 렌더링 시간이나 메인 스레드 정지 시간이 아니다.
 
-Viewer는 Camera, LiDAR와 Object Detection의 목표 Frame을 `currentTimeMs`에서 파생한다. 비동기 로딩을 마친 실제 표시 Frame은 LiDAR 캐시 Hook과 카메라 버퍼 Hook이 별도로 보관한다. 현재 배열은 작으므로 렌더링 중 선형 탐색을 수행한다. 실제 데이터에서 비용이 병목으로 측정될 때만 `currentTimeMs` 기준 `useMemo`와 정렬된 배열의 이진 탐색을 검토하도록 코드에 `TODO`를 남겼다.
+[benchmark-viewer.mjs](../scripts/benchmark-viewer.mjs)는 Node.js에서 Chrome DevTools Protocol로 production Viewer를 조작하고 DOM의 기존 지표를 읽어 결과 JSON을 저장한다. 화면 픽셀·OCR로 시간을 추정하지 않는다. FPS는 2.2초 준비 후 1초 간격 10회, 가상·실제 각 3회 기준선을 측정했다. 조건·한계·재실행 명령은 PERFORMANCE 문서에 둔다.
 
-## 시간 동기화 흐름
+배포·데이터 호스팅·1분 데모 영상은 아직 완료하지 않았다. 배포 서버는 개발자 PC의 scene 디렉터리를 읽을 수 없으므로 웹에서 접근 가능한 파일 제공 경계가 필요하다. 외부 호스팅을 쓰면 manifest 기준 URL과 origin이 달라질 수 있으며 현재 Hook의 기본 URL은 로컬 API로 고정되어 있어 연결 변경도 필요하다.
 
-1. React가 현재 재생 시간을 관리한다.
-2. 데이터 계층이 센서별 timestamp에서 해당 시간에 사용할 프레임을 선택한다.
-3. 선택된 프레임 데이터로 Three.js 런타임의 기존 객체와 Buffer를 갱신한다.
-4. Three.js 렌더 루프가 갱신된 장면을 그린다.
-
-센서별 주기가 다르므로 Camera, LiDAR, Annotation을 하나의 배열 인덱스로 맞추지 않는다. 기본 재생 Frame은 `findLatestFrameAtOrBefore`로 선택하고, 예측과 실제값 비교처럼 양쪽 후보가 필요한 분석에는 `findNearestFrame`을 사용한다. 센서별 허용 시간 차이를 넘었을 때 화면을 유지할지 비울지는 실제 데이터 연결 단계에서 정한다.
-
-## Viewer 코드의 책임 경계
-
-### 실제 데이터 오류와 복구
-
-`useDriveScopeDataSource`는 manifest 요청·검증 오류를 `error`로 반환한다. Viewer는 실패 시 가상 데모임을 알리고 `DataErrorNotice`에 오류 상세와 재연결 버튼을 전달한다. 재연결은 시계를 0초에서 정지하고 Hook의 요청 번호를 증가시켜 effect를 다시 실행한다. cleanup은 이전 manifest 요청을 abort한다.
-
-`useLidarFrameCache`는 현재 목표의 로딩 실패를 별도 `error` 상태로 보관한다. 실패한 Frame은 표시하지 않고 같은 timestamp를 재시도하거나 정상 시점으로 이동할 수 있다. 표시 state는 source 참조와 목표 timestamp가 모두 일치해야 사용한다. 완료 전 Promise는 실패해도 `finally`에서 Map에서 제거되므로 영구 실패 캐시가 되지 않는다. 주변 prefetch는 `Promise.allSettled`로 rejection을 처리하며 현재 Frame 상태를 바꾸지 않는다.
-
-`useBufferedCameraFrame`의 재시도도 요청 번호를 바꿔 같은 URL의 숨겨진 img 로드·decode를 다시 실행한다. 이전 사진과 timestamp는 성공할 때까지 유지한다. `CameraPanel`은 초기·빈 상태·실패 문구와 재시도 입력을 담당하며, 재시도 시 Viewer가 재생을 정지해 목표 Frame을 유지한다.
-
-이미 표시할 사진이 있는 정상 교체에는 이미지 위 loading 문구를 표시하지 않는다. `CameraPanel`의 UI 타이머는 같은 표시 Frame이 loading으로 500ms 유지될 때만 헤더 지연 안내를 켠다. 목표 Frame이 계속 바뀌어도 표시 Frame이 같다면 지연을 누적한다. timer effect는 표시 Frame·status에 의존하고 cleanup에서 timeout을 취소한다. 지연을 기록한 Frame 참조가 현재 표시 Frame과 같고 status가 loading일 때만 안내를 보여 오래된 timer 결과가 다른 사진에 적용되지 않게 한다. 헤더 표시 공간은 미리 확보해 레이아웃 이동을 피한다. 500ms는 조정 가능한 UI 기준이며 이미지 로드·decode나 센서 timestamp 선택 규칙을 바꾸지 않는다.
-
-### 데이터 상태에 따른 표시
-
-`ViewerCanvas`는 기존 소스·오류 상태에서 `loading`·`actual`·`mock`을 파생해 제목·요약·범례와 분석 패널을 결정한다. 별도의 소스 표시 state를 복제하지 않는다. `app/viewer/page.tsx`의 서버 헤더는 중립 문구를 사용하고, 브라우저 요청 결과에 따른 표시는 Client 경계가 소유한다.
-
-실제 모드의 `EgoPosePanel`은 선택된 manifest pose의 위치와 방향각을 props로 받아 표시하며 Three.js 객체를 소유하지 않는다. 동기화 패널의 세 번째 행도 실제 ego pose다. 객체 인식·Planning·급제동 이벤트는 미연결임을 알리고 가상 분석 범례와 선택 안내를 표시하지 않는다. 가상 fallback은 기존 `SelectedObjectPanel`과 객체·경로·이벤트 표시를 사용한다.
-
-연결 중에는 요약과 재생 길이를 확인 중으로 표시하고 `PlaybackControls`를 비활성화한다. manifest 연결 완료와 현재 시점의 Frame 존재는 다른 상태다. 첫 실제 LiDAR·ego timestamp보다 이른 시각에는 데이터 소스를 유지하면서 해당 Frame만 빈 상태로 표시하고 재생·탐색을 안내한다.
-
-### 조합과 표시
-
-`app/viewer/viewer-canvas.tsx`는 Viewer의 조합 지점이다. 현재 재생 시각을 받아 센서 Frame과 보행자를 파생하고, React Hook과 화면 컴포넌트 사이에 필요한 값만 전달한다. 재생 타이머, Three.js 리소스 생성 코드와 각 패널의 마크업은 이 파일에 직접 두지 않는다.
-
-- `_data/select-scenario-frames.ts`: 같은 `currentTimeMs`를 모든 센서 배열에 적용해 현재 사용할 Frame 묶음을 반환하는 순수 함수
-- `_hooks/use-playback.ts`: 재생 시간, 재생 여부, 실제 경과 시간 기반 타이머, seek 동작을 소유
-- `_hooks/use-object-selection.ts`: React state에는 객체 ID만 저장하고 현재 Detection Frame에서 최신 객체를 파생
-- `_hooks/use-three-viewer.ts`: Scene·Camera·Renderer·Geometry·Material·Buffer·Raycaster와 DOM listener의 생성, 갱신, cleanup을 소유
-- `_components/viewer-header.tsx`: 소스 모드와 메타데이터를 받아 제목·요약·연결 범위를 표시
-- `_components/viewer-scene-panel.tsx`: `ViewerScenePanel`은 3D 패널 제목·상태와 children을, `ViewerSceneStage`는 기존 canvasRef의 Canvas·빈 상태·범례와 통계 children을 표시
-- `_components/`: 통계, 동기화 정보, 카메라, 선택 객체와 재생 컨트롤의 표시와 사용자 입력을 담당
-
-Three.js 런타임 Hook은 코드 줄 수만 기준으로 더 잘게 자르지 않는다. 하나의 초기화 effect에서 만든 리소스를 여러 Frame 갱신 effect가 ref로 재사용하고 같은 cleanup에서 해제하므로, 생성자와 소유자와 정리자를 한곳에서 추적할 수 있는 응집도가 더 중요하다. 순수 충돌 계산은 기존처럼 `_analysis`에 남겨 Three.js 렌더 책임과 분리한다.
-
-`"use client"`는 브라우저 경계의 시작점인 `ViewerCanvas`에만 둔다. 이 컴포넌트가 가져오는 Hook과 표시 컴포넌트는 같은 Client Component 모듈 그래프에 포함되므로 파일마다 지시문을 반복하지 않는다. 표시 컴포넌트는 Three.js 객체를 알지 못하고 직렬화 가능한 값과 이벤트 콜백만 props로 받는다.
-
-## 계획: Buffer와 캐시
-
-Phase 6의 첫 단계에서는 LiDAR 현재 Frame을 위한 CPU 캐시를 구현했다. `currentTimeMs`로 최신 과거 Frame의 timestamp를 고르는 정책은 그대로 유지하고, 그 timestamp를 키로 `FrameCache<LidarFrame>`의 Map을 조회한다. miss일 때 모의 로더가 원본 좌표를 새 `Float32Array`로 복사해 Frame을 만들고, hit일 때는 같은 Frame과 좌표 배열 참조를 돌려준다. 캐시는 `useLidarFrameCache`가 Viewer 생명주기 동안 소유하며 화면에서 hit·miss와 항목 수를 확인할 수 있다.
-
-캐시된 `LidarFrame.positions`는 CPU의 JavaScript 배열이다. `useThreeViewer`의 `lidarPositionAttributeRef`는 LiDAR 점을 그리는 별도의 Three.js BufferAttribute이며, 선택된 Frame의 좌표를 그 배열에 복사한 뒤 GPU 갱신을 요청한다. 예상 경로 Buffer와 차량 Mesh는 이 캐시와 다른 리소스다. 현재 가상 원본 Frame 전체가 이미 메모리에 있으므로 모의 로더는 실제 디스크·네트워크 파싱 비용을 재현하지 않는다.
-
-현재 Frame이 준비되면 `useLidarFrameCache`는 원본 LiDAR Frame 배열에서 바로 이전·다음 timestamp를 찾아 같은 CPU 캐시에 미리 로딩한다. 완료된 Frame은 `FrameCache`가, 완료 전 요청은 timestamp를 키로 한 Promise Map이 보관하므로 현재 로딩과 prefetch가 겹쳐도 같은 로더 Promise를 공유한다. prefetch는 캐시 항목 수만 갱신하고 현재 화면 Frame과 hit·miss 상태를 바꾸지 않는다. 화면 timestamp는 여전히 재생 시각으로 선택하므로 미래 Frame을 미리 보관해도 인과적 동기화는 유지된다.
-
-`FrameCache`의 최대 크기는 현재 5개다. `Map`의 삽입 순서를 최근 사용 순서로 사용해 `get()`에 성공한 Frame은 삭제 후 다시 넣고, 새 Frame 저장으로 5개를 넘으면 맨 앞의 가장 오래 사용하지 않은 Frame을 제거한다. 현재·이전·다음 3개로 이루어진 prefetch 작업 집합과 최근 탐색 Frame 2개가 함께 남을 수 있는 학습용 크기다. 완료 전 Promise Map은 아직 CPU Frame을 소유하지 않으므로 이 5개에 포함하지 않는다. 통계에는 현재 항목 수와 최대 크기를 `현재/5개`로 표시한다. 실제 데이터의 Frame당 메모리와 탐색 패턴을 측정하면 이 고정값을 다시 판단한다.
-
-새 모의 로더를 시작할 때의 `performance.now()`와 Promise 완료 직후의 시각 차이를 해당 Frame의 로딩 시간으로 사용한다. 진행 중 Promise는 Frame과 측정 시간을 함께 공유하고, 현재 화면이 miss로 그 결과를 받았을 때만 Metrics에 ms를 반영한다. prefetch는 현재 측정값을 바꾸지 않으며 cache hit는 로더 자체를 호출하지 않아 `캐시로 생략`으로 표시한다. 이 값은 모의 원본 검색과 `Float32Array` 복사만 포함하므로 실제 파일 읽기·압축 해제·파싱 성능을 대표하지 않는다.
-
-- 포인트 배열과 `BufferAttribute`를 매 프레임 새로 만들지 않고 가능한 범위에서 재사용한다.
-- 실제 포인트 수가 바뀔 때의 용량 증가 정책은 측정 후 결정한다.
-- 이전·현재·다음 프레임을 우선 캐시하고 주변 프레임을 미리 가져온다. 현재는 양옆 한 Frame씩을 선로딩한다.
-- 현재 캐시는 최근 사용 기준으로 최대 5개를 유지하며, 실제 데이터의 메모리와 로딩 시간을 측정한 뒤 적절한 크기를 다시 결정한다.
-- Worker는 파싱이 병목으로 확인된 경우에만 도입한다.
-
-LiDAR Buffer 재사용은 Phase 4에서 최소 구조를 먼저 구현했다. Frame 캐시, 양옆 Frame prefetch, 최대 5개 LRU 축출과 모의 로더 시간 표시는 Phase 6에서 연결했으며, 실제 데이터 용량 증가와 캐시 크기 조정은 실제 파일 측정과 함께 결정한다.
-
-## 단순하게 시작하는 원칙
-
-성능 비교는 `scripts/benchmark-viewer.mjs`가 production Viewer의 기존 UI 지표를 읽는 방식으로 수행한다. 앱의 매 프레임 state·Three.js 렌더 루프에 측정 처리를 추가하지 않는다. 가상·실제 모드에 같은 viewport·탐색·재생 순서를 적용하고 cache miss 로더 시간과 cache hit 생략을 구분한다. 로딩 시간은 로더 Promise 경과 시간, FPS는 rAF render 호출 빈도이며 GPU 시간이나 메인 스레드 정지를 직접 나타내지 않는다. 측정 기준선과 재실행 방법은 [PERFORMANCE.md](./PERFORMANCE.md)에 기록한다.
-
-- 초기에는 하나의 작은 Three.js 장면과 가상 데이터로 시작한다.
-- 동작과 책임이 반복해서 확인되기 전에는 범용 렌더러나 복잡한 추상 계층을 만들지 않는다.
-- 이해하거나 측정하지 않은 최적화를 먼저 적용하지 않는다.
-- 좌표계, Frame 타입, 동기화 허용 오차, 캐시 크기는 해당 학습 단계에서 근거와 함께 결정한다.
+ego pose 보간·Camera smoothing, 센서 sweeps 재생·누적, 실제 annotation·Planning 연결은 현재 범위 밖이다. 실제 모드의 차량 박스 크기는 현재 가상 시나리오 값을 재사용한다. Worker와 Frame 선택의 cursor·이진 탐색, 세부 시간·P95·메인 스레드 정지 측정은 로드맵의 후속 개선으로 남긴다. 측정하지 않은 병목을 근거로 복잡한 계층을 먼저 추가하지 않는다.

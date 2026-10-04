@@ -10,7 +10,9 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과, 예상 주행 경로를 �
 
 목표는 특정 사고 위험 장면에서 센서 인식, 객체 인식, Planning 반응, 차량 제어 사이의 시간 관계를 빠르게 파악하는 것이다. Rerun 전체를 복제하거나 새로운 렌더링 엔진을 만드는 것은 목표가 아니다.
 
-현재는 Next.js App Router, TypeScript, Three.js 기반 프로젝트 초기화와 실행 검증을 마쳤다. `/viewer`에 React가 소유하는 Canvas와 Three.js의 Scene, PerspectiveCamera, WebGLRenderer, GridHelper를 만들고 창 크기 변경과 `requestAnimationFrame` 렌더 루프를 연결했다. Phase 2에서는 가상 포인트 10,000개로 `Float32Array`와 `BufferAttribute`의 원리를 확인했다. Phase 3에서는 센서·인식·경로·차량 상태·이벤트 타입과 0~15초의 가상 급제동 시나리오 데이터를 정의했다. Phase 4에서는 재생·탐색, timestamp 기반 인과적 동기화와 이벤트 마커를 완성하고 선택된 LiDAR 좌표를 재사용하는 Three.js Buffer에 반영했다. Phase 5에서는 보행자·차량 박스, 예상 경로와 충돌 구간을 3D로 표시하고 Raycaster 선택, 선택 객체 정보와 같은 시간축의 가상 전방 카메라 패널을 연결했다. 이 가상 데이터로 분석 화면과 성능 구조를 검증한 뒤 nuScenes mini를 연결한다.
+현재는 Next.js App Router·TypeScript·Three.js로 가상 급제동 분석 데모와 실제 nuScenes mini 센서 Viewer를 구현했다. 가상 모드는 보행자 등장·인식·예상 충돌·급제동과 객체 선택을 다루고, 실제 모드는 전방 JPEG·LiDAR keyframe·ego 위치와 방향을 같은 재생 시각에서 탐색한다. 실제 객체 인식·Planning·급제동 이벤트는 아직 연결하지 않았다.
+
+timestamp 기반 Frame 선택, 최대 5개 CPU 캐시와 양옆 prefetch, Three.js Buffer 재사용, 디코딩 완료 후 이미지 교체와 오류 재시도를 검증했다. 성능 기준선·설치와 데모 재현·현재 아키텍처는 문서에 정리했으며 배포와 데모 영상은 남아 있다. 현재 코드의 책임과 흐름은 [ARCHITECTURE.md](./ARCHITECTURE.md)를 따른다.
 
 ## 핵심 분석 질문
 
@@ -32,7 +34,7 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과, 예상 주행 경로를 �
 | 12.4초 | 급제동 이벤트가 발생한다. |
 | 이후 | 차량 속도가 감소하고 예상 주행 경로가 변한다. |
 
-이 시나리오는 먼저 가상 데이터로 구현한다. Viewer와 시간 동기화 구조를 완성한 뒤 실제 nuScenes mini 데이터로 교체한다.
+이 시나리오는 가상 데이터로 분석 흐름을 검증한다. 실제 nuScenes mini 센서 모드는 별도로 제공하며 가상 인식·Planning·급제동 결과를 실제 장면에 섞지 않는다.
 
 ## MVP 범위
 
