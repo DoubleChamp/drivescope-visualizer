@@ -5,8 +5,8 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: Node Blob 업로드 도구를 구현하고 Public 저장소에 scene-0061 파일 79개를 올렸다. 모든 파일의 원본 일치·응답 형식·CORS와 배포 origin의 Chrome에서 manifest·첫 bin fetch·JPEG decode를 검증했다.
-- 다음 한 단계: Vercel에 확보한 공개 manifest URL 환경변수를 넣고 사용자 main push·새 deployment 뒤 실제 Viewer 연결·재생을 확인한다. 방화벽 설정은 사용자 요청으로 나중에 진행한다.
+- 현재 작업: 사용자의 Config 환경변수 설정·push 뒤 공개 Viewer가 Blob의 실제 scene을 직접 읽는 것을 확인했다. 재생·탐색·사진 유지·오류 복구·모바일·WebGL 검증을 마치고 Phase 7 배포 항목 9를 완료로 기록했다.
+- 다음 한 단계: 앱·Blob·manifest의 역할 이해를 확인한 뒤 가상/실제 선택 UI 또는 1분 데모 영상 중 다음 범위를 정한다. 새 기능은 이번 검증 단계에서 구현하지 않았다. 방화벽 설정은 사용자 요청으로 나중에 진행한다.
 - 아직 구현하지 않은 것: 가상/실제 데모 선택, ego pose 보간과 Camera smoothing, 데모 영상
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
@@ -21,6 +21,19 @@
 7. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 8. 현재 Route Handler는 로컬 개발용이다. 배포에서는 로컬 C 드라이브를 읽을 수 없으므로 같은 scene 디렉터리를 정적 파일 서버·CDN·오브젝트 스토리지에 올리고 로더의 기준 URL을 바꿔야 한다.
 9. 실제 센서 연결·오류 처리·Viewer 디자인·README 재현과 아키텍처를 정리했다. 기존 Vercel 사이트의 최신 코드·실제 데이터 연결을 검증한 뒤 1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### Phase 7: 공개 Viewer 실제 센서 배포 검증 (2026-10-04)
+
+- 사용자가 공개 manifest URL 환경변수 등록과 push·배포 작업을 마쳤다고 확인했다. 이번 단계는 공개 사이트 검증·문서 갱신이며 앱 코드·개인 환경·Vercel 설정·방화벽은 변경하지 않았다.
+- 시작 시 미커밋 변경이 없고 main·origin/main·원격 main이 `882845f`로 같았다. 이전 manifest URL 지원과 업로드 도구 commit의 push를 읽기 전용으로 확인했다. 계정의 deployment commit 표시·빌드 로그·Preview 배포는 별도로 조회하지 않았다.
+- 홈·Viewer HTTP 200, 기존 로컬 manifest API의 DRIVESCOPE_DATA_ROOT 미설정 503을 재확인했다. 실제 배포 Viewer의 브라우저 요청은 공개 Blob manifest·자산을 사용했고 로컬 API 요청은 없었다. 공개 실제 모드 연결과 19.185초·각 센서 39개를 확인했다.
+- 격리된 Headless Chrome에서 0초 Camera·LiDAR/ego 빈 상태, 1초·12.4초·19초 Frame과 원격 manifest를 비교했다. 12.4초는 Camera 12,050ms·LiDAR/ego 12,085ms·34,752포인트이고 차량 X -16.81m·Y 1.07m·Z -66.49m·yaw 71.5°가 일치했다. CPU 캐시가 최대 5개임도 확인했다.
+- 해당 브라우저의 JPEG 요청을 650ms 보류했을 때 기존 사진·촬영 시각과 지연 안내가 유지됐고 완료 뒤 목표 사진으로 바뀌었다. 보류된 이전 요청 뒤 더 이른 시점으로 seek해도 오래된 완료가 새 표시를 덮어쓰지 않았다. 정상·보류·seek·재생 동안 rAF 표본 352개에서 빈 활성 이미지·img DOM 교체가 모두 0이었다. 이 표본 결과를 모든 장치의 무깜빡임 보장으로 확대하지 않는다.
+- 재생 2초 뒤 12.4→14.4초 진행, 정지 뒤 시간 유지, 19초 탐색과 렌더 루프 동작을 확인했다. JPEG·LiDAR 실패와 manifest 503은 검증 브라우저에만 주입했고 이전 사진 유지·오류 안내·재시도·가상 fallback→실제 재연결을 통과했다. 실제 서버나 파일에 오류를 만들지 않았다.
+- Chrome의 390×844 모바일 에뮬레이션에서 가로 overflow가 없고 센서·차량·타임라인 표시가 유지됐다. desktop·mobile 스크린샷을 확인했다. WebGL renderer는 GTX 1050 Ti의 ANGLE Direct3D11이며 JS runtime exception은 0이었다. 실제 모바일 기기·장시간 재생·원격 성능 기준선은 이번 검증 범위 밖이다.
+- 검증: `node node_modules/.cache/drivescope-upload-check/check-live-viewer.mjs`의 9개 검사 묶음이 통과했다. 검증기·report JSON·스크린샷은 Git 제외 캐시에 보관한다. 이 검증기는 로컬 데이터 루트·업로드 토큰을 읽지 않고 공개 파일만 사용했다.
+- 문서 검증으로 7개 문서의 내부 링크 74개·앵커 10개·Mermaid 블록 2개·코드 블록 짝을 확인했고 `git diff --check`를 통과했다. 앱 코드 변경이 없으므로 앞서 통과한 build를 반복하지 않았다.
+- Phase 7 항목 9를 완료로 바꾸고 README·BRIEF·ARCHITECTURE·DEPLOYMENT·학습 기록을 현재 결과에 맞췄다. 가상/실제 선택 UI·1분 영상·방화벽은 후속으로 남긴다. NEXT_PUBLIC URL은 Config로 등록하며 Secret 선택은 공개 prefix와 충돌한다는 사용자 화면·공식 안내를 기록했다.
 
 ### Phase 7: Public Blob 센서 파일 업로드 (2026-10-04)
 
@@ -794,7 +807,7 @@
 1. 사용자가 Python 전처리·서버 파일 제공·브라우저 로더·React·Three.js의 책임을 설명한다.
 2. 사용자가 CPU Frame 캐시와 Three.js 표시 Buffer, 목표 사진과 실제 표시 사진의 차이를 설명한다.
 3. 사용자가 실제 모드의 연결 범위와 로컬 데이터 루트를 배포 서버에서 그대로 읽을 수 없는 이유를 확인한다.
-4. 이해 확인 후 Phase 7의 웹 배포 범위·환경·데이터 제공 방식을 설명하고 승인받는다.
+4. 공개 설정·Blob 파일 제공·배포 Viewer의 역할 이해를 확인하고, 다음 가상/실제 선택 UI 또는 1분 영상의 작은 범위를 설명한 뒤 승인받는다.
 
 ## 추천 커밋 메시지
 

@@ -12,7 +12,7 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과, 예상 주행 경로를 �
 
 현재는 Next.js App Router·TypeScript·Three.js로 가상 급제동 분석 데모와 실제 nuScenes mini 센서 Viewer를 구현했다. 가상 모드는 보행자 등장·인식·예상 충돌·급제동과 객체 선택을 다루고, 실제 모드는 전방 JPEG·LiDAR keyframe·ego 위치와 방향을 같은 재생 시각에서 탐색한다. 실제 객체 인식·Planning·급제동 이벤트는 아직 연결하지 않았다.
 
-timestamp 기반 Frame 선택, 최대 5개 CPU 캐시와 양옆 prefetch, Three.js Buffer 재사용, 디코딩 완료 후 이미지 교체와 오류 재시도를 검증했다. 성능 기준선·설치와 데모 재현·현재 아키텍처는 문서에 정리했으며 배포와 데모 영상은 남아 있다. 현재 코드의 책임과 흐름은 [ARCHITECTURE.md](./ARCHITECTURE.md)를 따른다.
+timestamp 기반 Frame 선택, 최대 5개 CPU 캐시와 양옆 prefetch, Three.js Buffer 재사용, 디코딩 완료 후 이미지 교체와 오류 재시도를 검증했다. 성능 기준선·설치와 데모 재현·아키텍처를 정리하고 공개 Viewer의 실제 Blob 데이터 연결·재생·복구·모바일 표시를 확인했다. 1분 데모 영상은 남아 있다. 현재 코드의 책임과 흐름은 [ARCHITECTURE.md](./ARCHITECTURE.md)를 따른다.
 
 ## 핵심 분석 질문
 

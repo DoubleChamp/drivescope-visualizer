@@ -14,7 +14,7 @@ Next.js App Router, React, TypeScript와 Three.js를 사용합니다. React는 U
 | 차량 | 가상 차량 위치 | 실제 ego 위치·방향과 추적 3D Camera |
 | 분석 | 보행자 박스·선택·예상 경로·충돌 구간·급제동 마커 | 현재 연결 범위는 점군·전방 이미지·차량 pose |
 
-실제 데이터에는 객체 인식·예상 경로·급제동 이벤트를 아직 연결하지 않았습니다. 가상 급제동 데모는 분석 UI와 시간 동기화를 확인하도록 작성한 데이터이며 실제 사고 기록이나 AI 추론 결과가 아닙니다. 현재는 로컬 실행을 지원하고, 웹 배포와 1분 데모 영상은 [로드맵](docs/ROADMAP.md)의 후속 단계입니다.
+실제 데이터에는 객체 인식·예상 경로·급제동 이벤트를 아직 연결하지 않았습니다. 가상 급제동 데모는 분석 UI와 시간 동기화를 확인하도록 작성한 데이터이며 실제 사고 기록이나 AI 추론 결과가 아닙니다. [공개 Viewer](https://drivescope-visualizer.vercel.app/viewer)에서는 실제 센서 로그를 재생할 수 있습니다. 1분 데모 영상은 [로드맵](docs/ROADMAP.md)의 후속 단계입니다.
 
 ## 빠르게 실행하기
 
@@ -161,9 +161,9 @@ Frame 로딩 시간은 비동기 HTTP 대기를 포함한 로더 Promise의 경�
 
 ## Vercel 실제 데이터 연결
 
-공개 Viewer는 [drivescope-visualizer.vercel.app](https://drivescope-visualizer.vercel.app/viewer)에서 실행합니다. 실제 scene 파일 79개의 Public Blob 업로드·원본 일치·CORS 검증을 마쳤고, Vercel 환경변수와 새 deployment의 Viewer 연결 확인이 남았습니다. 개발자 PC의 데이터 디렉터리는 Vercel에서 읽을 수 없습니다.
+공개 Viewer는 [drivescope-visualizer.vercel.app](https://drivescope-visualizer.vercel.app/viewer)에서 실행합니다. 실제 scene 파일 79개의 Public Blob 업로드·원본 일치·CORS와 배포 Viewer의 재생·탐색·오류 복구·모바일 표시를 검증했습니다. 방문자는 데이터 다운로드·Python 변환·개인 환경 설정 없이 공개 Viewer를 사용할 수 있습니다.
 
-로더는 `NEXT_PUBLIC_DRIVESCOPE_MANIFEST_URL`이 있으면 해당 manifest를, 생략하면 기존 로컬 API를 사용합니다. 웹 저장소에 manifest·Camera·LiDAR를 상대 경로에 맞게 제공한 뒤 Vercel 프로젝트에 공개 HTTPS manifest URL을 설정하고 새 build를 만듭니다. 로컬 파일로 실행하거나 기존 로컬 benchmark를 사용할 때는 이 URL 설정을 비워 둡니다. Storage·Blob·Public 생성과 설정·검증 순서는 [DEPLOYMENT.md](docs/DEPLOYMENT.md)를 따릅니다.
+로더는 `NEXT_PUBLIC_DRIVESCOPE_MANIFEST_URL`이 있으면 해당 manifest를, 생략하면 기존 로컬 API를 사용합니다. Vercel에서는 공개 HTTPS manifest URL을 **Config**로 설정하고 새 build를 만듭니다. 로컬 파일로 실행하거나 기존 로컬 benchmark를 사용할 때는 이 URL 설정을 비워 둡니다. Storage·Blob·Public 생성과 설정·검증 순서는 [DEPLOYMENT.md](docs/DEPLOYMENT.md)를 따릅니다.
 
 `pnpm.cmd upload:blob`은 개인 환경의 scene 파일을 로컬 검사만 합니다. `--upload`를 추가하면 manifest가 참조한 센서 파일과 manifest를 Public Blob에 업로드합니다. 이미 같은 scene이 있으면 중단합니다. 실행 준비와 확보한 공개 URL은 배포 문서에 기록했습니다.
 

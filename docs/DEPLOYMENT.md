@@ -1,6 +1,6 @@
 # DriveScope Vercel 배포 점검
 
-점검일: 2026-10-04. 공개 사이트는 [drivescope-visualizer.vercel.app](https://drivescope-visualizer.vercel.app/)이다. 홈·Viewer HTTP 200과 기존 manifest API 503을 확인했다. Public Blob에 실제 scene 파일 79개를 업로드하고 원본 일치·CORS를 검증했다. Vercel URL 환경변수·새 deployment·실제 Viewer 재생 검증은 다음 단계다.
+점검일: 2026-10-04. 공개 사이트는 [drivescope-visualizer.vercel.app](https://drivescope-visualizer.vercel.app/)이다. Public Blob에 실제 scene 파일 79개를 올려 원본 일치·CORS를 확인했고, 사용자의 URL 환경변수 설정·push 뒤 공개 Viewer의 실제 센서 재생·탐색·오류 복구·모바일을 검증했다. Phase 7 배포 항목 9를 완료로 기록한다.
 
 ## 확인된 상태
 
@@ -9,13 +9,14 @@
 | production build | `pnpm.cmd build` 통과. `/`, `/viewer`는 prerender, 데이터 API는 동적 Route Handler |
 | 타입 검사 | `pnpm.cmd exec tsc --noEmit --incremental false` 통과 |
 | manifest 규칙 | `pnpm.cmd validate:manifest` 통과. fixture의 LiDAR·Camera·ego 각 2개 검사 |
-| Git | 업로드 단계 시작 시 main은 `e37654b`, 원격 main은 `eb1473d`. 사용자 GitHub Desktop push 대기 |
+| Git | 배포 검증 시작 시 main·origin/main·원격 main이 `882845f`로 같음. deployment 화면의 정확한 commit 표시·빌드 로그는 미조회 |
 | Next.js 설정 | `next.config.ts`는 기본 설정. 이번 점검에서 추가 설정이 필요한 렌더링 문제는 발견하지 못함 |
 | 실제 데이터 입구 | NEXT_PUBLIC_DRIVESCOPE_MANIFEST_URL을 설정하면 해당 주소, 생략하면 기존 로컬 API 사용 |
 | 실제 파일 제공 | API가 `DRIVESCOPE_DATA_ROOT`의 서버 로컬 파일을 readFile로 읽음 |
 | 공개 manifest API | HTTP 503: DRIVESCOPE_DATA_ROOT가 설정되지 않았습니다 |
 | 공개 Blob 자산 | scene-0061의 79개·21,976,548바이트 업로드 완료. 모두 HTTP 200·MIME·SHA-256 일치 |
 | 원격 읽기 | 모든 파일의 CORS `*`, 배포 origin의 Chrome에서 manifest·bin fetch와 JPEG decode 성공 |
+| 배포 Viewer | 실제 모드·공개 Blob 직접 요청·재생·탐색·사진 유지·오류 복구·모바일 에뮬레이션 통과 |
 | 데모 선택 | 실제 연결 실패 시에만 가상 fallback. 사용자 모드 선택 UI는 아직 없음 |
 
 Git 연동 배포라면 로컬 commit만으로 Vercel에 코드가 반영되지 않는다. 사용자가 GitHub Desktop에서 push한 뒤 Vercel의 성공한 deployment가 해당 commit을 가리키는지 확인한다. CLI로 별도 배포했는지는 이번 점검에서 확인하지 않았다.
@@ -93,13 +94,15 @@ const blob = await put(`${prefix}${assetPath}`, asset.body, {
 
 공개 manifest: [scene-0061/manifest.json](https://yvt07zz1kuvzdwlw.public.blob.vercel-storage.com/scene-0061/manifest.json)
 
-Vercel의 `drivescope-visualizer` 프로젝트 → Environment Variables에 다음 값을 Production·Preview 범위로 추가한다.
+Vercel의 `drivescope-visualizer` 프로젝트 → Environment Variables에 다음 값을 **Config** 타입으로 Production·Preview 범위에 추가한다. 사용자가 이 설정을 마쳤다고 확인했고 공개 Production Viewer의 적용을 검증했다. Preview 배포는 이번에 열어 확인하지 않았다.
 
 ```dotenv
 NEXT_PUBLIC_DRIVESCOPE_MANIFEST_URL=https://yvt07zz1kuvzdwlw.public.blob.vercel-storage.com/scene-0061/manifest.json
 ```
 
-사용자가 GitHub Desktop에서 main의 준비된 commit을 push한 뒤 새 deployment의 commit·빌드 로그를 확인한다. URL 환경변수는 새 build에 포함되어야 한다. 계정의 환경변수 설정과 실제 배포 Viewer 재생은 이번 업로드 단계에서 실행하지 않았다. 방화벽 설정은 사용자의 요청으로 뒤로 미뤘다.
+공개 prefix가 있는 변수에 Secret을 선택하면 사용자 화면에서 등록 오류가 발생했다. 공개 manifest 주소는 Config로 등록한다. BLOB_READ_WRITE_TOKEN은 Secret이며 BLOB_STORE_ID·BLOB_WEBHOOK_PUBLIC_KEY는 연결된 저장소의 Config 값으로 유지한다. Config는 비밀이 아닌 설정, Secret은 인증 정보에 쓰는 현재 [Vercel 타입 안내](https://vercel.com/changelog/environment-variables-now-use-config-and-secret-types)를 따른다.
+
+사용자의 GitHub Desktop push 후 원격 main `882845f` 일치를 확인했고 배포 Viewer가 위 URL을 실제 요청했다. 환경변수는 새 build에 포함되어야 하며 기존 deployment를 단순히 새로고침하는 것으로 값이 바뀌지는 않는다. 계정의 정확한 deployment commit 표시·설치 로그는 별도 확인 항목이다. 방화벽 설정은 사용자의 요청으로 뒤로 미뤘다.
 
 ### 웹 저장소의 파일과 응답
 
@@ -145,8 +148,30 @@ CORS는 데이터를 제공하는 웹 저장소의 응답 정책이다. 앱과 �
 
 [benchmark-viewer.mjs](../scripts/benchmark-viewer.mjs)는 현재 localhost만 허용하고 로컬 API manifest를 요청·가로채는 비교 도구다. 배포 주소를 이 스크립트에 넣어 실제 서비스가 검증됐다고 기록하지 않는다. 원격 지연·캐시·성능 측정은 이 로컬 기준선과 별도의 조건으로 비교한다.
 
-## 이번 점검의 경계
+## 공개 Viewer 검증 결과
 
-이번 작은 단계는 공개 센서 파일 준비다. 파일 79개·21,976,548바이트의 HTTP 200·MIME·원본 SHA-256 일치와 LiDAR 크기를 확인했다. Chrome에서 배포 origin으로 manifest·첫 bin을 fetch하고 첫 JPEG를 decode해 34,688포인트·416,256바이트·1600×900 이미지를 읽었다. 실제 Viewer의 연결·재생 검증과는 구분한다.
+`node node_modules/.cache/drivescope-upload-check/check-live-viewer.mjs`로 격리된 Headless Chrome에서 실제 배포 주소를 검사했다. 공개 manifest·자산만 사용하며 PC 데이터 루트·업로드 토큰을 읽지 않는다. 요청 캐시를 끄고 1440×1100 desktop·390×844 mobile 에뮬레이션에서 실행했다. 보고서와 스크린샷은 같은 Git 제외 캐시에 보관한다.
 
-업로드 사전 검사의 정상 실행·파일 누락·잘못된 bin 크기·잘못된 옵션 4개, fixture manifest 검사와 production build가 통과했다. 원격·브라우저 검증기는 Git 제외 캐시에 보관한다. Vercel 환경변수와 새 deployment의 센서 재생이 확인되기 전까지 ROADMAP의 Phase 7 항목 9는 완료로 표시하지 않는다.
+| 항목 | 결과 |
+| --- | --- |
+| 주소·소스 | 홈·Viewer HTTP 200, 실제 scene-0061·19.185초·각 센서 39개 |
+| 데이터 요청 | 공개 Blob manifest·자산 직접 요청. 기존 로컬 API 요청 없음 |
+| 0초 | 첫 Camera 표시, 첫 LiDAR·ego의 35ms 전이므로 해당 Frame 없음 |
+| 12.4초 | Camera 12,050ms / LiDAR·ego 12,085ms / 34,752포인트 |
+| 차량 pose | X -16.81m / Y 1.07m / Z -66.49m / yaw 71.5°, manifest와 일치 |
+| 재생·탐색 | 2초 재생에서 12.4→14.4초 진행·정지 뒤 유지·19초 탐색 통과 |
+| 이미지 준비 | 650ms 요청 보류 중 기존 사진·촬영 시각·지연 안내 유지, 완료 후 교체 |
+| 빠른 seek | 보류된 이전 이미지 완료가 새 선택을 덮어쓰지 않음 |
+| 빈 이미지·DOM 교체 | rAF 표본 352개에서 모두 0회 |
+| 오류 복구 | 검증 브라우저의 JPEG·LiDAR 실패 후 retry, manifest 503의 가상 fallback 후 실제 재연결 통과 |
+| 모바일·WebGL | 가로 overflow 없음, GTX 1050 Ti ANGLE Direct3D11, runtime exception 0 |
+
+실제 서버·파일에 오류를 만들지 않았다. 실패·지연은 이 검증 브라우저의 요청에만 적용했다. 기존 API는 여전히 DRIVESCOPE_DATA_ROOT 미설정 503이지만 실제 Viewer가 사용한 공개 Blob 요청에는 영향을 주지 않았다. 앱·파일 제공 경계를 분리한 결과다.
+
+9개 검사 묶음이 통과했으며 desktop·mobile 스크린샷에서 점군·차량·전방 사진을 확인했다. 에뮬레이션과 한 번의 표본을 모든 모바일 장치·장시간 안정성·원격 성능 보장으로 확대하지 않는다. 두 데모 선택 UI는 후속 단계다.
+
+## 점검 범위와 남은 작업
+
+앞선 업로드 단계에서는 파일 79개·21,976,548바이트의 HTTP 200·MIME·원본 SHA-256 일치와 LiDAR 크기를 확인했다. Chrome에서 배포 origin으로 manifest·첫 bin을 fetch하고 첫 JPEG를 decode해 34,688포인트·416,256바이트·1600×900 이미지를 읽었다. 이번에는 배포 앱의 실제 표시·재생까지 검증했다.
+
+업로드 사전 검사 4개·fixture manifest·production build는 앞선 변경에서 통과했다. 이번 변경은 배포 검증 결과를 문서에 기록하며 앱 코드를 바꾸거나 build를 반복하지 않았다. 계정의 deployment 상세·Preview·실제 모바일 기기·1분 영상·가상/실제 선택 UI·사용자가 미룬 방화벽은 남은 확인 또는 별도 작업이다.

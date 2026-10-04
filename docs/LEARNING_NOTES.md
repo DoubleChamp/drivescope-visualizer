@@ -674,9 +674,18 @@
 - 파일이 HTTP 200이어도 내용이 같다는 보장은 없으므로 모든 공개 응답을 로컬 원본과 SHA-256으로 비교했다. CORS `*` 헤더 확인 뒤 실제 배포 origin의 Chrome에서 manifest·bin fetch와 JPEG decode도 성공했다.
 - 공개 파일 준비와 앱 환경 설정·새 deployment의 Viewer 재생은 별도의 검증 결과다. 이번에는 파일 경계를 확인했고 배포 Viewer의 실제 재생 검증은 남겼다.
 
+### 공개 설정과 실제 배포 재생 (2026-10-04, 사용자 이해 확인 대기)
+
+- NEXT_PUBLIC_는 브라우저에 공개할 환경변수 prefix다. 사용자의 등록 화면에서 Secret 선택은 이 prefix와 충돌했고 공개 manifest URL을 Config로 바꿔 등록하도록 안내했다. 사용자 설정 완료 뒤 배포 Viewer가 해당 공개 주소를 요청하는 것을 확인했다.
+- Vercel은 웹앱을 제공하고 Blob은 센서 파일을 제공한다. 배포의 기존 로컬 API가 DRIVESCOPE_DATA_ROOT 미설정 503이어도 공개 Viewer는 그 API를 요청하지 않고 Blob에서 manifest·JPEG·bin을 직접 읽었다. 이번 검증기는 로컬 데이터 루트·업로드 토큰 없이 실행됐다.
+- manifest의 수집 시각과 UI 재생 시각이 다르다는 기존 규칙을 공개 데이터에서도 확인했다. 12.4초에는 Camera 12,050ms·LiDAR/ego 12,085ms를 선택했고 차량 위치·yaw와 34,752포인트가 manifest와 일치했다.
+- 기존 사진·표시 timestamp 유지는 원격 요청에서도 동작했다. JPEG를 650ms 보류하고 오래된 요청 뒤 다른 시점으로 이동해 준비 중 유지·완료 후 교체·오래된 완료 차단을 확인했다. rAF 표본 352개에서 빈 활성 이미지·DOM 교체는 0이었다.
+- 배포 서버를 수정하지 않고 검증 브라우저의 요청만 실패시켜 JPEG·LiDAR 재시도와 manifest fallback·재연결을 검사했다. 원격 정상 동작과 의도적으로 주입한 오류를 구분한다.
+- 실제 Chrome 페이지의 재생·센서 표시·모바일 에뮬레이션·WebGL을 확인하는 것과 HTTP 200만 확인하는 것은 검증 범위가 다르다. 이번 실행에서는 화면도 확인했지만 Preview·실제 모바일 기기·장시간 성능까지 검증한 것으로 기록하지 않는다.
+
 ## 다음 단계에서 배울 내용
 
-Phase 7의 센서 연결·오류 복구·성능 기준선·표시·README·아키텍처와 배포 준비를 점검하고 manifest 입구의 환경별 URL 선택·Public Blob 자산 업로드를 구현·검증했다. 다음은 Vercel의 URL 환경변수·새 deployment와 Viewer의 실제 센서 재생을 확인하는 단계다. 두 데모 노출과 아래 이전 학습 항목의 사용자 이해 확인도 남아 있다.
+Phase 7의 센서 연결·성능 기준선·표시·README·아키텍처를 정리하고 공개 설정·Blob 업로드·배포 Viewer 실제 재생과 복구를 검증했다. 앱·Blob·manifest의 역할 이해를 확인한 뒤 두 데모 노출 또는 1분 영상 중 다음 작은 범위를 정한다. 아래 이전 학습 항목의 사용자 이해 확인도 남아 있다.
 
 - Canvas DOM 좌표를 NDC로 변환하는 식과 Y 부호를 뒤집는 이유
 - Camera 광선과 Mesh 삼각형의 교차, `visible`과 wireframe이 선택 판정에 미치는 영향
