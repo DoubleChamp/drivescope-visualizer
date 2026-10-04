@@ -6,6 +6,8 @@ Next.js App Router, React, TypeScript와 Three.js를 사용합니다. React는 U
 
 홈(`/`)은 **데이터 처리·성능 측정을 설명하는 포트폴리오 페이지**입니다. 전처리→manifest→CPU 캐시→GPU Buffer의 흐름, 좌표·바이너리 계약, 최적화 핵심 코드와 측정 조건을 보여줍니다. 타임라인 예시를 직접 조작하고 1분 자막 영상을 재생한 뒤 `/viewer`에서 실제 센서 로그를 탐색할 수 있습니다. [프로젝트 소개](https://drivescope-visualizer.vercel.app/)의 이번 변경은 push와 새 Vercel build 뒤 반영됩니다.
 
+소개 페이지는 밝은 배경과 본문 중심의 구성으로 읽기 쉽게 정리했습니다. 최적화 설명은 문제·해결·코드를 세로로 읽고, 영상은 넓게 표시합니다. `/viewer`의 기존 어두운 화면은 유지합니다.
+
 13.9ms는 HTTP 대기가 포함된 로더 Promise의 경과 시간입니다. 소개 페이지에서도 이를 순수 렌더링 시간이나 최적화 전후 향상률로 표현하지 않으며 [원본 측정 기록](docs/PERFORMANCE.md)과 코드 링크를 함께 제공합니다.
 
 ## 현재 확인할 수 있는 데모
@@ -20,11 +22,11 @@ Next.js App Router, React, TypeScript와 Three.js를 사용합니다. React는 U
 
 실제 데이터에는 객체 인식·예상 경로·급제동 이벤트를 아직 연결하지 않았습니다. 가상 급제동 데모는 분석 UI와 시간 동기화를 확인하도록 작성한 데이터이며 실제 사고 기록이나 AI 추론 결과가 아닙니다. [공개 Viewer](https://drivescope-visualizer.vercel.app/viewer)에서 실제 센서 로그와 가상 급제동 데모를 선택해 재생할 수 있습니다.
 
-[1분 데모 영상 보기 / 다운로드](public/demo/drivescope-demo.mp4) · [한국어 자막 원본](public/demo/drivescope-demo.ko.srt) · [촬영 순서와 핵심 코드 설명](docs/DEMO_SCRIPT.md)
+[1분 데모 영상 보기 / 다운로드](public/demo/drivescope-demo.mp4) · [한국어 자막 원본](public/demo/drivescope-demo.ko.srt) · [자막 스타일 원본](public/demo/drivescope-demo.ko.ass) · [촬영 순서와 핵심 코드 설명](docs/DEMO_SCRIPT.md)
 
 [![실제 센서 로그를 탐색하는 DriveScope 데모 화면](public/demo/drivescope-demo-poster.jpg)](public/demo/drivescope-demo.mp4)
 
-공개 Viewer를 촬영한 60초 자막 영상입니다. 실제 센서 재생·탐색, 가상 객체 선택·급제동 전후, 센서 Frame 시각과 LiDAR 캐시를 보여줍니다. 1920×1080 H.264 MP4이며 약 3.9MB입니다. 변경을 push하고 Vercel build가 끝나면 `/demo/drivescope-demo.mp4`에서도 제공됩니다.
+공개 Viewer를 촬영한 60초 자막 영상입니다. 실제 센서 재생·탐색, 가상 객체 선택·급제동 전후, 센서 Frame 시각과 LiDAR 캐시를 보여줍니다. 1920×1080 H.264 MP4이며 약 3.1MB입니다. 자막을 크게·굵게 만들고 하단에서 올려 재생 바와 겹침을 줄였습니다. 변경을 push하고 Vercel build가 끝나면 `/demo/drivescope-demo.mp4`에서도 제공됩니다.
 
 ## 빠르게 실행하기
 

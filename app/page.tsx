@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     locale: "ko_KR",
     type: "website",
     images: [{
-      url: "https://drivescope-visualizer.vercel.app/demo/drivescope-demo-poster.jpg",
+      url: "https://drivescope-visualizer.vercel.app/demo/drivescope-demo-poster.jpg?v=2",
       width: 960,
       height: 540,
       alt: "DriveScope에서 실제 nuScenes 점군과 카메라를 탐색하는 화면",
@@ -35,11 +35,11 @@ export default function Home() {
       <header className={styles.header}>
         <a className={styles.brand} href="#project" aria-label="DriveScope 소개로 이동">
           <span className={styles.brandMark} aria-hidden="true">+</span>
-          DriveScope<span className={styles.brandNote}>Engineering case study</span>
+          DriveScope<span className={styles.brandNote}>프로젝트 기록</span>
         </a>
         <nav className={styles.nav} aria-label="프로젝트 소개">
           <a href="#architecture">구조</a>
-          <a href="#optimizations">최적화</a>
+          <a href="#optimizations">문제 해결</a>
           <a href="#results">측정</a>
           <a href="#demo">1분 영상</a>
         </nav>
@@ -55,8 +55,8 @@ export default function Home() {
         <ProjectDemo />
         <section className={styles.nextSection} aria-labelledby="next-title">
           <div>
-            <p className={styles.eyebrow}>NEXT QUESTIONS</p>
-            <h2 id="next-title">다음 개선도, 측정에서 시작합니다.</h2>
+            <p className={styles.eyebrow}>후속 측정</p>
+            <h2 id="next-title">아직 측정해야 할 비용</h2>
             <p>파일 읽기·파싱 시간을 분리하고 P95와 메인 스레드 정지를 측정한 뒤,
               Worker·transferable Buffer의 효과를 비교할 계획입니다.</p>
           </div>

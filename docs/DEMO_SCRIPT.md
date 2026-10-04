@@ -2,7 +2,7 @@
 
 기준: 2026-10-04의 [공개 Viewer](https://drivescope-visualizer.vercel.app/viewer). 실제/가상 선택 UI가 반영된 화면을 사용한다. 사용자가 선택한 자막 방식으로 녹화·편집을 완료했다.
 
-결과물: [60초 MP4](../public/demo/drivescope-demo.mp4) · [한국어 자막 SRT](../public/demo/drivescope-demo.ko.srt) · [포스터](../public/demo/drivescope-demo-poster.jpg). 아래 내레이션 초안의 의미를 13개 자막으로 나누었으며 음성 트랙은 포함하지 않는다.
+결과물: [60초 MP4](../public/demo/drivescope-demo.mp4) · [한국어 자막 SRT](../public/demo/drivescope-demo.ko.srt) · [자막 스타일 ASS](../public/demo/drivescope-demo.ko.ass) · [포스터](../public/demo/drivescope-demo-poster.jpg). 아래 내레이션 초안의 의미를 13개 자막으로 나누었으며 음성 트랙은 포함하지 않는다.
 
 ## 촬영 전에 준비할 화면
 
@@ -83,7 +83,7 @@ if (message.method === 'Page.screencastFrame') {
 encoder.stdin.write(latestFrame);
 ```
 
-FFmpeg 9.0.2로 캡처 화면 일부를 확대하고, 한글 자막을 영상 하단 여백에 넣어 H.264·yuv420p MP4로 편집했다. 출력은 **60.000초·1920×1080·30fps·1,800프레임·3,900,283바이트**다. 15fps 캡처를 30fps로 출력할 때 기존 화면을 반복하며 새 움직임을 보간하지 않는다. 촬영·출력 fps는 앱 통계의 rAF FPS와 별개다. 마지막 링크 화면은 페이지 이동 완료 후 고정 캡처해 이전 화면이 남지 않게 했다.
+FFmpeg 9.0.2로 캡처 화면 일부를 확대하고, 한글 자막을 영상 하단 여백에 넣어 H.264·yuv420p MP4로 편집했다. 자막 가독성을 수정한 현재 출력은 **60.000초·1920×1080·30fps·1,800프레임·3,064,913바이트**다. 15fps 캡처를 30fps로 출력할 때 기존 화면을 반복하며 새 움직임을 보간하지 않는다. 촬영·출력 fps는 앱 통계의 rAF FPS와 별개다. 마지막 링크 화면은 페이지 이동 완료 후 고정 캡처해 이전 화면이 남지 않게 했다.
 
 검증 명령은 이번 컴퓨터의 Git 제외 캐시에 있는 임시 보조 스크립트다. 이 스크립트·브라우저 프로필·원본 영상·FFmpeg 실행 파일은 추적하지 않고, 최종 영상·자막·포스터와 촬영 설명을 저장소에 포함한다.
 
@@ -97,3 +97,17 @@ node node_modules/.cache/drivescope-browser-check/verify-demo-video.mjs
 - 격리된 Chrome에서 MP4 시작 재생, 14·30·35·40·51·58초 탐색과 끝까지 재생을 통과했다. video error와 JS runtime exception은 0개였다.
 - 주요 화면을 추출해 자막, 충돌 강조 전후, 12.0초·-400ms 센서 정보, `hit · 재사용`과 마지막 링크 화면을 확인했다.
 - 로컬 Next.js 서버의 `/demo/drivescope-demo.mp4`는 HTTP 200·`video/mp4`로 제공된다. `public` 파일의 URL 규칙은 설치된 Next.js 가이드를 확인했다. 공개 사이트의 영상 경로는 사용자 push와 새 Vercel build 뒤에 확인한다.
+
+## 자막 가독성 수정
+
+SRT는 13개 문장의 내용과 시각을 유지한다. ASS의 `Caption` 스타일은 1920×1080 기준 `Fontname: Malgun Gothic`, `Fontsize: 52`, `Bold: -1`, `Alignment: 2`, `MarginV: 140`으로 정했다. `Bold: -1`은 굵게, `Alignment: 2`는 하단 가운데, `MarginV`는 하단 여백이다. 반투명 어두운 배경으로 밝은 화면에서도 글자를 구분한다. 이전 하단 여백 14에서 140으로 올려 네이티브 재생 바와 거리를 확보했다.
+
+자막을 올리기만 하면 촬영된 Viewer 타임라인을 가릴 수 있다. 기본 화면은 1440×810으로 줄이고 1920×1080의 상단 가운데에 배치해 아래 270px을 남겼다. 센서 정보 확대 화면도 810px 아래로 내려오지 않도록 조정했다. 전체 편집에는 다른 장면의 확대·합성이 포함되며, 기본 화면 여백의 핵심 FFmpeg 필터는 다음과 같다.
+
+```text
+scale=1440:810,pad=1920:1080:240:0
+```
+
+MP4에는 자막 픽셀이 이미 들어 있다. ASS를 수정한 뒤 자막이 없는 촬영 원본에서 다시 출력해야 한다. 웹 CSS로 영상 속 자막 크기를 바꾸거나 기존 자막 위에 새 자막을 덧씌우지 않는다. 스타일 원본은 저장소에 포함하고 원본 촬영·편집 보조 도구는 기존처럼 Git 제외 캐시에 둔다.
+
+모바일에서는 영상과 자막이 함께 축소되지만 브라우저 재생 버튼은 같은 비율로 줄지 않는다. 홈의 모바일 `.video`에 `aspect-ratio: 5 / 4`, `min-height: 260px`, `object-fit: contain`을 적용해 여백 안에 네이티브 컨트롤이 표시될 공간을 확보한다. 데스크톱은 16:9를 유지한다. 새 MP4·포스터의 네이티브 URL은 `?v=2`, 소개의 Next Image 포스터는 정적 import의 파일 해시로 이전 캐시와 구분한다.

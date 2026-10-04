@@ -13,13 +13,13 @@ export function ProjectArchitecture() {
   return (
     <section id="architecture" className={styles.section} aria-labelledby="architecture-title">
       <div className={styles.sectionHeading}>
-        <div><p className={styles.eyebrow}>01 / DATA ARCHITECTURE</p><h2 id="architecture-title">원본 로그에서 화면까지,<br />각 단계의 책임을 나눴습니다.</h2></div>
+        <div><p className={styles.eyebrow}>01 · 데이터 구조</p><h2 id="architecture-title">원본 로그에서 화면까지</h2></div>
         <a className={styles.textLink} href="https://github.com/DoubleChamp/drivescope-visualizer/blob/main/docs/ARCHITECTURE.md">아키텍처 문서 <span aria-hidden="true">↗</span></a>
       </div>
       <p className={styles.sectionIntro}>센서의 시간·좌표·파일 형식을 렌더링 코드에 직접 섞으면 데이터 오류와 화면 오류를 구분하기 어렵습니다.
         전처리·검증·로딩·캐시·표시를 나누어 문제를 추적할 수 있는 흐름으로 만들었습니다.</p>
       <figure className={styles.pipeline}>
-        <figcaption><span>DATA FLOW</span><span>디스크 계약 → CPU 메모리 → GPU 리소스</span></figcaption>
+        <figcaption><span>처리 흐름</span><span>디스크 계약 → CPU 메모리 → GPU 리소스</span></figcaption>
         <ol className={styles.pipelineStages}>
           {stages.map((stage, index) => (
             <li key={stage.title} data-tone={stage.tone}>
@@ -36,14 +36,14 @@ export function ProjectArchitecture() {
       </figure>
       <div className={styles.contractRow}>
         <div className={styles.contractNote}>
-          <span className={styles.miniLabel}>COORDINATE CONTRACT</span>
+          <span className={styles.miniLabel}>좌표 계약</span>
           <h3>좌우 반전을 좌표 계약에서 해결</h3>
           <p>원본 축을 그대로 화면에 옮기지 않고 센서 보정과 차량 pose를 적용합니다.
             전방을 −Z로 통일한 <code>[-y, z, -x]</code> 변환으로 오른손 좌표계를 유지했습니다.</p>
           <a className={styles.textLink} href="https://github.com/DoubleChamp/drivescope-visualizer/blob/main/scripts/convert_nuscenes_mini.py">변환기 코드 <span aria-hidden="true">↗</span></a>
         </div>
         <div className={styles.contractNote}>
-          <span className={styles.miniLabel}>BINARY CONTRACT</span>
+          <span className={styles.miniLabel}>바이너리 계약</span>
           <h3>파일 크기를 계약으로 검증</h3>
           <p>좌표는 <code>float32-le-xyz</code>로 저장합니다. 브라우저는 파일 크기가
             <code> pointCount × 3 × 4</code>바이트인지 검사하고, little-endian 환경에서는 ArrayBuffer를 Float32Array 뷰로 해석합니다.</p>
@@ -52,7 +52,7 @@ export function ProjectArchitecture() {
       </div>
       <div className={styles.syncRow}>
         <div className={styles.syncCopy}>
-          <p className={styles.eyebrow}>ONE CLOCK, DIFFERENT FRAMES</p>
+          <p className={styles.eyebrow}>시간 동기화</p>
           <h3>같은 재생 시각이<br />같은 수집 시각은 아닙니다.</h3>
           <p>각 센서는 <strong>재생 시각 이하의 최신 Frame</strong>을 선택합니다.
             목표 시각과 실제 표시한 Frame의 시각을 함께 보여주어, 수집 주기의 차이를 분석 정보로 남깁니다.</p>

@@ -1,0 +1,33 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+WrapStyle: 2
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Caption,Malgun Gothic,52,&H00FFFFFF,&H00FFFFFF,&H70170E08,&H70170E08,-1,0,0,0,100,100,0,0,3,10,0,2,80,80,140,1
+Style: Label,Malgun Gothic,26,&H00FFFFFF,&H00FFFFFF,&H00170E08,&H00170E08,-1,0,0,0,100,100,0,0,3,8,0,7,0,0,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:05.00,Caption,,0,0,0,,DriveScope\N센서 로그를 같은 시간축에서 분석합니다.
+Dialogue: 0,0:00:05.00,0:00:10.00,Caption,,0,0,0,,실제 nuScenes 센서 로그\NLiDAR · 전방 사진 · 차량 위치를 함께 재생합니다.
+Dialogue: 0,0:00:10.00,0:00:13.00,Caption,,0,0,0,,현재 연결 범위: 실제 센서와 차량 pose\N객체 인식·예상 경로 분석은 가상 데모에서 제공합니다.
+Dialogue: 0,0:00:13.00,0:00:18.00,Caption,,0,0,0,,타임라인으로 12.4초를 탐색합니다.\N이 장면의 실제 LiDAR는 34,752포인트입니다.
+Dialogue: 0,0:00:18.00,0:00:23.00,Caption,,0,0,0,,가상 급제동 데모 · 10.0초\N센서에 보행자가 등장합니다. 인식 박스는 아직 없습니다.
+Dialogue: 0,0:00:23.00,0:00:28.00,Caption,,0,0,0,,11.0초: 인식 박스를 클릭해 객체를 선택합니다.\Npedestrian-1 · 보행자 · 신뢰도 90%
+Dialogue: 0,0:00:28.00,0:00:33.00,Caption,,0,0,0,,12.0초: 경로와 보행자가 겹친 구간을 빨간색으로 강조합니다.\N가상 footprint와 계획 경로를 비교한 결과입니다.
+Dialogue: 0,0:00:33.00,0:00:38.00,Caption,,0,0,0,,12.4초 급제동: 새 계획의 경로가 짧아집니다.\N빨간 충돌 예상 구간이 사라집니다.
+Dialogue: 0,0:00:38.00,0:00:43.00,Caption,,0,0,0,,재생 시각 12.4초 · 표시한 센서 Frame 12.0초\N센서마다 수집 주기가 달라 시각 차이가 생깁니다.
+Dialogue: 0,0:00:43.00,0:00:48.00,Caption,,0,0,0,,각 센서는 재생 시각 이하의 최신 Frame을 선택합니다.\NCamera · LiDAR · Object Detection: -400ms
+Dialogue: 0,0:00:48.00,0:00:54.00,Caption,,0,0,0,,12.5초에서 12.4초로 돌아오면 캐시된 LiDAR를 재사용합니다.\Nhit · 재사용 / 캐시로 생략 — 새 로더 호출을 건너뜁니다.
+Dialogue: 0,0:00:54.00,0:00:57.00,Caption,,0,0,0,,사진은 숨긴 img에서 준비합니다.\N브라우저 decode()가 끝난 뒤 보이는 사진을 교체합니다.
+Dialogue: 0,0:00:57.00,0:01:00.00,Caption,,0,0,0,,공개 데모와 코드를 확인하세요.\NNext.js · React · TypeScript · Three.js
+Dialogue: 1,0:00:05.00,0:00:18.00,Label,,0,0,0,,{\pos(220,16)}실제 센서 로그 · nuScenes mini
+Dialogue: 1,0:00:19.00,0:00:28.00,Label,,0,0,0,,{\pos(220,16)}가상 급제동 분석
+Dialogue: 1,0:00:28.00,0:00:33.00,Label,,0,0,0,,{\pos(510,210)}12.0초 · 충돌 예상 구간 (화면 확대)
+Dialogue: 1,0:00:33.00,0:00:38.00,Label,,0,0,0,,{\pos(510,210)}12.4초 · 급제동 후 경로 (화면 확대)
+Dialogue: 1,0:00:38.00,0:00:48.00,Label,,0,0,0,,{\pos(510,210)}재생 시각 12.4초 · 센서 Frame 12.0초
+Dialogue: 1,0:00:50.00,0:00:54.00,Label,,0,0,0,,{\pos(440,335)}LiDAR 캐시 · Frame 로딩 (화면 확대)
+Dialogue: 1,0:00:54.00,0:00:57.00,Label,,0,0,0,,{\pos(510,178)}디코딩 완료 후 사진 교체 (화면 확대)

@@ -24,6 +24,10 @@ DriveScope는 Next.js App Router·React·TypeScript로 UI와 재생 상태를 �
 
 영상은 [project-demo.tsx](../app/_components/project-demo.tsx)의 네이티브 `<video controls playsInline preload="none">`이다. 별도 플레이어·React state·자동 재생을 추가하지 않는다. 포스터는 먼저 표시하고 사용자가 재생할 때 MP4를 가져온다. 실제 Chrome에서 초기 홈의 센서·MP4 요청 0개, Frame 방향키 조작·코드 Enter 펼치기·영상 재생/탐색·Viewer 왕복을 확인했다. 텍스트로 영상 흐름을 읽을 수 있는 설명도 제공한다.
 
+홈의 밝은 색상은 [home.module.css](../app/home.module.css)의 `.home` 변수로 관리한다. `:global(html):has(.home)`은 홈이 있을 때만 루트의 `color-scheme`과 배경을 바꾼다. Viewer로 이동하면 해당 조건이 풀리고 기존 dark 설정이 적용된다. 최적화 설명은 Server Component의 세로 행으로 구성하고, 작은 화면에서는 행 안의 제목·본문도 한 열로 배치한다.
+
+영상 자막은 [ASS 스타일 원본](../public/demo/drivescope-demo.ko.ass)을 FFmpeg로 MP4에 넣는다. 자막 위치·굵기 변경은 영상 재출력이 필요하다. 모바일의 `.video`는 `aspect-ratio: 5 / 4`, `min-height: 260px`, `object-fit: contain`으로 16:9 영상 주변에 여백을 확보한다. 소개의 Next Image 포스터는 정적 import로 파일 해시를 사용하며, 네이티브 영상·포스터 URL은 `?v=2`로 이전 미디어 캐시와 구분한다. 자세한 편집 조건은 [DEMO_SCRIPT.md](./DEMO_SCRIPT.md)를 따른다.
+
 ## 전체 데이터 흐름
 
 ```mermaid

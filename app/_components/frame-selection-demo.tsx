@@ -16,7 +16,7 @@ export function FrameSelectionDemo() {
 
   return (
     <div className={styles.frameDemo}>
-      <div className={styles.demoHeading}><span className={styles.eyebrow}>TRY THE TIMELINE</span><span>가상 Camera · 1초 주기</span></div>
+      <div className={styles.demoHeading}><span className={styles.eyebrow}>Frame 선택 예시</span><span>가상 Camera · 1초 주기</span></div>
       <div className={styles.frameReadout}>
         <div><span>재생 시각</span><strong><output htmlFor="frame-time">{(timeMs / 1000).toFixed(1)}</output><small>초</small></strong></div>
         <span className={styles.frameArrow} aria-hidden="true">→</span>

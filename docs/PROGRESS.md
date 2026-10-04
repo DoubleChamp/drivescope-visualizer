@@ -5,8 +5,8 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: 데이터 처리·성능 측정 중심의 포트폴리오 홈을 구현했다. 데이터 흐름·좌표/바이너리 계약·최적화 코드·측정 조건·Frame 선택 예시·60초 자막 영상·Viewer 체험을 한 페이지로 연결했다. build와 로컬 production Chrome 검사 8개 묶음을 통과했다.
-- 다음 한 단계: 소개 페이지를 함께 검토하고 Server/Client 경계·로딩 지표·CPU 캐시와 GPU 표시 Buffer의 차이를 설명한다. 사용자 push와 새 Vercel build 뒤 공개 홈·영상·Viewer 이동을 확인한다. 여러 scene의 선택 목록과 다중 카메라는 의견만 검토했으며 구현하지 않았다. 방화벽 설정은 사용자 요청으로 나중에 진행한다.
+- 현재 작업: 포트폴리오 홈을 밝은 배경·본문 중심 구성으로 정리하고 60초 영상 자막을 크게·굵게·위로 수정했다. 마지막 모바일 최소 높이 보정까지 build·Chrome 검사 8개 묶음과 4개 반응형 너비를 통과했다. 수정 MP4 전체 디코딩·재생·탐색과 문서 검증도 통과했다. 최종 마감 상태는 아래 최신 기록을 따른다.
+- 다음 한 단계: 수정한 CSS·자막 스타일과 홈의 Server/Client 경계·로딩 지표·CPU 캐시와 GPU 표시 Buffer의 차이를 함께 검토한다. 사용자 push와 새 Vercel build 뒤 공개 홈·영상·Viewer 이동을 확인한다. 여러 scene의 선택 목록과 다중 카메라는 의견만 검토했으며 구현하지 않았다. 방화벽 설정은 사용자 요청으로 나중에 진행한다.
 - 아직 구현하지 않은 것: ego pose 보간과 Camera smoothing, 실제 scene 선택 목록과 다중 카메라.
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
@@ -21,6 +21,18 @@
 7. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 8. 현재 Route Handler는 로컬 개발용이다. 배포에서는 로컬 C 드라이브를 읽을 수 없으므로 같은 scene 디렉터리를 정적 파일 서버·CDN·오브젝트 스토리지에 올리고 로더의 기준 URL을 바꿔야 한다.
 9. 실제 센서 연결·오류 처리·Viewer 디자인·README 재현과 아키텍처를 정리했다. 공개 실제 연결과 데모 선택 UI 반영·전환도 검증했다. DEMO_SCRIPT의 촬영 순서·대본·코드 연결을 따라 1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### Phase 7: 홈과 영상 자막 가독성 개선 (2026-10-04)
+
+- 사용자가 밝은 홈으로 수정하고 영상 자막을 크게·굵게·위로 옮기도록 승인했다. 중단 뒤 이어서 요청했으므로 같은 범위를 마무리한다. 작업 시작 시 main과 원격 main은 `0d9fac9`로 같고 worktree는 깨끗했다. 작업 기준 문서와 설치된 Next.js Server/Client·영상·Image 가이드를 확인했다.
+- `home.module.css`의 홈 색상 변수를 밝은 종이색·진한 본문·파란 링크로 바꾸고 글자 크기·간격을 조정했다. 반복되는 카드·장식 색상을 줄이고 최적화 설명은 세로 행의 문제·해결·코드로 배치했다. 소개 제목·섹션 제목을 구체적인 한국어로 정리하고 영상은 전체 폭으로 표시한다. Viewer의 처리·렌더 루프와 성능 기준선은 수정하지 않았다.
+- 홈이 있을 때만 `html:has(.home)`으로 루트 light 설정을 적용한다. Chrome에서 홈→Viewer→홈 전환 시 Viewer의 dark 설정이 유지됨을 확인했다. 소개 Next Image 포스터는 정적 import의 해시를 사용한다. 처음 시도한 쿼리 포함 Image 문자열은 설치된 Next.js의 localPatterns 제한으로 build가 실패해 가이드를 읽고 정적 import로 고쳤다. 네이티브 MP4·포스터·다운로드는 `?v=2`를 사용한다.
+- 자막 없는 기존 촬영 원본에서 MP4를 다시 출력했다. ASS Caption은 맑은 고딕 52·bold·하단 여백 140이며 기본 화면은 1440×810으로 축소해 아래 270px을 확보했다. 센서 확대 화면도 자막 영역을 피하도록 조정했다. SRT 13개의 내용·시각은 유지하고 `public/demo/drivescope-demo.ko.ass`를 스타일 원본으로 추가했다. 최종 MP4는 60.000초·H.264·yuv420p·1920×1080·30fps·1,800프레임·3,064,913바이트이고 포스터는 960×540·46,148바이트다.
+- 영상 검증 `node node_modules/.cache/drivescope-browser-check/verify-demo-video.mjs`에서 전체 1,800프레임 디코딩·Chrome 시작 재생·14/30/35/40/51/58초 탐색·끝까지 재생을 통과했다. video error와 runtime exception은 0개다. 추출 화면에서 큰 굵은 자막·촬영 타임라인과의 거리·센서 정보·충돌 전후·마지막 링크를 확인했다.
+- 홈 검증 `node node_modules/.cache/drivescope-browser-check/check-portfolio.mjs`에서 8개 묶음·runtime exception 0개를 확인했다. 초기 홈 센서/MP4 요청과 Canvas는 0개, 앵커·원본 링크·Frame 방향키·코드 Enter 펼치기·13.9ms 측정 범위·영상 재생/seek·Viewer 왕복을 통과했다. 320/390/768/1024px에서 페이지 가로 overflow가 없었다. 실제 모바일 기기의 결과로 확대하지 않는다.
+- 네이티브 버튼이 축소된 자막을 가리는 모바일 문제를 확인해 `aspect-ratio: 5 / 4`와 `object-fit: contain`으로 여백을 만들었다. 320px의 추가 여유를 위해 마지막에 `min-height: 260px`을 보정했다. 이 보정 뒤 `pnpm.cmd build`의 compile·TypeScript·정적 페이지 생성과 Chrome 8개 검사 묶음을 다시 통과했다. 최종 320px·데스크톱 스크린샷에서 자막과 컨트롤 간격, 밝은 홈을 확인했다.
+- 이전 3100 검증 서버 종료 뒤 3000 포트 상태 확인은 자동 승인 검토의 사용량 한도로 실행되지 않았다. 이어서 별도의 3100 production 서버 실행과 최종 브라우저 검증은 승인되어 완료했다. 격리 Chrome은 종료했고 3100 서버는 사용자가 로컬 홈을 확인하도록 유지한다. 개인 환경 파일·실제 자산 업로드·Vercel 계정 설정·push는 이번 범위에 포함하지 않았다.
+- README·ARCHITECTURE·DEMO_SCRIPT·ROADMAP·학습 노트를 갱신했다. 문서 검사 `node node_modules/.cache/drivescope-browser-check/check-architecture.mjs`에서 문서 8개·내부 링크 116개·앵커 10개·Mermaid 2개·코드 블록 짝과 `git diff --check`를 통과했다. 승인된 변경은 main에 commit까지만 하며 공개 홈·새 영상 반영은 사용자 push와 Vercel build 뒤 확인한다.
 
 ### Phase 7: 데이터 처리·성능 측정 포트폴리오 홈 (2026-10-04)
 
