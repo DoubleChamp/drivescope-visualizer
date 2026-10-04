@@ -5,8 +5,8 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: 실제 LiDAR의 응답 헤더·본문 읽기·좌표 준비·전체 시간과 최초 요청 종류를 기록했다. 현재 요청과 prefetch를 구분하고 기본 접힌 세부 표시·벤치마크·로더 검증을 연결했다. build·로더 4개 검사·Chrome 6개 묶음·단독 벤치마크 3회를 통과했다. 기존 13.9ms 기준선과 새 관측은 구분한다.
-- 다음 한 단계: 로더의 네 시각·시간 차이·Frame/측정 반환 계약·prefetch 공유 시 최초 요청 기록을 함께 설명하고 이해를 확인한다. 그 뒤 평균·P95·메인 스레드 정지 측정 중 한 단계를 정한다. 사용자 push와 새 Vercel build 뒤 새 표시를 확인한다. 여러 scene의 선택 목록과 다중 카메라는 의견만 검토했으며 방화벽 설정은 사용자 요청으로 나중에 진행한다.
+- 현재 작업: Frame 동기화 행의 시간·설명 공간과 줄바꿈을 고정하고, LiDAR의 다음 Frame 준비 중 이전 점군을 유지하도록 수정했다. Chrome에서 패널 높이·카메라 2슬롯·LiDAR 빈 렌더를 비교하고 production·지연·오류·재시도·모드 전환을 검증했다.
+- 다음 한 단계: 목표 Frame과 실제 표시 Frame, 로딩 중 점군 유지와 시간 차이를 설명하고 사용자 이해를 확인한다. 카메라 사진의 keyframe 간격과 보간 없는 3D 시점 이동은 별개이며 후속 개선은 아직 승인·구현하지 않았다. 앞선 로더 구간 측정의 이해 확인, 사용자 push와 새 Vercel build 뒤 공개 반영 확인도 남아 있다. 여러 scene·다중 카메라는 의견만 검토했으며 방화벽은 사용자 요청으로 미룬다.
 - 아직 구현하지 않은 것: ego pose 보간과 Camera smoothing, 실제 scene 선택 목록과 다중 카메라.
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
@@ -21,6 +21,17 @@
 7. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 8. 현재 Route Handler는 로컬 개발용이다. 배포에서는 로컬 C 드라이브를 읽을 수 없으므로 같은 scene 디렉터리를 정적 파일 서버·CDN·오브젝트 스토리지에 올리고 로더의 기준 URL을 바꿔야 한다.
 9. 실제 센서 연결·오류 처리·Viewer 디자인·README 재현과 아키텍처를 정리했다. 공개 실제 연결과 데모 선택 UI 반영·전환도 검증했다. DEMO_SCRIPT의 촬영 순서·대본·코드 연결을 따라 1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### Viewer: Frame 동기화 높이 고정과 깜빡임 점검 (2026-10-04)
+
+- 사용자가 동기화 패널 수정과 카메라 2슬롯·LiDAR의 전체 깜빡임 점검을 승인했다. 시작 시 main은 `a51b528`, 원격 main은 `bba2d88`이며 GitHub Desktop 내장 Git으로 원격을 읽기 전용 조회했다. 기존 `playback-controls.tsx`의 미커밋 변경은 수정·이번 commit에 포함하지 않는다. 기준 문서와 설치된 Next.js CSS Modules·use-client 가이드를 확인했다.
+- 변경 전 로컬 개발 Viewer에서 1초부터 약 8.5초 동안 rAF 표본 631개를 확인했다. LiDAR POINTS draw가 없는 표본은 19개였고 동기화 패널 높이는 290~308px였다. 목표 timestamp가 바뀌면 Hook이 잠깐 null을 반환하고 Three.js가 drawRange를 0으로 설정하는 경로를 확인했다. 캐시 hit 전환에도 이 틈이 생겼다.
+- `viewer-canvas.module.css`에서 `dd`의 두 줄 최소 높이 2.125rem·시간 줄의 nowrap·오차 flex 크기를 고정했다. `use-lidar-frame-cache.ts`는 같은 소스의 마지막 Frame을 목표 변경 직후와 miss 로딩 동안 유지하고 성공 뒤 교체한다. 첫 Frame 이전·소스 변경·현재 요청 실패에는 비우며 기존 늦은 완료 guard를 유지한다. 시간·포인트 수는 실제 유지 중인 Frame, 상태·로딩 측정은 목표 요청을 따른다.
+- production Chrome의 같은 재생 구간에서 rAF 표본 629개 중 LiDAR 빈 렌더·빈 활성 카메라·사진 timestamp 역행·활성 img의 src 변경·img DOM 교체가 모두 0이었다. 패널 높이는 308px로 유지됐다. 카메라 슬롯은 촬영 시각이 증가하면서 번갈아 표시됐다. 두 슬롯이 과거 사진을 다시 표시하는 문제는 이 표본에서 재현되지 않았다. 실제 모든 기기·GPU의 무깜빡임을 보장하는 결과로 확대하지 않는다.
+- 2236·1440·1024·768·390·320px의 정상·뒤로 seek 중 사진 유지·0초 빈 상태에서 패널 높이와 각 행 높이가 유지됐고 시간 숫자 잘림·페이지 가로 overflow가 없었다. 가상 모드도 1440·390·320px, 0·10·11·12.4초에서 객체 요약 변경에 따른 패널 높이를 확인했다. 320px 최종 스크린샷을 확인했다. 화면 너비별 설명 줄바꿈에 따른 서로 다른 패널 높이는 허용한다.
+- JPEG 650ms 지연에서 이전 사진 유지·새 seek 뒤 늦은 완료 차단을 확인했다. LiDAR 650ms 지연에서는 이전 34,720포인트·원래 촬영 시각과 loading 상태가 유지됐다. 실패 시 점군 숨김·retry 복구·0초 빈 상태·늦은 LiDAR 완료 후 새 seek/가상 전환 보호·실제 재연결을 통과했다. runtime exception은 0개였다. 지연·실패는 검증 브라우저에만 주입했다.
+- 검증: `pnpm.cmd build`, `pnpm.cmd verify:lidar-timings` 4개 검사, production `check-frame-stability.mjs`, 기존 `check-lidar-timings.mjs` 6개 묶음 통과. 프레임 진단 명령은 `DRIVESCOPE_STABILITY_URL=http://localhost:3100`, `DRIVESCOPE_STABILITY_PHASE=after`를 설정한 뒤 `node node_modules/.cache/drivescope-browser-check/check-frame-stability.mjs`다. 진단기·before/after JSON·스크린샷은 Git 제외 캐시에 보관한다. 초기 sandbox production 서버의 파일 읽기가 제한돼 서버를 종료하고 읽기 권한으로 다시 실행한 뒤 최종 검증했다. 개인 환경 파일은 변경하지 않았다.
+- 현재 manifest의 Camera는 39장·19.185초, 첫 시각은 0·500·1050·1550ms다. 이 사진 간격과 ego keyframe마다 즉시 움직이는 3D 시점은 여전히 남는다. 카메라 prefetch·중간 sweeps·pose 보간·smoothing은 이번에 구현하지 않았다. 로더 시간 계측·기존 성능 기준선도 변경하지 않았다. 사용자 이해 확인과 push·공개 반영 확인은 남아 있다.
 
 ### 배포 후 개선 1: 실제 LiDAR 로딩 구간 분리 (2026-10-04)
 

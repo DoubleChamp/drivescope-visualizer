@@ -167,16 +167,17 @@ export function useLidarFrameCache({
       };
     }
 
-    setState({
+    // 다음 Frame을 준비하는 동안 마지막 점군을 유지한다. 소스가 바뀌면 재사용하지 않는다.
+    setState((currentState) => ({
       source,
       timestampMs: targetTimestampMs,
-      frame: null,
+      frame: currentState.source === source ? currentState.frame : null,
       status: "loading",
       entryCount: cache.size,
       loadDurationMs: null,
       loadMeasurement: null,
       error: null,
-    });
+    }));
 
     void getOrLoadFrame(targetTimestampMs, "current")
       .then((result) => {
@@ -225,9 +226,13 @@ export function useLidarFrameCache({
 
   const stateMatchesTarget =
     state.source === source && state.timestampMs === targetTimestampMs;
+  // 목표 변경 직후 effect가 실행되기 전에도 점군을 비우지 않는다.
+  // 시각이 첫 Frame 이전이면 비우고, 오류 완료는 위에서 frame: null로 처리한다.
+  const displayedFrame =
+    state.source === source && targetTimestampMs !== null ? state.frame : null;
 
   return {
-    frame: stateMatchesTarget ? state.frame : null,
+    frame: displayedFrame,
     status:
       targetTimestampMs === null
         ? "empty"

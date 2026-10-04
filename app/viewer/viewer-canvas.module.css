@@ -1014,6 +1014,8 @@
 
 .synchronizedFrame dd {
   min-width: 0;
+  /* Frame 없음·로딩 중에도 시간과 설명 두 줄의 자리를 유지한다. */
+  min-height: 2.125rem;
   margin: 0;
   font-size: 0.75rem;
   font-weight: 700;
@@ -1026,6 +1028,7 @@
   justify-content: flex-end;
   gap: 0.5rem;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .frameDetail {
@@ -1041,6 +1044,7 @@
 }
 
 .timestampDifference {
+  flex: 0 0 auto;
   color: var(--muted);
   font-weight: 600;
 }

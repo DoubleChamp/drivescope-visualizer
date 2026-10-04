@@ -163,6 +163,8 @@ Three.js rAF는 재생·정지와 별도로 계속 장면을 그린다. 재생 �
 
 비동기 준비 때문에 **목표 Frame**과 **표시 Frame**은 잠시 다를 수 있다. [동기화 패널](../app/viewer/_components/synchronized-frames-panel.tsx)은 실제 표시 사진·로드된 LiDAR·선택된 pose의 timestamp를 사용한다. 이전 사진을 유지하며 뒤로 seek하면 사진의 시간 차이가 잠시 양수일 수도 있다. 센서별 보간이나 지연 허용 한계는 아직 적용하지 않는다.
 
+동기화 패널은 `dd`에 시간·설명 두 줄의 최소 높이를 확보하고, 시간과 오차의 줄바꿈을 막는다. `tabular-nums`와 오차의 고정 flex 크기로 숫자 폭 변화에 따른 행 높이 변화를 줄인다. Frame 없음·로딩·정상 표시가 바뀌어도 이 공간은 유지한다.
+
 `findNearestFrame`은 기본 재생에서 사용하지 않는다. 미래 예측 시각과 이후 관측값을 비교하는 용도로 남아 있으며, 현재 Frame 선택은 선형 탐색이다.
 
 ## LiDAR 로딩·캐시·Buffer
@@ -179,6 +181,8 @@ Three.js rAF는 재생·정지와 별도로 계속 장면을 그린다. 재생 �
 | `inFlightLoads` | 완료 전 로더 Promise | 같은 timestamp의 현재 요청·prefetch가 Promise 공유; 완료·실패 시 finally에서 제거 |
 
 현재 요청이 cache hit이면 같은 Frame 참조를 즉시 반환한다. miss이면 로더를 시작하거나 진행 중 Promise를 공유한다. 현재 Frame이 준비된 뒤 양옆 한 Frame을 같은 경로로 prefetch한다. 다음 Frame을 미리 보관해도 표시 시점 선택은 재생 시간 규칙을 따른다.
+
+목표 timestamp 변경 직후와 miss의 로딩 중에는 같은 소스의 마지막 표시 Frame을 유지한다. 성공하면 목표 Frame으로 교체하고, 현재 요청 실패·첫 Frame 이전 시각·소스 변경에는 이전 점군을 비운다. 상태와 로딩 측정은 목표 요청을 따르고, 포인트 수와 동기화 timestamp는 실제 유지 중인 점군을 따른다. 뒤로 seek하면 이전 점군의 시간 차이가 준비 중 잠깐 양수일 수 있다. 늦은 요청 완료는 기존 `ignoreResult`로 차단한다.
 
 최대 5개는 **완료된 캐시 항목 수**의 제한이다. 진행 중 요청 수나 전체 브라우저 메모리를 5개로 제한하지 않는다. 빠른 seek 중 요청은 더 많이 남을 수 있다. 가상 모드에서는 원본 배열 전체가 이미 메모리에 있고 모의 로더가 좌표를 복사하므로 실제 데이터와 메모리·로딩 비용이 다르다.
 
@@ -202,7 +206,7 @@ geometry.setDrawRange(0, lidarFrame.positions.length / 3);
 geometry.computeBoundingSphere();
 ```
 
-`set()`은 캐시 좌표를 런타임 배열 앞부분에 복사한다. `needsUpdate`는 다음 render에서 GPU 전송이 필요함을 알리고, `drawRange`는 남은 용량을 그리지 않게 한다. 같은 런타임 안에서는 Frame마다 Geometry와 position 배열을 새로 만들지 않는다. 목표 Frame이 로딩 중이거나 실패하면 drawRange를 0으로 두어 이전 시점 점군을 현재 데이터처럼 표시하지 않는다.
+`set()`은 캐시 좌표를 런타임 배열 앞부분에 복사한다. `needsUpdate`는 다음 render에서 GPU 전송이 필요함을 알리고, `drawRange`는 남은 용량을 그리지 않게 한다. 같은 런타임 안에서는 Frame마다 Geometry와 position 배열을 새로 만들지 않는다. Hook이 로딩 중 이전 Frame 참조를 유지하면 Buffer와 drawRange도 그대로 유지한다. 표시 Frame이 없거나 현재 요청이 실패하면 drawRange를 0으로 둔다.
 
 `needsUpdate = true`는 Attribute의 version을 증가시킨다. CPU 배열을 바꾼 것만으로 GPU 좌표가 바뀌지 않으며 Renderer가 이 갱신을 처리해야 화면에 반영된다.
 
