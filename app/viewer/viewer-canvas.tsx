@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { CameraPanel } from "./_components/camera-panel";
 import { DataErrorNotice } from "./_components/data-error-notice";
 import { EgoPosePanel } from "./_components/ego-pose-panel";
@@ -18,10 +18,9 @@ import {
   ViewerScenePanel,
   ViewerSceneStage,
 } from "./_components/viewer-scene-panel";
-import { findLatestFrameAtOrBefore } from "./_data/find-latest-frame-at-or-before";
 import { loadMockLidarFrame } from "./_data/load-mock-lidar-frame";
 import { mockScenario } from "./_data/mock-scenario";
-import { selectScenarioFrames } from "./_data/select-scenario-frames";
+import { useTimestampedFrame } from "./_hooks/use-timestamped-frame";
 import { useBufferedCameraFrame } from "./_hooks/use-buffered-camera-frame";
 import { useDriveScopeDataSource } from "./_hooks/use-drivescope-data-source";
 import { useLidarFrameCache } from "./_hooks/use-lidar-frame-cache";
@@ -46,6 +45,8 @@ const LOADING_LIDAR_SOURCE: LidarFrameSource = {
   frames: [],
   loadFrame: async () => ({ frame: null, timings: null }),
 };
+
+const EMPTY_FRAMES: readonly never[] = [];
 
 export default function ViewerCanvas() {
   const [mode, setMode] = useState<ViewerMode>("actual");
@@ -86,10 +87,24 @@ function ViewerSession({ mode }: { mode: ViewerMode }) {
   );
 
   // 모든 센서가 같은 currentTimeMs를 입력으로 사용하되 각자의 주기대로 Frame을 선택한다.
-  const frames = selectScenarioFrames(mockScenario, currentTimeMs);
-  const lidarFrameMetadata = findLatestFrameAtOrBefore(
+  const frames = {
+    camera: useTimestampedFrame(
+      isMockData ? mockScenario.cameraFrames : EMPTY_FRAMES, currentTimeMs, isPlaying,
+    ),
+    objectDetection: useTimestampedFrame(
+      isMockData ? mockScenario.objectDetectionFrames : EMPTY_FRAMES, currentTimeMs, isPlaying,
+    ),
+    vehicleState: useTimestampedFrame(
+      isMockData ? mockScenario.vehicleStateFrames : EMPTY_FRAMES, currentTimeMs, isPlaying,
+    ),
+    trajectory: useTimestampedFrame(
+      isMockData ? mockScenario.trajectoryFrames : EMPTY_FRAMES, currentTimeMs, isPlaying,
+    ),
+  };
+  const lidarFrameMetadata = useTimestampedFrame(
     lidarSource.frames,
     currentTimeMs,
+    isPlaying,
   );
   const {
     frame: lidarFrame,
@@ -106,30 +121,31 @@ function ViewerSession({ mode }: { mode: ViewerMode }) {
     targetTimestampMs: lidarFrameMetadata?.timestampMs ?? null,
   });
   const lidarPointCount = lidarFrame ? lidarFrame.positions.length / 3 : 0;
-  const lidarPositionCapacity = Math.max(
+  const lidarPositionCapacity = useMemo(() => Math.max(
     0,
-    ...lidarSource.frames.map((frame) =>
-      "pointCount" in frame && typeof frame.pointCount === "number"
-        ? frame.pointCount * 3
-        : 0,
+    ...lidarSource.frames.map(frame =>
+      "pointCount" in frame && typeof frame.pointCount === "number" ? frame.pointCount * 3 : 0,
     ),
-  );
+  ), [lidarSource]);
   const objectDetectionFrame = isMockData ? frames.objectDetection : null;
   const currentPedestrian =
     objectDetectionFrame?.objects.find(
       (object) => object.category === "pedestrian",
     ) ?? null;
+  const actualCameraFrame = useTimestampedFrame(
+    actualDataSource?.cameraFrames ?? EMPTY_FRAMES, currentTimeMs, isPlaying,
+  );
   const cameraFrame = isActualData
-    ? findLatestFrameAtOrBefore(actualDataSource.cameraFrames, currentTimeMs)
+    ? actualCameraFrame
     : isMockData
       ? frames.camera
       : null;
   const bufferedCamera = useBufferedCameraFrame(cameraFrame, lidarSource.id);
+  const actualEgoPoseFrame = useTimestampedFrame(
+    actualDataSource?.manifest.egoVehicle.frames ?? EMPTY_FRAMES, currentTimeMs, isPlaying,
+  );
   const egoPoseFrame = isActualData
-    ? findLatestFrameAtOrBefore(
-        actualDataSource.manifest.egoVehicle.frames,
-        currentTimeMs,
-      )
+    ? actualEgoPoseFrame
     : isMockData
       ? frames.vehicleState
       : null;

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { FrameCache } from "../_data/frame-cache";
+import { findLatestFrameIndexAtOrBefore } from "../_data/find-latest-frame-at-or-before";
 import type { LidarFrame } from "../_data/frame-types";
 import type { LidarFrameSource, LidarLoadMeasurement } from "../_data/lidar-frame-source";
 
@@ -102,10 +103,9 @@ export function useLidarFrameCache({
     };
 
     const prefetchNeighborFrames = async () => {
-      const targetIndex = source.frames.findIndex(
-        (frame) => frame.timestampMs === targetTimestampMs,
-      );
-      if (targetIndex === -1) return;
+      if (targetTimestampMs === null) return;
+      const targetIndex = findLatestFrameIndexAtOrBefore(source.frames, targetTimestampMs);
+      if (targetIndex === -1 || source.frames[targetIndex].timestampMs !== targetTimestampMs) return;
 
       const neighborTimestamps = [
         source.frames[targetIndex - 1]?.timestampMs,

@@ -250,3 +250,32 @@ pnpm.cmd benchmark:lidar-parsers
 두 경로의 seek·재생 Long Tasks는 모두 0개이고 관찰한 FPS·rAF P95는 같았다. HTTP 구간과 prefetch는 오히려 Worker 회차에서 짧은 값도 나왔지만 같은 HTTP 코드이며 순서·OS 캐시·스케줄링 변동이 섞인다. 전체 로딩의 차이를 파싱 CPU 개선율로 해석하지 않는다. 각 경로 hit 검사 3/3회·current 종류/포인트 수·prefetch 완료 뒤 현재 값 유지가 통과했고 runtime exception 0개였다.
 
 **결정: 기본은 메인 스레드를 유지한다. Worker는 학습·재현 비교용 opt-in으로만 남긴다.** 현재 데이터의 좌표 준비는 view 생성이라 옮길 CPU 작업이 매우 작고, 이번 측정에서는 Worker 시작·왕복 비용이 더해졌으며 FPS·장시간 작업 감소를 확인하지 못했다. 큰 원본 변환·압축 해제·필터링 같은 실제 CPU 작업이 추가되면 같은 방법으로 다시 비교한다. 모든 데이터/기기의 Worker가 느리다는 결론은 아니다.
+
+## Frame 선택 비용과 cursor·이진 탐색 (P.S. 5)
+
+구현 전 production 선형 선택 함수를 실제 scene-0061의 LiDAR·Camera·ego 목록 **각 39개**로 측정했다. [변경 전 원본](./benchmarks/frame-selection-before-2026-10-05.json)을 기록한 뒤 [selector](../app/viewer/_data/frame-selector.ts)와 [Hook](../app/viewer/_hooks/use-timestamped-frame.ts)을 구현하고 [변경 후 원본](./benchmarks/frame-selection-after-2026-10-05.json)을 기록했다. 두 원본의 timestamp SHA-256·순차/seek 시각 배열이 같음을 확인했다.
+
+이 측정은 **Node 24.19.0·Ryzen 5 2600X의 CPU microbenchmark**다. 실제 HTTP에서 읽은 메타데이터와 실제 TS 선택 코드를 실행하지만 브라우저 FPS·React commit·입력 지연·HTTP/GPU 비용을 측정하지 않는다. 한 선택의 짧은 시간을 clock 한 번으로 재지 않고 3종 × 193개 시각 × 4000번의 전체 경과를 선택 횟수로 나눈다. 100번 JIT 준비 후 다섯 묶음을 기록하며 checksum이 원래 선형 결과와 같아야 한다. snapshot/cursor 생성은 구간 밖이다. 원본의 P95는 **다섯 묶음 평균의 nearest-rank**, 개별 선택 지연의 P95가 아니다.
+
+| 선택 한 번의 평균 / µs | 같은 after 실행의 선형 기준 | 순수 이진 탐색 helper | Viewer selector |
+| --- | ---: | ---: | ---: |
+| 100ms 간격 순차 재생 | 0.124 | 0.066 | 0.016 (cursor) |
+| 고정 seed의 임의 seek | 0.126 | 0.074 | 0.119 (snapshot 이진 탐색) |
+
+구현 전 별도 실행의 선형 평균도 순차 0.123µs·seek 0.123µs였다. after 실행은 같은 프로세스에서 원래 선형 기준을 다시 비교해 실행 간 차이를 구분한다. selector의 seek에는 timestamp snapshot 검색·상태 관리·Frame 참조 반환이 함께 들어가므로 순수 helper와 비용이 다르다. 현재 39개에서는 원래 비용도 매우 작고 seek 개선도 작다. **이 변경을 FPS 향상이나 기존 깜빡임의 해결 원인으로 주장하지 않는다.** 데이터가 커질 때 매 tick 전체 목록을 순회하는 구조를 제거한 결과다.
+
+### 최종 선택 규칙
+
+- 목록별로 정렬 timestamp snapshot과 cursor를 memo로 만든다. 첫 선택·정지/새 seek·시각 역행은 O(log n) 이진 탐색, 재생 중 증가 시각은 cursor로 다음 항목만 확인한다. 같은 시각의 재렌더는 같은 결과를 재사용한다. 한 순차 구간의 총 cursor 전진은 O(n)이며 매 호출 O(n) 순회가 아니다.
+- 목표 이하의 최신 Frame·첫 Frame 이전 null·중복 timestamp의 첫 Frame 선택을 유지한다. 센서별 독립 selector이며 배열 인덱스로 센서를 묶지 않는다. 뒤로 간 호출은 binary로 복구하므로 렌더 재시도/순서 변화에도 결과는 원래 규칙과 같다.
+- 목록 참조가 바뀌면 snapshot/cursor를 새로 만든다. snapshot은 O(n) 한 번이며 데이터 목록은 오름차순·불변 계약이다. manifest 검증과 가상 데이터가 그 계약을 따른다. 큰 센서 배열·매 rAF 선택 결과를 React state에 넣지 않는다.
+- prefetch의 인덱스·가상 로더의 정확한 timestamp 조회도 이진 탐색으로 바꿨다. 가상 로더는 일치하는 timestamp가 없으면 이전 Frame을 로딩하지 않는다. GPU position 최대 용량은 소스별 memo로 계산한다. 홈의 기존 선택 예시·순수 scenario 선택도 이진 탐색 helper를 쓴다.
+
+```powershell
+pnpm.cmd verify:frame-selection
+pnpm.cmd benchmark:frame-selection
+```
+
+[검증](../scripts/verify-frame-selection.mjs)은 3910개 시각에서 선형 기준과 같은 Frame 참조인지 비교한다. 빈/단일/중복·미래 선택 금지·NaN/무한·순차/반복/앞뒤 seek·가상 5종·소스 초기화, 가상 로더 정확 조회/좌표 복사를 확인했다. 합성 100,000개와 같은 timestamp 100,000개에서도 읽기 횟수가 이진 탐색 상한 안에 있음을 확인했다. 큰 합성 목록은 위 실제 비용 표에 포함하지 않는다.
+
+최종 build·production에서 Worker byte 비교, 실제 재생 635개 표본의 빈 카메라·사진 역행·빈 LiDAR·DOM 교체 0, 여섯 너비와 panel 높이 유지·지연/실패/retry·seek/모드 전환을 통과했다. 오류 DOM을 읽은 직후 이전 GPU draw가 남아 있던 검증기는 다음 rAF의 빈 draw를 기다리도록 관찰을 보정했다. 제품의 오류 처리 코드를 바꾸지는 않았다. 3D Camera 행렬 검사와 홈의 선택 예시/네 개 너비/SPA 전환 포함 8개 검사도 통과했다. 이전 Camera 최대 이동 약 0.51m는 유지됐으며 탐색의 FPS 효과로 재해석하지 않는다.

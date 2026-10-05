@@ -70,6 +70,7 @@ manifest를 읽으면 Frame 목록과 ego pose를 확보한다. 모든 LiDAR 바
 | [app/page.tsx](../app/page.tsx), [app/_components](../app/_components) | 포트폴리오 홈의 섹션·메타데이터·설계 근거·측정 결과·영상 조합 |
 | [frame-selection-demo.tsx](../app/_components/frame-selection-demo.tsx) | 홈에서 작은 state로 최신 과거 Frame 선택 원리를 체험하는 Client Component |
 | [lidar-frame-source.ts](../app/viewer/_data/lidar-frame-source.ts) | 로더의 Frame·세부 시간 반환 계약과 요청별 측정 타입 |
+| [frame-selector.ts](../app/viewer/_data/frame-selector.ts), [use-timestamped-frame.ts](../app/viewer/_hooks/use-timestamped-frame.ts) | 불변 목록별 timestamp snapshot·순차 cursor·seek 이진 탐색·소스 변경 초기화 |
 | [prepare-lidar-positions.ts](../app/viewer/_data/prepare-lidar-positions.ts) | 두 파싱 경로가 공유하는 크기 검사·little-endian Float32Array 준비 |
 | [lidar-positions-worker-client.ts](../app/viewer/_workers/lidar-positions-worker-client.ts), [Worker 본문](../app/viewer/_workers/lidar-positions.worker.ts) | 선택한 학습 경로의 양방향 transfer·ID·pending Promise·timeout·종료 |
 | [lidar-load-details.tsx](../app/viewer/_components/lidar-load-details.tsx) | 실제 현재 Frame과 마지막 주변 prefetch의 구간 시간 표시 |
@@ -162,7 +163,7 @@ Three.js에서 yaw를 적용한 전방 = [-sin(yaw), 0, -cos(yaw)]
 
 Three.js rAF는 재생·정지와 별도로 계속 장면을 그린다. 재생 시각이 바뀌면 선택된 데이터에 대한 effect가 Buffer·transform을 갱신하고, rAF는 그 결과를 렌더링한다. 매 rAF마다 센서 좌표를 React state에 복사하지 않는다. 로딩 Hook의 state에는 완료된 Frame 참조와 표시 상태를 보관한다.
 
-기본 선택은 각 센서 배열에 독립적으로 `findLatestFrameAtOrBefore(frames, currentTimeMs)`를 적용한다. 같은 배열 인덱스로 Camera·LiDAR·ego를 묶지 않는다. 미래 Frame은 목표로 선택하지 않으며 이전 Frame이 없으면 `null`이다.
+선택 규칙은 각 센서에서 `currentTimeMs` 이하의 최신 Frame이다. 같은 배열 인덱스로 Camera·LiDAR·ego를 묶지 않는다. 미래 Frame은 목표로 선택하지 않으며 이전 Frame이 없으면 `null`이다. Viewer의 `useTimestampedFrame`은 목록별 `createFrameSelector`를 memo로 유지한다. 재생 중 증가하는 시각은 cursor로 전진하고 최초·정지/seek·뒤로 간 시각은 정렬 timestamp snapshot의 이진 탐색을 쓴다. 같은 시각의 재렌더는 마지막 결과를 재사용한다. 소스 목록 참조가 바뀌면 새 snapshot/cursor를 만든다.
 
 실제 scene-0061의 12.4초에서는 Camera 12,050ms와 LiDAR·ego 12,085ms가 선택된다. 0초에는 Camera가 있지만 첫 LiDAR·ego는 35ms여서 해당 데이터만 비어 있다. 이는 연결 실패와 다른 상태다.
 
@@ -170,7 +171,9 @@ Three.js rAF는 재생·정지와 별도로 계속 장면을 그린다. 재생 �
 
 동기화 패널은 `dd`에 시간·설명 두 줄의 최소 높이를 확보하고, 시간과 오차의 줄바꿈을 막는다. `tabular-nums`와 오차의 고정 flex 크기로 숫자 폭 변화에 따른 행 높이 변화를 줄인다. Frame 없음·로딩·정상 표시가 바뀌어도 이 공간은 유지한다.
 
-`findNearestFrame`은 기본 재생에서 사용하지 않는다. 미래 예측 시각과 이후 관측값을 비교하는 용도로 남아 있으며, 현재 Frame 선택은 선형 탐색이다.
+cursor는 탐색 캐시이고 선택 결과는 이력과 관계없이 이진 탐색과 같다. 반복/뒤로 간 호출도 보정하므로 React가 재렌더를 다시 시도해도 같은 Frame 참조를 반환한다. 목록은 오름차순·불변 계약을 따른다. 중복 timestamp는 기존처럼 첫 항목을 선택한다. snapshot은 소스별 한 번 O(n), seek는 O(log n), 순차 구간의 총 전진은 O(n)이다. 매 tick에 모든 Frame을 순회하지 않는다.
+
+홈과 순수 `selectScenarioFrames`의 `findLatestFrameAtOrBefore`도 정렬 목록의 이진 탐색을 사용한다. prefetch의 현재 인덱스·가상 로더의 정확한 timestamp 조회도 선형 검색을 제거했다. 포인트 Buffer 최대 용량 계산은 소스별 memo로 이동했다. `findNearestFrame`은 기본 재생에서 사용하지 않는 별도 유틸이며 미래 예측과 관측 비교용으로 남긴다.
 
 ## LiDAR 로딩·캐시·Buffer
 
@@ -334,4 +337,4 @@ P.S. 4의 동일 build 교대 비교는 준비의 최초 시작/왕복 비용과
 
 웹앱은 Vercel에 배포되어 있으며 Public Blob의 실제 scene 파일 79개는 원본 SHA-256·응답 형식·CORS를 검증했다. Config로 설정한 공개 manifest URL을 배포 Viewer가 직접 요청하고 재생·탐색·사진 유지·오류 복구·모바일 표시까지 통과했다. 실제/가상 선택 UI의 공개 반영 뒤 양방향 전환·초기화·오래된 완료 차단·retry·키보드·320/390px 표시도 검사했다. 기존 로컬 API는 미설정 503이지만 공개 모드에서는 요청하지 않는다. 배포 앱은 PC 데이터 디렉터리나 업로드 토큰을 필요로 하지 않는다. 계정의 빌드 로그·Preview 배포와 실제 모바일 기기는 별도 검증이며 1분 영상은 남아 있다. 자세한 결과는 [DEPLOYMENT.md](./DEPLOYMENT.md)에 기록한다.
 
-ego pose 보간·센서 sweeps 재생·누적, 실제 annotation·Planning 연결은 현재 범위 밖이다. 표시용 3D Camera 추종은 구현했고 기록 센서/pose 보간과 구분한다. 실제 모드의 차량 박스 크기는 현재 가상 시나리오 값을 재사용한다. Worker 비교·기본 경로 결정과 Frame 선택 cursor·이진 탐색은 이번 연속 승인 작업의 다음 단계다.
+ego pose 보간·센서 sweeps 재생·누적, 실제 annotation·Planning 연결은 현재 범위 밖이다. 표시용 3D Camera 추종은 구현했고 기록 센서/pose 보간과 구분한다. 실제 모드의 차량 박스 크기는 현재 가상 시나리오 값을 재사용한다. P.S. 1~5의 구간/평균/P95/메인 스레드 관찰·Worker 비교·Frame 선택 cursor/이진 탐색은 완료했다. 현재 작은 scene에서 Frame 선택이 FPS 병목이었다고 주장하지 않는다.

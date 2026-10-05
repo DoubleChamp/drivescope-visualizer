@@ -171,6 +171,17 @@ $env:DRIVESCOPE_BENCHMARK_URL = 'http://localhost:3100'
 pnpm.cmd benchmark:viewer
 ```
 
+평균·P95와 Long Tasks·타이머 지연은 같은 회차에서 함께 기록합니다. 추가 비교와 선택 검사도 실행할 수 있습니다.
+
+```powershell
+pnpm.cmd benchmark:lidar-parsers
+pnpm.cmd verify:lidar-worker
+pnpm.cmd verify:frame-selection
+pnpm.cmd benchmark:frame-selection
+```
+
+Worker 검사는 위 production 서버와 Chrome이 필요합니다. Frame 선택 검사는 CPU에서, 탐색 benchmark는 실제 manifest를 읽은 뒤 Node CPU에서 실행합니다. 기본 Viewer는 main 경로이고 `/viewer?lidarParser=worker`는 학습·비교용입니다. 실제 비교에서 FPS/Long Tasks 개선을 확인하지 못해 기본을 유지했습니다. 실행 조건·원본·한계는 [PERFORMANCE.md](docs/PERFORMANCE.md)에 기록합니다. 탐색 CPU 결과를 화면 FPS 향상으로 해석하지 않습니다.
+
 benchmark는 브라우저를 자동 제어해 가상·실제 모드를 같은 조건으로 각 3회 측정합니다. 로딩은 5개 탐색 시점의 cache miss를, FPS는 초기 2.2초 이후 1초 간격으로 10회 읽습니다. 가상 비교를 위한 응답 변경은 해당 측정 브라우저에만 적용합니다. 결과는 콘솔과 `node_modules/.cache/drivescope-benchmark/latest.json`에 저장합니다.
 
 Frame 로딩 시간은 비동기 HTTP 대기를 포함한 로더 Promise의 경과 시간이고, FPS는 rAF에서 `renderer.render()`를 호출한 빈도입니다. 순수 렌더링 시간·GPU 시간·순간 정지를 직접 측정한 값으로 해석하지 않습니다. 측정 환경·기준선·한계는 [PERFORMANCE.md](docs/PERFORMANCE.md)에 있습니다.
@@ -211,7 +222,7 @@ manifest 연결 문제를 해결한 뒤 **실제 데이터 다시 연결**을 �
 | 소스·재생 시계·센서 선택·패널 조합 | [viewer-canvas.tsx](app/viewer/viewer-canvas.tsx) |
 | 실제/가상 데모 선택 입력 | [viewer-source-selector.tsx](app/viewer/_components/viewer-source-selector.tsx) |
 | 제목·요약 / 3D 표시 마크업 | [viewer-header.tsx](app/viewer/_components/viewer-header.tsx), [viewer-scene-panel.tsx](app/viewer/_components/viewer-scene-panel.tsx) |
-| 재생·탐색 / timestamp 선택 | [use-playback.ts](app/viewer/_hooks/use-playback.ts), [find-latest-frame-at-or-before.ts](app/viewer/_data/find-latest-frame-at-or-before.ts) |
+| 재생·탐색 / timestamp 선택 | [use-playback.ts](app/viewer/_hooks/use-playback.ts), [frame-selector.ts](app/viewer/_data/frame-selector.ts), [이진 탐색 helper](app/viewer/_data/find-latest-frame-at-or-before.ts) |
 | 실제 manifest·LiDAR 로딩 | [load-drivescope-data-source.ts](app/viewer/_data/load-drivescope-data-source.ts) |
 | Promise 공유·양옆 prefetch·최대 5개 LRU | [use-lidar-frame-cache.ts](app/viewer/_hooks/use-lidar-frame-cache.ts) |
 | 숨겨진 img 준비·decode 후 사진 교체 | [use-buffered-camera-frame.ts](app/viewer/_hooks/use-buffered-camera-frame.ts) |

@@ -5,10 +5,10 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: P.S. 2번 `d7829b0`, 3번 `92c3994` 이후 4번 교대 비교를 완료했다. main/Worker 현재 요청 평균 9.23/10.49ms·P95 13.00/25.10ms, FPS·Long Tasks 차이를 확인하지 못했다. 기본 main 유지·Worker는 학습/비교용 opt-in으로 결정했다.
-- 다음 한 단계: 5번 실제 Frame 선택 비용을 먼저 측정하고 순차 cursor·임의 seek 이진 탐색을 구현·검증·문서·commit한다. 이번 요청은 매 단계 추가 승인을 생략하는 명시적 연속 작업 승인이다. 사용자 이해 확인을 완료한 것으로 기록하지 않는다. push는 사용자가 수행한다.
+- 현재 작업: 사용자가 연속 승인한 P.S. 2~5를 구현·검증·문서화했다. 2번 `d7829b0`, 3번 `92c3994`, 4번 `71e72cd` 이후 5번 실제 탐색 비용 측정·cursor/이진 탐색·production 회귀를 완료했다. 기본 main 유지·Worker는 학습/비교용 opt-in이다.
+- 다음 한 단계: 사용자에게 평균/P95·비동기 경과와 UI 정지·Worker 소유권 이전/유지 결정·cursor/seek의 원리를 설명하고 이해를 확인한다. 이번 2~5 연속 구현 승인을 사용자 이해 완료로 기록하지 않는다. main 로컬 commit까지 수행하고 push는 사용자가 GitHub Desktop에서 직접 수행한다. 공개 반영 검사는 push 뒤 별도 진행한다. P.S. 6 sweeps와 scene/다중 카메라는 이번 승인 범위에 포함하지 않았다.
 - 아직 구현하지 않은 것: 센서·ego pose·사진의 보간, 중간 sweeps, 실제 scene 선택 목록과 다중 카메라.
-- 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
+- 배포 후 개선: 실제 로더 구간·평균/P95·메인 스레드 관찰·transferable Worker 비교와 Frame 선택 cursor/이진 탐색까지 완료했다. 원본·한계·재현은 PERFORMANCE에 기록한다. 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적은 후속 승인 후보로 남긴다.
 
 ## 다른 컴퓨터에서 이어서 시작하기
 
@@ -21,6 +21,16 @@
 7. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 8. 현재 Route Handler는 로컬 개발용이다. 배포에서는 로컬 C 드라이브를 읽을 수 없으므로 같은 scene 디렉터리를 정적 파일 서버·CDN·오브젝트 스토리지에 올리고 로더의 기준 URL을 바꿔야 한다.
 9. 실제 센서 연결·오류 처리·Viewer 디자인·README 재현과 아키텍처를 정리했다. 공개 실제 연결과 데모 선택 UI 반영·전환도 검증했다. DEMO_SCRIPT의 촬영 순서·대본·코드 연결을 따라 1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### P.S. 5: 실제 탐색 비용·cursor/이진 탐색 (2026-10-05)
+
+- `71e72cd` 뒤 구현 전에 실제 scene-0061의 세 목록 각 39개로 기존 TS 선형 선택 비용을 기록했다. Node CPU 평균 순차/seek 약 0.123µs였으며 큰 FPS 병목으로 해석하지 않았다. 전후 timestamp 해시·193개 순차/seek 입력과 checksum을 확인하고 `docs/benchmarks/frame-selection-before-2026-10-05.json`, `frame-selection-after-2026-10-05.json`에 공유했다.
+- `findLatestFrameAtOrBefore`는 이진 탐색, `frame-selector.ts`는 목록별 정렬 timestamp snapshot·cursor·같은 시각 결과 재사용·역행/seek 이진 탐색을 담당한다. `useTimestampedFrame`으로 실제 3종·가상 활성 센서들을 연결하고, 소스 목록 참조 변경은 초기화한다. mock exact 로딩·prefetch 인덱스도 선형 조회를 제거하고 GPU 용량 계산은 소스 memo로 옮겼다.
+- 같은 after 프로세스의 선형 기준/selector 순차 평균 0.124/0.016µs, 임의 seek 0.126/0.119µs다. selector seek는 snapshot·상태 관리·Frame 반환을 포함해 순수 이진 helper(0.074µs)와 구분한다. 다섯 큰 묶음 평균이며 브라우저 개별 지연·FPS 향상 수치로 표현하지 않는다. 최초 snapshot 구성은 측정 구간 밖이다.
+- `verify:frame-selection`: 3910개 시각에서 선형 기준과 같은 참조, 경계·중복 첫 항목·NaN/무한·순차/반복/역행·가상 5종·소스 초기화·mock exact/복사·합성 100,000개 탐색 상한 통과. `benchmark:frame-selection`, build·TypeScript, `verify:lidar-worker`, `verify:camera-follow`, `verify:lidar-timings` 통과.
+- 최종 production 표시 회귀는 실제 재생 635개 중 빈 Camera·사진 역행·빈 LiDAR·활성 src 변경·DOM 교체 0, panel 308px 유지, 여섯 너비·지연/실패/retry·늦은 완료·모드 전환 통과. 첫 회귀의 오류 상태 직후 GPU count 캡처는 다음 rAF 전의 draw를 읽어 실패했으므로 GPU의 빈 draw까지 기다리도록 관찰기를 고친 뒤 재검증했다. 제품 오류 경로는 바꾸지 않았다. Camera 행렬 표본 632개 최대 이동 0.5088m 유지·정지/seek/가상 시점 검사와 홈 8개 기능/네 너비/SPA 검사도 통과했다.
+- 기존 `playback-controls.tsx` diff는 보존·commit 제외한다. 사용자 2~5 연속 승인 범위는 여기까지 완료하며 sweeps·scene 추가·센서 보간으로 이어가지 않는다. push는 사용자가 수행하고 사용자 원리 이해 확인은 아직 남아 있다.
+- 문서 내부 링크/fence·`git diff --check`, README 링크 42개와 실제 자산 39/39/39 검증도 통과했다. README의 실제 manifest 검사는 sandbox 읽기 제한 뒤 읽기 권한으로 재실행했다. 같은 구현의 검사 성공 기록이며 데이터 경로나 환경 파일은 바꾸지 않았다.
 
 ### P.S. 4: main/Worker 교대 비교·유지 결정 (2026-10-05)
 

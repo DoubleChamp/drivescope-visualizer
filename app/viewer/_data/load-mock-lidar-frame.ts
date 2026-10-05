@@ -1,13 +1,12 @@
 import type { LidarFrame } from "./frame-types";
+import { findLatestFrameAtOrBefore } from "./find-latest-frame-at-or-before";
 
 export async function loadMockLidarFrame(
   sourceFrames: readonly LidarFrame[],
   timestampMs: number,
 ) {
-  const sourceFrame = sourceFrames.find(
-    (frame) => frame.timestampMs === timestampMs,
-  );
-  if (!sourceFrame) return null;
+  const sourceFrame = findLatestFrameAtOrBefore(sourceFrames, timestampMs);
+  if (!sourceFrame || sourceFrame.timestampMs !== timestampMs) return null;
 
   // 실제 파일의 바이트를 파싱해 새 좌표 배열을 만드는 로더 경계를 가상 데이터로 표현한다.
   await Promise.resolve();
