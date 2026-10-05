@@ -1,20 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ProjectOverview } from "./_components/project-overview";
-import { ProjectArchitecture } from "./_components/project-architecture";
-import { ProjectOptimizations } from "./_components/project-optimizations";
-import { ProjectResults } from "./_components/project-results";
-import { ProjectDemo } from "./_components/project-demo";
-import styles from "./home.module.css";
+import styles from "./landing.module.css";
 
 const description =
-  "nuScenes 센서 로그의 전처리부터 WebGL 표시까지. DriveScope의 데이터 계약, Frame 캐시, GPU Buffer 재사용과 성능 측정을 소개합니다.";
+  "카메라와 LiDAR를 하나의 시간축에서 살펴보는 DriveScope. 센서 로그 뷰어를 열거나 프로젝트의 구조와 성능 설계를 확인하세요.";
 
 export const metadata: Metadata = {
-  title: "DriveScope · 데이터 처리와 성능 설계",
+  title: "DriveScope · 자율주행 로그 뷰어",
   description,
   openGraph: {
-    title: "DriveScope · 데이터 처리와 성능 설계",
+    title: "DriveScope · 자율주행 로그 뷰어",
     description,
     url: "https://drivescope-visualizer.vercel.app/",
     locale: "ko_KR",
@@ -30,45 +25,28 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <div className={styles.home}>
-      <a className={styles.skipLink} href="#project">본문으로 건너뛰기</a>
-      <header className={styles.header}>
-        <a className={styles.brand} href="#project" aria-label="DriveScope 소개로 이동">
-          <span className={styles.brandMark} aria-hidden="true">+</span>
-          DriveScope<span className={styles.brandNote}>프로젝트 기록</span>
-        </a>
-        <nav className={styles.nav} aria-label="프로젝트 소개">
-          <a href="#architecture">구조</a>
-          <a href="#optimizations">문제 해결</a>
-          <a href="#results">측정</a>
-          <a href="#demo">1분 영상</a>
+    <main className={styles.home}>
+      <section className={styles.hero} aria-labelledby="home-title">
+        <p className={styles.eyebrow}>Autonomous driving · Scenario review</p>
+        <h1 id="home-title">DriveScope</h1>
+        <p className={styles.description}>
+          카메라와 LiDAR를 하나의 시간축에 맞춰 살펴보고,
+          가상 시나리오로 차량 판단과 반응을 추적합니다.
+        </p>
+        <div className={styles.signals} aria-label="분석 데이터">
+          <span>Camera</span>
+          <span>LiDAR</span>
+          <span>Planning</span>
+        </div>
+        <nav className={styles.actions} aria-label="시작하기">
+          <Link href="/viewer" className={styles.viewerLink} prefetch={false}>
+            뷰어 열기 <span aria-hidden="true">→</span>
+          </Link>
+          <Link href="/project" className={styles.projectLink} prefetch={false}>
+            프로젝트 개요 <span aria-hidden="true">→</span>
+          </Link>
         </nav>
-        <Link className={styles.headerLink} href="/viewer" prefetch={false}>
-          Viewer 열기 <span aria-hidden="true">↗</span>
-        </Link>
-      </header>
-      <main id="project" className={styles.content}>
-        <ProjectOverview />
-        <ProjectArchitecture />
-        <ProjectOptimizations />
-        <ProjectResults />
-        <ProjectDemo />
-        <section className={styles.nextSection} aria-labelledby="next-title">
-          <div>
-            <p className={styles.eyebrow}>후속 측정</p>
-            <h2 id="next-title">아직 측정해야 할 비용</h2>
-            <p>파일 읽기·파싱 시간을 분리하고 P95와 메인 스레드 정지를 측정한 뒤,
-              Worker·transferable Buffer의 효과를 비교할 계획입니다.</p>
-          </div>
-          <a className={styles.textLink} href="https://github.com/DoubleChamp/drivescope-visualizer/blob/main/docs/ROADMAP.md">
-            개선 계획 읽기 <span aria-hidden="true">↗</span>
-          </a>
-        </section>
-      </main>
-      <footer className={styles.footer}>
-        <p>DriveScope <span>데이터 흐름을 설계하고, 결과를 검증하는 프로젝트.</span></p>
-        <a href="https://github.com/DoubleChamp/drivescope-visualizer">GitHub <span aria-hidden="true">↗</span></a>
-      </footer>
-    </div>
+      </section>
+    </main>
   );
 }

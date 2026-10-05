@@ -4,6 +4,12 @@
 
 ## 현재까지 확인한 내용
 
+### 홈과 프로젝트 소개를 별도 경로로 나누며 확인한 것
+
+- App Router에서 app/page.tsx는 /, app/project/page.tsx는 /project를 담당한다. 기존 소개 컴포넌트를 새 페이지에서 재사용하면 설명·영상·작은 Frame 예시를 그대로 유지하면서 홈을 간단하게 만들 수 있다.
+- Link의 prefetch를 끈 홈은 버튼을 누르기 전 Viewer/소개를 미리 요청하지 않았다. 홈에 이미지·영상·센서 컴포넌트가 없어 이 자산도 초기 요청하지 않았다.
+- CSS Module의 .home 이름이 같아도 모듈별 클래스는 구분된다. 소개 CSS의 :has(.home)는 어두운 홈 카드에 적용되지 않으며 SPA 왕복에서 홈/Viewer dark와 소개 light가 복귀하는 것을 확인했다.
+
 ### 개별 sweep을 실제 Viewer에 연결하며 확인한 것
 
 - 변환한 파일이 있어도 실제 소스 URL/서버 데이터 루트가 기존 keyframe이면 화면은 여전히 약 2Hz 데이터다. 로컬 source를 새 manifest로 연결하고 재생 갱신을 50ms로 바꿔야 약 20Hz 원본 관측을 선택한다. 공개 자산도 따로 교체해야 하며 Git commit으로 센서 파일이 배포되지는 않는다.

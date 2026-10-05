@@ -5,10 +5,18 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: P.S. 6의 비교 이후 사용자 승인으로 개별 sweep을 로컬 실제 Viewer에 연결했다. LiDAR 382개·CAM_FRONT 224개·ego 382개, 실제 모드 50ms·가상 100ms 갱신/seek step이다. 기본 main 파싱·LRU 5·사진 2슬롯을 유지한다.
+- 현재 작업: 사용자 요청으로 홈(`/`)을 이전의 간단한 카드로 복원하고 뷰어(`/viewer`)·프로젝트 개요(`/project`) 두 진입 버튼으로 분리했다. 상세 설명과 영상은 `/project`로 이동했다.
 - 다음 한 단계: 사용자에게 실제 50ms 시계가 각 센서 최신 과거 timestamp를 선택하며 점군 누적/보간과 다르다는 점을 설명하고 이해를 확인한다. 앞선 Worker/cursor 이해 확인도 남아 있으며 구현 승인을 이해 완료로 기록하지 않는다. main에 commit하고 push는 사용자가 직접 수행한다. 공개 sweep 업로드/URL 교체는 별도 단계다.
 - 아직 구현하지 않은 것: 센서·ego pose·사진의 보간, 공개 sweep 데이터 업로드/URL 전환, 실제 scene 선택 목록과 다중 카메라.
 - 배포 후 개선: 로더 계측·Worker·탐색과 sweeps의 시간 해상도/밀도/전송/캐시/객체 잔상 비교를 마쳤다. 원본·한계·재현은 PERFORMANCE에 기록한다. 현재 데이터에서 sweep 개별 재생의 이점과 누적의 비용을 확인했으며 인터넷/모바일 성능을 localhost 결과로 보장하지 않는다.
+
+## 홈 카드와 프로젝트 소개 분리 (2026-10-05)
+
+- 사용자가 이전의 간단한 네모 카드 홈과 두 버튼 구성을 요청했다. 이전 Git 버전의 카드 스타일을 별도 landing.module.css로 복원하고 app/page.tsx에 뷰어 열기·프로젝트 개요 링크를 둔다. 두 링크는 prefetch를 끈다.
+- 기존 소개를 app/project/page.tsx로 이동하고 기존 표시 컴포넌트·밝은 CSS·영상·Frame 선택 예시를 재사용한다. 소개 헤더의 브랜드는 홈으로 돌아가며 경로별 제목·OG URL을 구분한다. 완료된 Worker/P95 측정을 미래 계획으로 표시하던 하단 문구도 현재 기록으로 맞췄다.
+- pnpm.cmd build·TypeScript 통과: /, /project, /viewer 정적 페이지. node node_modules/.cache/drivescope-browser-check/check-separated-home.mjs의 production Chrome 검사 10개 묶음 통과, runtime exception 0. 홈 320/390/768/1024px 버튼/가로 넘침·스크린샷과 desktop 카드를 확인했다.
+- 초기 홈에서 센서·이미지·영상·다른 두 페이지의 미리 요청 0. 프로젝트 설명의 네 섹션·코드/문서 링크·방향키 예시·Enter 코드 펼치기·320~1024px·60초 영상 재생/35초 seek를 확인했다. 홈의 두 버튼 키보드 이동, 실제/가상 Viewer·홈·소개 왕복, 밝은/어두운 루트 색상 복귀와 예시 초기화도 통과했다.
+- 문서 검사에서 8개 문서의 내부 링크 144개·앵커 15개·Mermaid 2개·코드 블록 짝을 확인했다. README 내부 링크 43개와 코드 블록, git diff --check도 통과했다. README·개요·아키텍처·로드맵·학습 기록을 새 경로에 맞췄다. 기존 playback-controls.tsx 미커밋 변경은 보존하고 이번 커밋에 포함하지 않는다. main에 commit까지만 진행하며 공개 반영은 사용자 push와 새 배포 이후 확인한다. 사용자 원리 이해 확인은 아직 남아 있다.
 
 ## 개별 sweep의 실제 Viewer 적용 (2026-10-05)
 

@@ -4,7 +4,7 @@
 
 Next.js App Router, React, TypeScript와 Three.js를 사용합니다. React는 UI·입력·재생 상태를, Three.js는 3D 장면·GPU 리소스·렌더 루프를 담당합니다.
 
-홈(`/`)은 **데이터 처리·성능 측정을 설명하는 포트폴리오 페이지**입니다. 전처리→manifest→CPU 캐시→GPU Buffer의 흐름, 좌표·바이너리 계약, 최적화 핵심 코드와 측정 조건을 보여줍니다. 타임라인 예시를 직접 조작하고 1분 자막 영상을 재생한 뒤 `/viewer`에서 실제 센서 로그를 탐색할 수 있습니다. [프로젝트 소개](https://drivescope-visualizer.vercel.app/)의 이번 변경은 push와 새 Vercel build 뒤 반영됩니다.
+홈(`/`)은 간단한 카드와 **뷰어 열기 / 프로젝트 개요** 두 버튼으로 시작합니다. `/viewer`는 센서 로그 탐색, `/project`는 **데이터 처리·성능 측정을 설명하는 프로젝트 소개 페이지**입니다. 전처리→manifest→CPU 캐시→GPU Buffer의 흐름, 좌표·바이너리 계약, 최적화 핵심 코드와 측정 조건을 보여줍니다. 타임라인 예시를 직접 조작하고 1분 자막 영상을 재생한 뒤 `/viewer`에서 실제 센서 로그를 탐색할 수 있습니다. [프로젝트 소개](https://drivescope-visualizer.vercel.app/project)의 이번 변경은 push와 새 Vercel build 뒤 반영됩니다.
 
 소개 페이지는 밝은 배경과 본문 중심의 구성으로 읽기 쉽게 정리했습니다. 최적화 설명은 문제·해결·코드를 세로로 읽고, 영상은 넓게 표시합니다. `/viewer`의 기존 어두운 화면은 유지합니다.
 
@@ -56,7 +56,7 @@ pnpm.cmd install --frozen-lockfile
 pnpm.cmd dev
 ```
 
-[http://localhost:3000](http://localhost:3000)의 **분석 Viewer 열기**를 누르거나 [http://localhost:3000/viewer](http://localhost:3000/viewer)로 이동합니다. 서버 종료는 터미널에서 `Ctrl+C`입니다.
+[http://localhost:3000](http://localhost:3000)의 **뷰어 열기**를 누르거나 [http://localhost:3000/viewer](http://localhost:3000/viewer)로 이동합니다. **프로젝트 개요**는 [http://localhost:3000/project](http://localhost:3000/project)로 이동합니다. 서버 종료는 터미널에서 `Ctrl+C`입니다.
 
 Viewer 상단의 **데모 선택**에서 **실제 센서 로그 / 가상 급제동 데모**를 고릅니다. 기본값은 실제 센서 로그입니다. 모드를 바꾸면 재생이 정지하고 0초로 돌아가며 선택 객체와 센서 표시·캐시도 새로 시작합니다. 가상 모드는 실제 데이터 설정 없이 사용할 수 있고 실제 manifest를 요청하지 않습니다.
 
@@ -216,7 +216,8 @@ manifest 연결 문제를 해결한 뒤 **실제 데이터 다시 연결**을 �
 
 | 관심사 | 시작 파일 |
 | --- | --- |
-| 포트폴리오 홈의 섹션 조합·메타데이터 | [app/page.tsx](app/page.tsx) |
+| 홈 카드·두 진입 버튼 | [app/page.tsx](app/page.tsx) |
+| 프로젝트 소개의 섹션 조합·메타데이터 | [app/project/page.tsx](app/project/page.tsx) |
 | 데이터 흐름 설명 / 조작 가능한 Frame 선택 예시 | [project-architecture.tsx](app/_components/project-architecture.tsx), [frame-selection-demo.tsx](app/_components/frame-selection-demo.tsx) |
 | 최적화 결정·핵심 코드 / 측정 결과·해석 | [project-optimizations.tsx](app/_components/project-optimizations.tsx), [project-results.tsx](app/_components/project-results.tsx) |
 | 사이트 안에서 재생하는 1분 영상·텍스트 설명 | [project-demo.tsx](app/_components/project-demo.tsx) |

@@ -18,13 +18,15 @@ DriveScope는 Next.js App Router·React·TypeScript로 UI와 재생 상태를 �
 
 ## 소개 페이지와 Viewer 경계
 
-홈(`/`)은 데이터 처리·성능 측정을 보여주는 포트폴리오다. [app/page.tsx](../app/page.tsx)는 메타데이터와 섹션을 조합하는 Server Component이고, 소개·구조·최적화·측정·영상은 [app/_components](../app/_components)의 표시 컴포넌트로 나눈다. 실제 코드를 찾아볼 수 있도록 원본 파일과 측정 문서 링크를 함께 제공한다.
+홈(`/`)의 [app/page.tsx](../app/page.tsx)는 간단한 카드와 `/viewer`·`/project` 두 링크만 표시하는 Server Component다. [landing.module.css](../app/landing.module.css)에 이전 어두운 카드 스타일과 모바일 버튼 배치를 둔다. 두 링크 모두 `prefetch={false}`이며 홈에 센서·영상·Frame 예시를 연결하지 않는다.
 
-새 홈에서 `"use client"`가 필요한 부분은 [frame-selection-demo.tsx](../app/_components/frame-selection-demo.tsx)뿐이다. 작은 `timeMs` state와 다섯 timestamp로 기존 `findLatestFrameAtOrBefore`를 재사용한다. Three.js·manifest 로더·센서 파일·rAF는 홈에 연결하지 않는다. Viewer 링크는 `prefetch={false}`로 조작 화면의 미리 로딩도 생략한다.
+프로젝트 소개(`/project`)는 데이터 처리·성능 측정을 보여주는 포트폴리오다. [app/project/page.tsx](../app/project/page.tsx)는 메타데이터와 섹션을 조합하는 Server Component이고, 소개·구조·최적화·측정·영상은 [app/_components](../app/_components)의 표시 컴포넌트로 나눈다. 실제 코드를 찾아볼 수 있도록 원본 파일과 측정 문서 링크를 함께 제공한다.
 
-영상은 [project-demo.tsx](../app/_components/project-demo.tsx)의 네이티브 `<video controls playsInline preload="none">`이다. 별도 플레이어·React state·자동 재생을 추가하지 않는다. 포스터는 먼저 표시하고 사용자가 재생할 때 MP4를 가져온다. 실제 Chrome에서 초기 홈의 센서·MP4 요청 0개, Frame 방향키 조작·코드 Enter 펼치기·영상 재생/탐색·Viewer 왕복을 확인했다. 텍스트로 영상 흐름을 읽을 수 있는 설명도 제공한다.
+프로젝트 소개에서 `"use client"`가 필요한 부분은 [frame-selection-demo.tsx](../app/_components/frame-selection-demo.tsx)뿐이다. 작은 `timeMs` state와 다섯 timestamp로 기존 `findLatestFrameAtOrBefore`를 재사용한다. Three.js·manifest 로더·센서 파일·rAF는 소개에 연결하지 않는다. Viewer 링크는 `prefetch={false}`로 조작 화면의 미리 로딩도 생략한다.
 
-홈의 밝은 색상은 [home.module.css](../app/home.module.css)의 `.home` 변수로 관리한다. `:global(html):has(.home)`은 홈이 있을 때만 루트의 `color-scheme`과 배경을 바꾼다. Viewer로 이동하면 해당 조건이 풀리고 기존 dark 설정이 적용된다. 최적화 설명은 Server Component의 세로 행으로 구성하고, 작은 화면에서는 행 안의 제목·본문도 한 열로 배치한다.
+영상은 [project-demo.tsx](../app/_components/project-demo.tsx)의 네이티브 `<video controls playsInline preload="none">`이다. 별도 플레이어·React state·자동 재생을 추가하지 않는다. 포스터는 먼저 표시하고 사용자가 재생할 때 MP4를 가져온다. 실제 Chrome에서 초기 프로젝트 소개의 센서·MP4 요청 0개, Frame 방향키 조작·코드 Enter 펼치기·영상 재생/탐색·Viewer 왕복을 확인했다. 텍스트로 영상 흐름을 읽을 수 있는 설명도 제공한다.
+
+프로젝트 소개의 밝은 색상은 [home.module.css](../app/home.module.css)의 `.home` 변수로 관리한다. `:global(html):has(.home)`은 프로젝트 소개가 있을 때만 루트의 `color-scheme`과 배경을 바꾼다. 홈이나 Viewer로 이동하면 해당 조건이 풀리고 기존 dark 설정이 적용된다. 최적화 설명은 Server Component의 세로 행으로 구성하고, 작은 화면에서는 행 안의 제목·본문도 한 열로 배치한다.
 
 영상 자막은 [ASS 스타일 원본](../public/demo/drivescope-demo.ko.ass)을 FFmpeg로 MP4에 넣는다. 자막 위치·굵기 변경은 영상 재출력이 필요하다. 모바일의 `.video`는 `aspect-ratio: 5 / 4`, `min-height: 260px`, `object-fit: contain`으로 16:9 영상 주변에 여백을 확보한다. 소개의 Next Image 포스터는 정적 import로 파일 해시를 사용하며, 네이티브 영상·포스터 URL은 `?v=2`로 이전 미디어 캐시와 구분한다. 자세한 편집 조건은 [DEMO_SCRIPT.md](./DEMO_SCRIPT.md)를 따른다.
 
@@ -67,8 +69,9 @@ manifest를 읽으면 Frame 목록과 ego pose를 확보한다. 모든 LiDAR 바
 
 | 코드 | 맡는 일 |
 | --- | --- |
-| [app/page.tsx](../app/page.tsx), [app/_components](../app/_components) | 포트폴리오 홈의 섹션·메타데이터·설계 근거·측정 결과·영상 조합 |
-| [frame-selection-demo.tsx](../app/_components/frame-selection-demo.tsx) | 홈에서 작은 state로 최신 과거 Frame 선택 원리를 체험하는 Client Component |
+| [app/page.tsx](../app/page.tsx) | 홈 카드·Viewer와 프로젝트 소개 진입 링크 |
+| [app/project/page.tsx](../app/project/page.tsx), [app/_components](../app/_components) | 프로젝트 소개의 섹션·메타데이터·설계 근거·측정 결과·영상 조합 |
+| [frame-selection-demo.tsx](../app/_components/frame-selection-demo.tsx) | 프로젝트 소개에서 작은 state로 최신 과거 Frame 선택 원리를 체험하는 Client Component |
 | [lidar-frame-source.ts](../app/viewer/_data/lidar-frame-source.ts) | 로더의 Frame·세부 시간 반환 계약과 요청별 측정 타입 |
 | [frame-selector.ts](../app/viewer/_data/frame-selector.ts), [use-timestamped-frame.ts](../app/viewer/_hooks/use-timestamped-frame.ts) | 불변 목록별 timestamp snapshot·순차 cursor·seek 이진 탐색·소스 변경 초기화 |
 | [prepare-lidar-positions.ts](../app/viewer/_data/prepare-lidar-positions.ts) | 두 파싱 경로가 공유하는 크기 검사·little-endian Float32Array 준비 |
@@ -173,7 +176,7 @@ Three.js rAF는 재생·정지와 별도로 계속 장면을 그린다. 재생 �
 
 cursor는 탐색 캐시이고 선택 결과는 이력과 관계없이 이진 탐색과 같다. 반복/뒤로 간 호출도 보정하므로 React가 재렌더를 다시 시도해도 같은 Frame 참조를 반환한다. 목록은 오름차순·불변 계약을 따른다. 중복 timestamp는 기존처럼 첫 항목을 선택한다. snapshot은 소스별 한 번 O(n), seek는 O(log n), 순차 구간의 총 전진은 O(n)이다. 매 tick에 모든 Frame을 순회하지 않는다.
 
-홈과 순수 `selectScenarioFrames`의 `findLatestFrameAtOrBefore`도 정렬 목록의 이진 탐색을 사용한다. prefetch의 현재 인덱스·가상 로더의 정확한 timestamp 조회도 선형 검색을 제거했다. 포인트 Buffer 최대 용량 계산은 소스별 memo로 이동했다. `findNearestFrame`은 기본 재생에서 사용하지 않는 별도 유틸이며 미래 예측과 관측 비교용으로 남긴다.
+프로젝트 소개와 순수 `selectScenarioFrames`의 `findLatestFrameAtOrBefore`도 정렬 목록의 이진 탐색을 사용한다. prefetch의 현재 인덱스·가상 로더의 정확한 timestamp 조회도 선형 검색을 제거했다. 포인트 Buffer 최대 용량 계산은 소스별 memo로 이동했다. `findNearestFrame`은 기본 재생에서 사용하지 않는 별도 유틸이며 미래 예측과 관측 비교용으로 남긴다.
 
 ## LiDAR 로딩·캐시·Buffer
 
