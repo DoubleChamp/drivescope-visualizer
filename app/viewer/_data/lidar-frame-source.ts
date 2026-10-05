@@ -4,6 +4,8 @@ export type LidarLoadTimings = {
   responseHeadersMs: number;
   responseBodyMs: number;
   preparePositionsMs: number;
+  // Worker 내부 계산만 측정한다. preparePositionsMs에 포함돼 구간 합계에 다시 더하지 않는다.
+  workerComputeMs?: number;
 };
 
 export type LidarFrameSource = {

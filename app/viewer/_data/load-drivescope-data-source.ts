@@ -4,6 +4,8 @@ import {
 } from "./drivescope-manifest";
 import type { CameraFrame } from "./frame-types";
 import type { LidarFrameSource } from "./lidar-frame-source";
+import type { LidarPositionsParser } from "./lidar-positions-parser";
+import { prepareLidarPositions } from "./prepare-lidar-positions";
 
 export const DRIVE_SCOPE_MANIFEST_URL =
   process.env.NEXT_PUBLIC_DRIVESCOPE_MANIFEST_URL?.trim() ||
@@ -17,30 +19,10 @@ export type DriveScopeDataSource = LidarFrameSource & {
   cameraFrames: readonly CameraFrame[];
 };
 
-const isLittleEndian = (() => {
-  const value = new Uint16Array([1]);
-  return new Uint8Array(value.buffer)[0] === 1;
-})();
-
-const decodeLittleEndianPositions = (buffer: ArrayBuffer) => {
-  if (isLittleEndian) return new Float32Array(buffer);
-
-  const view = new DataView(buffer);
-  const positions = new Float32Array(
-    buffer.byteLength / Float32Array.BYTES_PER_ELEMENT,
-  );
-  for (let index = 0; index < positions.length; index += 1) {
-    positions[index] = view.getFloat32(
-      index * Float32Array.BYTES_PER_ELEMENT,
-      true,
-    );
-  }
-  return positions;
-};
-
 export async function loadDriveScopeDataSource(
   manifestUrl = DRIVE_SCOPE_MANIFEST_URL,
   signal?: AbortSignal,
+  options: { positionsParser?: LidarPositionsParser } = {},
 ): Promise<DriveScopeDataSource> {
   const manifestResponse = await fetch(manifestUrl, {
     cache: "no-store",
@@ -78,7 +60,7 @@ export async function loadDriveScopeDataSource(
 
       const positionsUrl = new URL(frameMetadata.positionsFile, manifestBaseUrl);
       const requestStartedAt = performance.now();
-      const positionsResponse = await fetch(positionsUrl, { cache: "no-store" });
+      const positionsResponse = await fetch(positionsUrl, { cache: "no-store", signal });
       // fetch는 본문 전체가 아니라 응답 헤더를 받은 시점에 완료된다.
       const headersReceivedAt = performance.now();
       if (!positionsResponse.ok) {
@@ -98,7 +80,10 @@ export async function loadDriveScopeDataSource(
         );
       }
 
-      const positions = decodeLittleEndianPositions(positionsBuffer);
+      const workerResult = options.positionsParser
+        ? await options.positionsParser.parse(positionsBuffer, frameMetadata.pointCount)
+        : null;
+      const positions = workerResult?.positions ?? prepareLidarPositions(positionsBuffer, frameMetadata.pointCount);
       const positionsPreparedAt = performance.now();
 
       return {
@@ -107,6 +92,7 @@ export async function loadDriveScopeDataSource(
           responseHeadersMs: headersReceivedAt - requestStartedAt,
           responseBodyMs: bodyReadAt - headersReceivedAt,
           preparePositionsMs: positionsPreparedAt - bodyReadAt,
+          ...(workerResult ? { workerComputeMs: workerResult.workerComputeMs } : {}),
         },
       };
     },

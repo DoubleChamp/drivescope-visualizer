@@ -166,7 +166,7 @@ try {
           assert.equal(measurement.loadMeasurement?.requestKind, "current", "prefetch 공유를 새 현재 요청으로 집계하지 않습니다.");
           const timings = measurement.loadMeasurement.timings;
           assert.ok(timings && Object.values(timings).every(value => Number.isFinite(value) && value >= 0));
-          const stageSum = Object.values(timings).reduce((sum, value) => sum + value, 0);
+          const stageSum = timings.responseHeadersMs + timings.responseBodyMs + timings.preparePositionsMs;
           assert.ok(stageSum <= measurement.loadMeasurement.loadDurationMs + .01);
           const index = manifest.lidar.frames.indexOf(latestActualFrame(time));
           const neighbors = [manifest.lidar.frames[index - 1]?.timestampMs, manifest.lidar.frames[index + 1]?.timestampMs]

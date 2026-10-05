@@ -192,3 +192,24 @@ pnpm.cmd build
 | 실제 재생 rAF 간격 / ms | 2270 | 13.33 | 13.50 | 14.20 |
 
 실제 seek 약 1.10초·재생 합계 약 30.31초에서 50ms 이상 Long Task는 각각 0개였고 합계·50ms 초과분도 0ms였다. 가상도 두 구간 모두 0개, 재생 FPS 30개는 모두 75였다. 90ms 양성 대조가 관찰돼 수집기 동작을 확인했다. 관찰한 조건에서의 결과이며 모든 기기의 정지 없음이나 파싱 최적화 효과를 보장하지 않는다. 다음 Worker 비교는 별도 같은 빌드·동일 프로토콜의 쌍으로 측정한다.
+
+## 학습·비교용 Worker 경로 (P.S. 3)
+
+일반 `/viewer`는 기존 메인 스레드 경로다. `/viewer?lidarParser=worker`는 학습·비교용 Worker를 선택한다. 제품 화면에 파싱 방식 선택 UI는 추가하지 않는다. Hook effect에서만 URL을 읽어 최초 SSR/client 마크업 차이를 만들지 않는다.
+
+[공통 좌표 준비 함수](../app/viewer/_data/prepare-lidar-positions.ts)는 little-endian Float32 xyz를 해석한다. HTTP·본문 읽기는 두 경로 모두 같은 로더이며, Worker에 보낸 뒤에만 좌표 준비 위치가 다르다. 이미 Python에서 좌표 변환한 바이너리이므로 JSON 파싱·원본 포인트 좌표 변환을 Worker에 옮긴 결과로 표현하지 않는다.
+
+[Worker client](../app/viewer/_workers/lidar-positions-worker-client.ts)는 첫 좌표 요청 때 한 Worker를 만들고, current/prefetch의 동시 요청을 ID로 구분한다. 입력은 `postMessage(request, [buffer])`, [Worker](../app/viewer/_workers/lidar-positions.worker.ts)의 응답은 `postMessage(result, [positions.buffer])`로 소유권을 이전한다. 보내는 쪽의 버퍼는 detached돼 재사용할 수 없다. 캐시에는 돌아온 새 소유권의 Float32Array만 저장하며 Three.js 표시 Buffer 재사용은 그대로다. [MDN transferable 설명](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Transferable_objects)
+
+`preparePositionsMs`는 파일 크기 검사·Worker 지연 생성/초기화·메시지 큐·왕복 전달·Promise 재개를 포함하는 메인 시계의 경과 시간이다. `workerComputeMs`는 Worker 내부 함수 실행 시간만으로, 서로 다른 시계의 절대 timestamp를 빼지 않는다. 전자는 후자를 포함하므로 세 구간 합계에 workerComputeMs를 다시 더하지 않는다. UI의 네 행은 기존 의미를 유지한다.
+
+모드 전환·unmount·manifest retry는 세션 AbortController로 HTTP를 취소하고 Worker를 종료해 pending Promise·20초 timeout을 정리한다. 실행/메시지 오류·timeout은 모든 pending을 reject하고 다음 retry에서 새 Worker를 만든다. 잘린 바이너리·HTTP 오류는 성공 표본에 포함하지 않는다. 종료된 Worker의 늦은 오류는 새 Worker를 종료하지 않도록 인스턴스를 확인한다.
+
+```powershell
+pnpm.cmd build
+pnpm.cmd start --port 3100
+# 별도 터미널; 다른 포트는 DRIVESCOPE_BENCHMARK_URL로 지정
+pnpm.cmd verify:lidar-worker
+```
+
+[client·본문 검사](../scripts/verify-lidar-worker-client.mjs)는 실제 TS를 실행해 ID 역순 응답·오류·timeout·종료·재생성·timer 정리를 확인한다. 실제 Worker 본문을 Node worker_threads에서 실행해 입력/출력 양쪽의 transfer 후 byteLength 0과 좌표 보존·크기 오류를 확인한다. Node 수치는 브라우저 성능 통계에 포함하지 않는다. [production Chrome 검사](../scripts/verify-lidar-worker.mjs)는 별도로 Next.js Worker bundle을 실행하며 18개 반환 결과의 모든 byte 일치·입력 detach, 기본 경로 Worker 미생성·한 세션 한 Worker·모드 전환 종료·재진입을 확인했다. runtime exception은 0개였다. 검증에서만 입력 snapshot을 복사하며 제품에는 복사를 추가하지 않는다.

@@ -762,6 +762,12 @@
 - nearest-rank P95는 정렬된 N개 중 `ceil(0.95 × N)`번째 표본이다. 표본 15개에서는 최대값이며, 빈 표본의 평균·P95는 0ms 대신 `null`로 기록한다.
 - Long Tasks는 50ms 이상 UI 스레드 작업을 관찰한다. 0개가 나와도 더 짧은 작업이나 지연이 없다고 뜻하지 않는다. 의도적인 타이머 작업을 양성 대조로 사용하고 실제 데이터 통계에서는 제외한다. 사용자 이해 확인은 남아 있다.
 
+### transferable Worker (2026-10-05, 사용자 이해 확인 대기)
+
+- 전처리된 Float32 xyz는 little-endian에서 view만 만들므로 원본 포인트 변환이나 JSON 파싱처럼 무거운 작업이 아니다. 같은 함수를 메인 스레드와 Worker에서 실행하도록 만들고 효과는 다음 비교로 판단한다.
+- transferable buffer는 복사 전달과 달리 소유권이 이동한다. Node의 실제 Worker 본문 검사에서 보내는 쪽의 입력/출력 buffer가 각각 byteLength 0이 됐고, production Chrome에서 돌아온 18개 전체 byte가 원본과 같았다.
+- 한 세션의 동시 current/prefetch는 ID로 응답을 구분하고, 모드 전환은 Worker·HTTP·pending Promise·timeout을 정리한다. 오류/timeout 이후 재생성과 종료된 Worker의 늦은 오류 차단을 검사했다. Worker 내부 계산 시간과 메시지 왕복 경과 시간을 구분한다. 사용자 이해 확인은 남아 있다.
+
 ## 다음 단계에서 배울 내용
 
 Phase 7의 센서 연결·성능 기준선·표시·README·아키텍처를 정리하고 공개 설정·Blob 업로드·배포 Viewer 실제 재생과 복구를 검증했다. 이어 두 데모 선택·세션 초기화와 1분 자막 영상, 데이터 처리·성능 측정을 강조하는 포트폴리오 홈을 완성했다. 소개 페이지에서 Server/Client 경계·Frame 시각·CPU 캐시·GPU Buffer·사진 교체·측정 범위를 확인한 뒤 후속 단계 하나를 정한다. 새 홈의 공개 반영 확인과 아래 이전 학습 항목의 사용자 이해 확인도 남아 있다.

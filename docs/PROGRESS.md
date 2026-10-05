@@ -5,8 +5,8 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: 사용자가 자리 비운 동안 배포 후 개선 2~5번을 연속 진행하도록 승인했다. 2번 평균·P95·FPS·메인 스레드 측정과 양성 대조를 완료했다. 기존 3D Camera 추종·표시 안정화는 유지한다.
-- 다음 한 단계: 3번 transferable Worker 버전 구현·검증 후 4번 같은 조건 비교·기본 경로 결정, 5번 실제 Frame 선택 비용 측정·cursor/이진 탐색을 순서대로 진행한다. 이번 요청은 매 단계 추가 승인을 생략하는 명시적 연속 작업 승인이다. 사용자 이해 확인을 완료한 것으로 기록하지 않는다. push는 사용자가 수행한다.
+- 현재 작업: 연속 승인한 P.S. 2번을 `d7829b0`에 commit했다. 3번은 공통 좌표 준비 함수·지연 생성 Worker·양방향 transfer·Hook cleanup을 구현하고 production·실제 byte 비교·오류/timeout 검증을 통과했다. 기본 메인 스레드 경로를 유지한다.
+- 다음 한 단계: 4번 같은 production build에서 메인/Worker를 교대 비교하고 기본 경로·Worker 유지 목적을 결정한 뒤 5번 실제 Frame 선택 비용 측정·cursor/이진 탐색을 진행한다. 이번 요청은 매 단계 추가 승인을 생략하는 명시적 연속 작업 승인이다. 사용자 이해 확인을 완료한 것으로 기록하지 않는다. push는 사용자가 수행한다.
 - 아직 구현하지 않은 것: 센서·ego pose·사진의 보간, 중간 sweeps, 실제 scene 선택 목록과 다중 카메라.
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
@@ -21,6 +21,14 @@
 7. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 8. 현재 Route Handler는 로컬 개발용이다. 배포에서는 로컬 C 드라이브를 읽을 수 없으므로 같은 scene 디렉터리를 정적 파일 서버·CDN·오브젝트 스토리지에 올리고 로더의 기준 URL을 바꿔야 한다.
 9. 실제 센서 연결·오류 처리·Viewer 디자인·README 재현과 아키텍처를 정리했다. 공개 실제 연결과 데모 선택 UI 반영·전환도 검증했다. DEMO_SCRIPT의 촬영 순서·대본·코드 연결을 따라 1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### P.S. 3: transferable Worker 구현·검증 (2026-10-05)
+
+- 원래 endian 해석을 `prepare-lidar-positions.ts`로 분리해 main/Worker가 공유한다. HTTP·본문 읽기는 같은 로더, Worker는 좌표 준비만 담당하며 DOM·Three.js·GPU를 다루지 않는다. 기본 `/viewer`는 main이며 학습/측정은 `?lidarParser=worker`다. Hook effect에서만 선택하고 제품 선택 UI는 추가하지 않았다.
+- 첫 parse에 한 Worker를 만들고 동시 요청은 ID로 구분한다. 입력/출력 ArrayBuffer를 transfer하고 돌아온 Float32Array를 캐시에 저장한다. Hook cleanup은 HTTP abort와 parser dispose, 오류·messageerror·20초 timeout은 pending reject·timer 해제·terminate, 다음 retry는 새 Worker를 생성한다. 종료된 Worker의 늦은 오류도 새 세션을 종료하지 못한다.
+- `pnpm.cmd build`, `verify:lidar-timings`, `validate:manifest`, `verify:lidar-worker` 통과. client 검사에서 역순 동시 응답·입력 detach·종료/오류/timeout·재생성·timer 정리를 확인했다. 실제 Worker 본문의 Node 실행은 양방향 buffer detach·좌표 보존·크기 오류, production Chrome은 18개 반환 전체 byte 일치·기본 미생성·한 세션 한 Worker·모드 전환·재진입·늦은 결과 차단을 확인했다. runtime exception 0개다.
+- 최종 production의 기존 표시 회귀에서도 재생 634개 표본의 빈 카메라·사진 역행·빈 LiDAR·활성 src 변경·DOM 교체 0, panel 높이 308px 고정이었다. 여섯 너비·지연/실패/retry·늦은 완료·모드 전환을 통과했다. 기록 경과 시간 `preparePositionsMs`와 내부 계산 `workerComputeMs`를 중복 합산하지 않는다. Worker 성능 이득은 아직 주장하지 않는다.
+- `check-architecture.mjs` 내부 링크·코드 fence와 `git diff --check` 통과. 기존 `playback-controls.tsx`는 변경·commit에 포함하지 않았다.
 
 ### P.S. 2: 평균·P95·메인 스레드 기록 (2026-10-05)
 

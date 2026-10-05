@@ -10,7 +10,8 @@
     "upload:blob": "node --experimental-strip-types scripts/upload-drivescope-data.mjs",
     "benchmark:viewer": "node scripts/benchmark-viewer.mjs",
     "verify:lidar-timings": "node scripts/verify-lidar-load-timings.mjs",
-    "verify:camera-follow": "node scripts/verify-camera-follow.mjs"
+    "verify:camera-follow": "node scripts/verify-camera-follow.mjs",
+    "verify:lidar-worker": "node scripts/verify-lidar-worker-client.mjs && node scripts/verify-lidar-worker.mjs"
   },
   "dependencies": {
     "next": "16.3.3",

@@ -70,6 +70,8 @@ manifest를 읽으면 Frame 목록과 ego pose를 확보한다. 모든 LiDAR 바
 | [app/page.tsx](../app/page.tsx), [app/_components](../app/_components) | 포트폴리오 홈의 섹션·메타데이터·설계 근거·측정 결과·영상 조합 |
 | [frame-selection-demo.tsx](../app/_components/frame-selection-demo.tsx) | 홈에서 작은 state로 최신 과거 Frame 선택 원리를 체험하는 Client Component |
 | [lidar-frame-source.ts](../app/viewer/_data/lidar-frame-source.ts) | 로더의 Frame·세부 시간 반환 계약과 요청별 측정 타입 |
+| [prepare-lidar-positions.ts](../app/viewer/_data/prepare-lidar-positions.ts) | 두 파싱 경로가 공유하는 크기 검사·little-endian Float32Array 준비 |
+| [lidar-positions-worker-client.ts](../app/viewer/_workers/lidar-positions-worker-client.ts), [Worker 본문](../app/viewer/_workers/lidar-positions.worker.ts) | 선택한 학습 경로의 양방향 transfer·ID·pending Promise·timeout·종료 |
 | [lidar-load-details.tsx](../app/viewer/_components/lidar-load-details.tsx) | 실제 현재 Frame과 마지막 주변 prefetch의 구간 시간 표시 |
 | [convert_nuscenes_mini.py](../scripts/convert_nuscenes_mini.py) | keyframe 추출, 센서·ego 좌표 변환, 상대 시간 정규화, v3 scene 출력 |
 | [Route Handler](../app/api/drivescope-data/[...assetPath]/route.ts) | 서버 파일 읽기, 허용 경로 검사, JSON·바이너리·JPEG HTTP 응답 |
@@ -326,6 +328,8 @@ JS GC는 도달할 수 없는 객체 메모리를 나중에 회수한다. rAF �
 
 P.S. 2 계측은 같은 회차의 로딩 평균·nearest-rank P95, seek/재생별 50ms 이상 Long Tasks·50ms 타이머 지연·rAF 간격을 함께 기록한다. 브라우저 관찰기는 CDP로만 주입하고 제품의 React state에는 이력을 넣지 않는다. 페이지 로드·준비 구간과 의도적인 90ms 양성 대조는 데이터 통계에서 제외한다. 비동기 로딩 ms와 메인 스레드 정지, GPU 실행 시간은 별개다.
 
+P.S. 3은 `/viewer?lidarParser=worker`에서만 Worker를 선택한다. 데이터 소스 Hook이 parser를 소유하고 세션 cleanup에서 HTTP abort·parser dispose를 실행한다. parser는 한 Worker를 지연 생성하며 buffer를 보내는 쪽은 detached되고, 결과 소유권을 돌려받은 뒤 캐시에 넣는다. Worker는 DOM·Three.js·GPU를 만지지 않는다. `preparePositionsMs`는 왕복 경과 시간, 선택 필드 `workerComputeMs`는 Worker 내부 계산만이며 합계에 중복 가산하지 않는다. 기본 메인 스레드는 Worker를 만들지 않는다.
+
 웹앱은 Vercel에 배포되어 있으며 Public Blob의 실제 scene 파일 79개는 원본 SHA-256·응답 형식·CORS를 검증했다. Config로 설정한 공개 manifest URL을 배포 Viewer가 직접 요청하고 재생·탐색·사진 유지·오류 복구·모바일 표시까지 통과했다. 실제/가상 선택 UI의 공개 반영 뒤 양방향 전환·초기화·오래된 완료 차단·retry·키보드·320/390px 표시도 검사했다. 기존 로컬 API는 미설정 503이지만 공개 모드에서는 요청하지 않는다. 배포 앱은 PC 데이터 디렉터리나 업로드 토큰을 필요로 하지 않는다. 계정의 빌드 로그·Preview 배포와 실제 모바일 기기는 별도 검증이며 1분 영상은 남아 있다. 자세한 결과는 [DEPLOYMENT.md](./DEPLOYMENT.md)에 기록한다.
 
-ego pose 보간·Camera smoothing, 센서 sweeps 재생·누적, 실제 annotation·Planning 연결은 현재 범위 밖이다. 실제 모드의 차량 박스 크기는 현재 가상 시나리오 값을 재사용한다. Worker와 Frame 선택의 cursor·이진 탐색, 세부 시간·P95·메인 스레드 정지 측정은 로드맵의 후속 개선으로 남긴다. 측정하지 않은 병목을 근거로 복잡한 계층을 먼저 추가하지 않는다.
+ego pose 보간·센서 sweeps 재생·누적, 실제 annotation·Planning 연결은 현재 범위 밖이다. 표시용 3D Camera 추종은 구현했고 기록 센서/pose 보간과 구분한다. 실제 모드의 차량 박스 크기는 현재 가상 시나리오 값을 재사용한다. Worker 비교·기본 경로 결정과 Frame 선택 cursor·이진 탐색은 이번 연속 승인 작업의 다음 단계다.

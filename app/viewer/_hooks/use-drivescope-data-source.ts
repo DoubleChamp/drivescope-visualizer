@@ -4,6 +4,7 @@ import {
   loadDriveScopeDataSource,
   type DriveScopeDataSource,
 } from "../_data/load-drivescope-data-source";
+import { createLidarPositionsWorker } from "../_workers/lidar-positions-worker-client";
 
 type DriveScopeDataSourceState = {
   source: DriveScopeDataSource | null;
@@ -21,10 +22,14 @@ export function useDriveScopeDataSource(enabled = true) {
     if (!enabled) return;
 
     const abortController = new AbortController();
+    // 학습/측정용 URL에서만 선택한다. SSR과 최초 client render의 출력은 바꾸지 않는다.
+    const useWorker = new URLSearchParams(window.location.search).get("lidarParser") === "worker";
+    const positionsParser = useWorker ? createLidarPositionsWorker() : undefined;
 
     void loadDriveScopeDataSource(
       DRIVE_SCOPE_MANIFEST_URL,
       abortController.signal,
+      { positionsParser },
     )
       .then((source) => {
         if (abortController.signal.aborted) return;
@@ -38,7 +43,10 @@ export function useDriveScopeDataSource(enabled = true) {
         });
       });
 
-    return () => abortController.abort();
+    return () => {
+      abortController.abort();
+      positionsParser?.dispose();
+    };
   }, [enabled, requestAttempt]);
 
   const retry = () => {
