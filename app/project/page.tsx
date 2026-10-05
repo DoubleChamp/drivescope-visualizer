@@ -8,7 +8,7 @@ import { ProjectDemo } from "../_components/project-demo";
 import styles from "../home.module.css";
 
 const description =
-  "nuScenes 센서 로그의 전처리부터 WebGL 표시까지. DriveScope의 데이터 계약, Frame 캐시, GPU Buffer 재사용과 성능 측정을 소개합니다.";
+  "카메라와 LiDAR 기록을 화면에 옮기는 과정, 안정적인 재생을 위한 설계와 실제 측정 결과를 소개합니다.";
 
 export const metadata: Metadata = {
   title: "DriveScope · 데이터 처리와 성능 설계",
@@ -57,8 +57,8 @@ export default function ProjectPage() {
           <div>
             <p className={styles.eyebrow}>개선 기록</p>
             <h2 id="next-title">측정에서 다음 개선까지</h2>
-            <p>로더 구간·P95·메인 스레드 정지를 측정하고 Worker와 Frame 탐색,
-              개별 sweep 재생을 비교했습니다. 결과와 남은 작업은 로드맵에서 확인할 수 있습니다.</p>
+            <p>데이터 로딩 시간과 화면의 반응을 측정하고,
+              파싱 방식과 프레임 선택, 센서 원본 주기 재생을 비교했습니다. 결과와 남은 작업은 로드맵에서 확인할 수 있습니다.</p>
           </div>
           <a className={styles.textLink} href="https://github.com/DoubleChamp/drivescope-visualizer/blob/main/docs/ROADMAP.md">
             개선 계획 읽기 <span aria-hidden="true">↗</span>

@@ -2,61 +2,58 @@ import { FrameSelectionDemo } from "./frame-selection-demo";
 import styles from "../home.module.css";
 
 const stages = [
-  { title: "전처리", tool: "Python CLI", text: "센서 보정·ego pose 적용, 좌표 변환과 상대 시간 정규화", detail: "오프라인에서 한 번", tone: "violet" },
-  { title: "데이터 계약", tool: "manifest + assets", text: "v3 메타데이터, Float32 좌표 파일과 전방 JPEG", detail: "schema · timestamp · byte size", tone: "violet" },
-  { title: "필요한 Frame 로드", tool: "Browser loader", text: "공개 Blob의 manifest를 읽고 목표·주변 Frame만 요청", detail: "전체 센서 선다운로드 생략", tone: "cyan" },
-  { title: "CPU 캐시", tool: "Map + Promise", text: "진행 중 요청 공유, 양옆 prefetch와 최대 5개 LRU", detail: "완료된 Float32Array 보관", tone: "cyan" },
-  { title: "GPU 표시", tool: "Three.js · WebGL", text: "기존 position Buffer를 갱신하고 rAF에서 렌더링", detail: "set · needsUpdate · drawRange", tone: "green" },
+  { title: "원본 데이터를 준비합니다", text: "센서마다 다른 좌표를 차량 기준으로 맞추고, 기록 시각을 재생에 사용할 상대 시간으로 바꿉니다." },
+  { title: "파일 정보를 검증합니다", text: "센서 목록과 시각, 포인트 수를 확인합니다. 좌표 파일의 크기가 기록된 정보와 일치하는지도 검사합니다." },
+  { title: "필요한 데이터만 읽습니다", text: "모든 센서 파일을 처음에 내려받지 않습니다. 지금 표시할 프레임과 주변 프레임을 요청합니다." },
+  { title: "읽은 데이터를 재사용합니다", text: "최근에 준비한 프레임을 최대 5개 보관합니다. 같은 프레임을 동시에 요청하면 진행 중인 작업을 공유합니다." },
+  { title: "준비한 좌표를 화면에 표시합니다", text: "Three.js가 기존 GPU 버퍼의 좌표를 갱신하고 3D 장면을 그립니다. 프레임마다 표시 공간을 새로 만들지 않습니다." },
 ];
 
 export function ProjectArchitecture() {
   return (
     <section id="architecture" className={styles.section} aria-labelledby="architecture-title">
       <div className={styles.sectionHeading}>
-        <div><p className={styles.eyebrow}>01 · 데이터 구조</p><h2 id="architecture-title">원본 로그에서 화면까지</h2></div>
-        <a className={styles.textLink} href="https://github.com/DoubleChamp/drivescope-visualizer/blob/main/docs/ARCHITECTURE.md">아키텍처 문서 <span aria-hidden="true">↗</span></a>
+        <div><p className={styles.eyebrow}>01 · 데이터 흐름</p><h2 id="architecture-title">원본 로그가 화면에 도착하기까지</h2></div>
+        <a className={styles.textLink} href="https://github.com/DoubleChamp/drivescope-visualizer/blob/main/docs/ARCHITECTURE.md">구조 설명 문서 <span aria-hidden="true">↗</span></a>
       </div>
-      <p className={styles.sectionIntro}>센서의 시간·좌표·파일 형식을 렌더링 코드에 직접 섞으면 데이터 오류와 화면 오류를 구분하기 어렵습니다.
-        전처리·검증·로딩·캐시·표시를 나누어 문제를 추적할 수 있는 흐름으로 만들었습니다.</p>
+      <p className={styles.sectionIntro}>원본 센서 기록은 시간과 좌표, 파일 형식이 서로 다릅니다.
+        데이터를 준비하는 과정과 화면에 그리는 과정을 나누어, 문제가 생겼을 때 어느 단계에서 발생했는지 확인할 수 있게 했습니다.</p>
       <figure className={styles.pipeline}>
-        <figcaption><span>처리 흐름</span><span>디스크 계약 → CPU 메모리 → GPU 리소스</span></figcaption>
+        <figcaption>데이터 준비 → 필요한 프레임 읽기 → 3D 화면 표시</figcaption>
         <ol className={styles.pipelineStages}>
           {stages.map((stage, index) => (
-            <li key={stage.title} data-tone={stage.tone}>
+            <li key={stage.title}>
               <span className={styles.stageIndex}>{String(index + 1).padStart(2, "0")}</span>
-              <h3>{stage.title}</h3><span className={styles.stageTool}>{stage.tool}</span>
-              <p>{stage.text}</p><small>{stage.detail}</small>
+              <h3>{stage.title}</h3><p>{stage.text}</p>
             </li>
           ))}
         </ol>
         <div className={styles.responsibilitySplit}>
-          <p><span>REACT</span>입력 · 재생 시계 · 선택 · 로딩 상태 · DOM</p>
-          <p><span>THREE.JS</span>Scene · Camera · Buffer · 렌더 루프 · cleanup</p>
+          <p><span>React</span>사용자 입력, 재생 시각과 화면 상태를 관리합니다.</p>
+          <p><span>Three.js</span>3D 장면을 그리고 GPU 리소스를 관리합니다.</p>
         </div>
       </figure>
       <div className={styles.contractRow}>
         <div className={styles.contractNote}>
-          <span className={styles.miniLabel}>좌표 계약</span>
-          <h3>좌우 반전을 좌표 계약에서 해결</h3>
-          <p>원본 축을 그대로 화면에 옮기지 않고 센서 보정과 차량 pose를 적용합니다.
-            전방을 −Z로 통일한 <code>[-y, z, -x]</code> 변환으로 오른손 좌표계를 유지했습니다.</p>
-          <a className={styles.textLink} href="https://github.com/DoubleChamp/drivescope-visualizer/blob/main/scripts/convert_nuscenes_mini.py">변환기 코드 <span aria-hidden="true">↗</span></a>
+          <span className={styles.miniLabel}>좌표 맞추기</span>
+          <h3>센서와 화면의 좌우 방향을 일치시킵니다</h3>
+          <p>센서의 장착 위치·방향과 기록 당시의 차량 위치를 함께 적용합니다.
+            화면의 전방·높이·좌우 기준을 통일해 사진과 점군을 비교할 수 있게 합니다.</p>
         </div>
         <div className={styles.contractNote}>
-          <span className={styles.miniLabel}>바이너리 계약</span>
-          <h3>파일 크기를 계약으로 검증</h3>
-          <p>좌표는 <code>float32-le-xyz</code>로 저장합니다. 브라우저는 파일 크기가
-            <code> pointCount × 3 × 4</code>바이트인지 검사하고, little-endian 환경에서는 ArrayBuffer를 Float32Array 뷰로 해석합니다.</p>
-          <a className={styles.textLink} href="https://github.com/DoubleChamp/drivescope-visualizer/blob/main/app/viewer/_data/load-drivescope-data-source.ts">로더 코드 <span aria-hidden="true">↗</span></a>
+          <span className={styles.miniLabel}>파일 확인하기</span>
+          <h3>잘못된 좌표 파일은 표시 전에 확인합니다</h3>
+          <p>점 하나는 세 방향의 좌표로 저장됩니다. 파일에 들어 있는 좌표 수와 기록된 포인트 수를 비교해,
+            누락되거나 형식이 맞지 않는 데이터를 검증 단계에서 찾아냅니다.</p>
         </div>
       </div>
       <div className={styles.syncRow}>
         <div className={styles.syncCopy}>
-          <p className={styles.eyebrow}>시간 동기화</p>
-          <h3>같은 재생 시각이<br />같은 수집 시각은 아닙니다.</h3>
-          <p>각 센서는 <strong>재생 시각 이하의 최신 Frame</strong>을 선택합니다.
-            목표 시각과 실제 표시한 Frame의 시각을 함께 보여주어, 수집 주기의 차이를 분석 정보로 남깁니다.</p>
-          <a className={styles.textLink} href="https://github.com/DoubleChamp/drivescope-visualizer/blob/main/app/viewer/_data/find-latest-frame-at-or-before.ts">Viewer와 같은 선택 함수 <span aria-hidden="true">↗</span></a>
+          <p className={styles.eyebrow}>시간 맞추기</p>
+          <h3>같은 장면을 봐도 센서의 기록 시각은 다릅니다</h3>
+          <p>센서마다 수집 주기가 다르므로 <strong>현재 재생 시각까지 기록된 가장 최근 프레임</strong>을 표시합니다.</p>
+          <p>예를 들어 12.4초를 재생할 때, 1초 주기의 카메라는 12.0초 사진을 보여줍니다.
+            화면에는 재생 시각과 사진의 기록 시각을 함께 표시합니다.</p>
         </div>
         <FrameSelectionDemo />
       </div>

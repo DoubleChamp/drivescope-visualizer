@@ -7,15 +7,15 @@ export function ProjectOverview() {
   return (
     <section className={styles.hero} aria-labelledby="project-title">
       <div className={styles.heroCopy}>
-        <p className={styles.eyebrow}>데이터 처리 · 성능 측정</p>
+        <p className={styles.eyebrow}>프로젝트 개요</p>
         <h1 id="project-title">DriveScope</h1>
-        <p className={styles.heroSubtitle}>카메라와 LiDAR를 같은 시간축에서 탐색하는 3D 로그 뷰어</p>
+        <p className={styles.heroSubtitle}>센서 로그를 같은 시간축에서 살펴보는 3D 뷰어</p>
         <p className={styles.heroDescription}>
-          nuScenes 전처리, timestamp 동기화, GPU Buffer 재사용을 구현하고 로딩 비용을 측정했습니다.
-          실제 센서 탐색과 가상 급제동 분석을 직접 확인할 수 있습니다.
+          카메라 사진과 LiDAR 점군, 차량 위치를 함께 재생합니다.
+          실제 센서 기록을 화면으로 옮기는 과정과 끊김을 줄이기 위해 적용한 설계를 소개합니다.
         </p>
         <div className={styles.actions}>
-          <Link className={styles.primaryLink} href="/viewer" prefetch={false}>직접 탐색하기 <span aria-hidden="true">↗</span></Link>
+          <Link className={styles.primaryLink} href="/viewer" prefetch={false}>Viewer 열기 <span aria-hidden="true">↗</span></Link>
           <a className={styles.secondaryLink} href="#demo"><span aria-hidden="true">▷</span> 1분 데모 보기</a>
         </div>
         <ul className={styles.techStack} aria-label="기술 스택">
@@ -30,12 +30,12 @@ export function ProjectOverview() {
             alt="실제 LiDAR 점군, 전방 카메라, 차량 위치와 타임라인을 함께 표시하는 Viewer" />
           <span className={styles.previewPlay} aria-hidden="true">▷</span>
         </a>
-        <figcaption><span>실제 실행 화면</span><span>LiDAR · CAM_FRONT · ego pose</span></figcaption>
+        <figcaption><span>실제 실행 화면</span><span>LiDAR · 전방 카메라 · 차량 위치</span></figcaption>
       </figure>
       <dl className={styles.projectFacts}>
-        <div><dt>실제 LiDAR / 탐색 Frame</dt><dd>34,752<span>points</span></dd></div>
-        <div><dt>완료된 CPU Frame 캐시</dt><dd>5<span>frames max</span></dd></div>
-        <div><dt>이미지 준비와 표시 분리</dt><dd>2<span>image slots</span></dd></div>
+        <div><dt>기준선의 LiDAR 포인트 수</dt><dd>34,752<span>개</span></dd></div>
+        <div><dt>다시 사용하는 센서 데이터</dt><dd>5<span>프레임까지</span></dd></div>
+        <div><dt>사진을 준비하고 표시하는 공간</dt><dd>2<span>개</span></dd></div>
       </dl>
     </section>
   );

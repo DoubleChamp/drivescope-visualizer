@@ -5,7 +5,7 @@ import { findLatestFrameAtOrBefore } from "../viewer/_data/find-latest-frame-at-
 import styles from "../home.module.css";
 
 // Small camera-only example, using the same selection rule as the Viewer.
-// No sensor files, Three.js runtime or animation loop is needed on the home page.
+// No sensor files, Three.js runtime or animation loop is needed on the project page.
 const frames = [10000, 11000, 12000, 13000, 14000].map(timestampMs => ({ timestampMs }));
 
 export function FrameSelectionDemo() {

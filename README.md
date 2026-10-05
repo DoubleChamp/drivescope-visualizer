@@ -4,9 +4,9 @@
 
 Next.js App Router, React, TypeScript와 Three.js를 사용합니다. React는 UI·입력·재생 상태를, Three.js는 3D 장면·GPU 리소스·렌더 루프를 담당합니다.
 
-홈(`/`)은 간단한 카드와 **뷰어 열기 / 프로젝트 개요** 두 버튼으로 시작합니다. `/viewer`는 센서 로그 탐색, `/project`는 **데이터 처리·성능 측정을 설명하는 프로젝트 소개 페이지**입니다. 전처리→manifest→CPU 캐시→GPU Buffer의 흐름, 좌표·바이너리 계약, 최적화 핵심 코드와 측정 조건을 보여줍니다. 타임라인 예시를 직접 조작하고 1분 자막 영상을 재생한 뒤 `/viewer`에서 실제 센서 로그를 탐색할 수 있습니다. [프로젝트 소개](https://drivescope-visualizer.vercel.app/project)의 이번 변경은 push와 새 Vercel build 뒤 반영됩니다.
+홈(`/`)은 간단한 카드와 **뷰어 열기 / 프로젝트 개요** 두 버튼으로 시작합니다. `/viewer`는 센서 로그 탐색, `/project`는 **데이터 처리·성능 측정을 설명하는 프로젝트 소개 페이지**입니다. 전처리→manifest→CPU 캐시→GPU Buffer의 흐름, 좌표·바이너리 계약, 문제 해결 방법과 측정 조건을 보여줍니다. 타임라인 예시를 직접 조작하고 1분 자막 영상을 재생한 뒤 `/viewer`에서 실제 센서 로그를 탐색할 수 있습니다. [프로젝트 소개](https://drivescope-visualizer.vercel.app/project)의 이번 변경은 push와 새 Vercel build 뒤 반영됩니다.
 
-소개 페이지는 밝은 배경과 본문 중심의 구성으로 읽기 쉽게 정리했습니다. 최적화 설명은 문제·해결·코드를 세로로 읽고, 영상은 넓게 표시합니다. `/viewer`의 기존 어두운 화면은 유지합니다.
+소개 페이지는 밝은 배경과 본문 중심의 구성으로 읽기 쉽게 정리했습니다. 설명은 큰 본문과 충분한 줄 간격으로 정리하고, 문제 해결은 문제·해결 방법·확인한 결과로 읽고, 영상은 넓게 표시합니다. `/viewer`의 기존 어두운 화면은 유지합니다.
 
 13.9ms는 HTTP 대기가 포함된 로더 Promise의 경과 시간입니다. 소개 페이지에서도 이를 순수 렌더링 시간이나 최적화 전후 향상률로 표현하지 않으며 [원본 측정 기록](docs/PERFORMANCE.md)과 코드 링크를 함께 제공합니다.
 
@@ -219,7 +219,7 @@ manifest 연결 문제를 해결한 뒤 **실제 데이터 다시 연결**을 �
 | 홈 카드·두 진입 버튼 | [app/page.tsx](app/page.tsx) |
 | 프로젝트 소개의 섹션 조합·메타데이터 | [app/project/page.tsx](app/project/page.tsx) |
 | 데이터 흐름 설명 / 조작 가능한 Frame 선택 예시 | [project-architecture.tsx](app/_components/project-architecture.tsx), [frame-selection-demo.tsx](app/_components/frame-selection-demo.tsx) |
-| 최적화 결정·핵심 코드 / 측정 결과·해석 | [project-optimizations.tsx](app/_components/project-optimizations.tsx), [project-results.tsx](app/_components/project-results.tsx) |
+| 문제·해결 방법·확인한 결과 / 측정 결과·해석 | [project-optimizations.tsx](app/_components/project-optimizations.tsx), [project-results.tsx](app/_components/project-results.tsx) |
 | 사이트 안에서 재생하는 1분 영상·텍스트 설명 | [project-demo.tsx](app/_components/project-demo.tsx) |
 | 실제 LiDAR 로딩 구간·요청별 시간 표시 | [load-drivescope-data-source.ts](app/viewer/_data/load-drivescope-data-source.ts), [lidar-load-details.tsx](app/viewer/_components/lidar-load-details.tsx) |
 | 소스·재생 시계·센서 선택·패널 조합 | [viewer-canvas.tsx](app/viewer/viewer-canvas.tsx) |
