@@ -5,8 +5,8 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: 연속 승인한 P.S. 2번을 `d7829b0`에 commit했다. 3번은 공통 좌표 준비 함수·지연 생성 Worker·양방향 transfer·Hook cleanup을 구현하고 production·실제 byte 비교·오류/timeout 검증을 통과했다. 기본 메인 스레드 경로를 유지한다.
-- 다음 한 단계: 4번 같은 production build에서 메인/Worker를 교대 비교하고 기본 경로·Worker 유지 목적을 결정한 뒤 5번 실제 Frame 선택 비용 측정·cursor/이진 탐색을 진행한다. 이번 요청은 매 단계 추가 승인을 생략하는 명시적 연속 작업 승인이다. 사용자 이해 확인을 완료한 것으로 기록하지 않는다. push는 사용자가 수행한다.
+- 현재 작업: P.S. 2번 `d7829b0`, 3번 `92c3994` 이후 4번 교대 비교를 완료했다. main/Worker 현재 요청 평균 9.23/10.49ms·P95 13.00/25.10ms, FPS·Long Tasks 차이를 확인하지 못했다. 기본 main 유지·Worker는 학습/비교용 opt-in으로 결정했다.
+- 다음 한 단계: 5번 실제 Frame 선택 비용을 먼저 측정하고 순차 cursor·임의 seek 이진 탐색을 구현·검증·문서·commit한다. 이번 요청은 매 단계 추가 승인을 생략하는 명시적 연속 작업 승인이다. 사용자 이해 확인을 완료한 것으로 기록하지 않는다. push는 사용자가 수행한다.
 - 아직 구현하지 않은 것: 센서·ego pose·사진의 보간, 중간 sweeps, 실제 scene 선택 목록과 다중 카메라.
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
@@ -21,6 +21,13 @@
 7. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 8. 현재 Route Handler는 로컬 개발용이다. 배포에서는 로컬 C 드라이브를 읽을 수 없으므로 같은 scene 디렉터리를 정적 파일 서버·CDN·오브젝트 스토리지에 올리고 로더의 기준 URL을 바꿔야 한다.
 9. 실제 센서 연결·오류 처리·Viewer 디자인·README 재현과 아키텍처를 정리했다. 공개 실제 연결과 데모 선택 UI 반영·전환도 검증했다. DEMO_SCRIPT의 촬영 순서·대본·코드 연결을 따라 1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### P.S. 4: main/Worker 교대 비교·유지 결정 (2026-10-05)
+
+- `benchmark:lidar-parsers`를 추가해 같은 production build에서 main→worker, worker→main, main→worker로 교대 실행했다. 1~19초 홀수 초 열 번 seek·주변 prefetch·hit·준비 2.2초 뒤 10초 재생이며 앞의 다섯 seek 기준선과 향상률을 계산하지 않는다. 다른 기능 검증 Chrome을 닫고 측정했다.
+- 각 current 30개 전체 평균/P95 main 9.23/13.00ms, Worker 10.49/25.10ms; 첫 current 이후 좌표 준비 27개 평균 main 0.01ms, Worker 왕복 0.57ms였다. 최초 Worker 준비는 16.10~28.90ms, Worker 내부 compute는 clock 해상도 근처였다. HTTP/prefetch 변동은 파싱 개선으로 해석하지 않았다.
+- 각 FPS 30개 모두 75, seek/재생 Long Tasks 각각 0개, 재생 rAF P95 모두 13.50ms였다. 타이머 지연 P95 main 4.90ms·Worker 5.00ms. current 종류·목표 포인트 수·prefetch 뒤 현재 값 유지·hit 3/3회와 runtime exception 0개를 확인했다. `docs/benchmarks/lidar-parser-comparison-2026-10-05.json`에 원본을 공유한다.
+- 기본 main을 유지하고 Worker는 학습·비교용 opt-in만 유지한다. 현재 전처리 xyz의 view 생성은 옮길 CPU 부하가 작고 Worker로 FPS/정지 감소를 확인하지 못했다. 더 무거운 CPU 준비가 추가되면 재측정한다. `pnpm.cmd benchmark:lidar-parsers`, JS 구문·문서 링크·공백 검사 통과. 제품 변경이 없어 3번 최종 build를 그대로 사용했다.
 
 ### P.S. 3: transferable Worker 구현·검증 (2026-10-05)
 

@@ -213,3 +213,40 @@ pnpm.cmd verify:lidar-worker
 ```
 
 [client·본문 검사](../scripts/verify-lidar-worker-client.mjs)는 실제 TS를 실행해 ID 역순 응답·오류·timeout·종료·재생성·timer 정리를 확인한다. 실제 Worker 본문을 Node worker_threads에서 실행해 입력/출력 양쪽의 transfer 후 byteLength 0과 좌표 보존·크기 오류를 확인한다. Node 수치는 브라우저 성능 통계에 포함하지 않는다. [production Chrome 검사](../scripts/verify-lidar-worker.mjs)는 별도로 Next.js Worker bundle을 실행하며 18개 반환 결과의 모든 byte 일치·입력 detach, 기본 경로 Worker 미생성·한 세션 한 Worker·모드 전환 종료·재진입을 확인했다. runtime exception은 0개였다. 검증에서만 입력 snapshot을 복사하며 제품에는 복사를 추가하지 않는다.
+
+## 메인 스레드·Worker 비교 (P.S. 4)
+
+[benchmark-lidar-parsers.mjs](../scripts/benchmark-lidar-parsers.mjs)는 동일 production 빌드·scene·뷰포트·HTTP 캐시 비활성·LRU 5로 `main→worker`, `worker→main`, `main→worker` 순서를 실행한다. 각 회차는 1/3/5/7/9/11/13/15/17/19초의 miss 10개와 양옆 prefetch, hit 검사 뒤 0초로 돌아가 준비 2.2초·재생 약 10초를 측정한다. P.S. 2의 다섯 seek보다 표본을 늘렸으므로 과거 실행과 향상률을 계산하지 않는다. 다른 검증 Chrome을 닫고 단독 실행한다. OS 파일 캐시는 초기화하지 않는다.
+
+현재 요청은 두 경로 각각 30개, FPS는 각각 30개다. 첫 current 3개는 Worker 생성·bundle 로드·시작 비용을 포함하고, 나머지 27개는 Worker가 시작한 뒤의 표본이다. 성공한 current/prefetch를 구분하고 진행 중 prefetch를 새 current로 재집계하지 않는다. 같은 target의 포인트 수와 표시 준비, hit의 로더 생략을 검증한다. Worker 내부 compute는 왕복 시간의 부분이므로 합계에 다시 더하지 않는다. Long Tasks와 타이머/rAF는 앞과 같은 주입 관찰기다.
+
+```powershell
+pnpm.cmd build
+pnpm.cmd start --port 3100
+# 다른 터미널
+pnpm.cmd benchmark:lidar-parsers
+```
+
+결과는 `node_modules/.cache/drivescope-benchmark/parsers-latest.json`이다. 다른 로컬 포트는 `DRIVESCOPE_BENCHMARK_URL`, Chrome 위치는 `DRIVESCOPE_BENCHMARK_CHROME`으로 지정한다. 실제 파일이 준비된 production 서버가 필요하다.
+
+### 비교 결과와 유지 결정
+
+2026-10-05 09:47 KST, `92c3994`의 production build에서 단독 실행했다. Chrome 154·GTX 1050 Ti·1440×1400·scene-0061, 실제 LiDAR 39개 목록에서 위 시점을 선택했다. [원본 JSON](./benchmarks/lidar-parser-comparison-2026-10-05.json)에 개별 요청과 모든 관찰 표본을 보존한다.
+
+| 지표 | 각 경로 표본 | main 평균 / P95 | Worker 평균 / P95 |
+| --- | ---: | ---: | ---: |
+| 현재 요청 전체 / ms | 30 | 9.23 / 13.00 | 10.49 / 25.10 |
+| 현재 응답 헤더 / ms | 30 | 7.28 / 10.50 | 6.16 / 8.50 |
+| 현재 본문 읽기 / ms | 30 | 1.88 / 4.80 | 1.71 / 4.10 |
+| 현재 좌표 준비 경과 / ms | 30 | 0.02 / 0.10 | 2.57 / 16.70 |
+| 최초 이후 좌표 준비 경과 / ms | 27 | 0.01 / 0.10 | 0.57 / 3.20 |
+| prefetch 전체 / ms | 60 | 9.87 / 14.50 | 9.12 / 12.50 |
+| 재생 FPS | 30 | 75 / 75 | 75 / 75 |
+| 재생 타이머 지연 / ms | 567 | 3.32 / 4.90 | 3.32 / 5.00 |
+| 재생 rAF 간격 / ms | 2270 / 2271 | 13.33 / 13.50 | 13.33 / 13.50 |
+
+처음 세 번의 좌표 준비는 main 0.10~0.20ms, Worker 16.10~28.90ms(평균 20.57ms)였다. Worker 내부 compute는 현재 30개 평균 약 0.01ms·최대 0.10ms로 clock 해상도의 영향을 받는다. main의 view 생성도 거의 같은 해상도에 있으므로 내부 compute가 더 빠르다고 주장하지 않는다.
+
+두 경로의 seek·재생 Long Tasks는 모두 0개이고 관찰한 FPS·rAF P95는 같았다. HTTP 구간과 prefetch는 오히려 Worker 회차에서 짧은 값도 나왔지만 같은 HTTP 코드이며 순서·OS 캐시·스케줄링 변동이 섞인다. 전체 로딩의 차이를 파싱 CPU 개선율로 해석하지 않는다. 각 경로 hit 검사 3/3회·current 종류/포인트 수·prefetch 완료 뒤 현재 값 유지가 통과했고 runtime exception 0개였다.
+
+**결정: 기본은 메인 스레드를 유지한다. Worker는 학습·재현 비교용 opt-in으로만 남긴다.** 현재 데이터의 좌표 준비는 view 생성이라 옮길 CPU 작업이 매우 작고, 이번 측정에서는 Worker 시작·왕복 비용이 더해졌으며 FPS·장시간 작업 감소를 확인하지 못했다. 큰 원본 변환·압축 해제·필터링 같은 실제 CPU 작업이 추가되면 같은 방법으로 다시 비교한다. 모든 데이터/기기의 Worker가 느리다는 결론은 아니다.

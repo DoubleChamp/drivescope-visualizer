@@ -330,6 +330,8 @@ P.S. 2 계측은 같은 회차의 로딩 평균·nearest-rank P95, seek/재생�
 
 P.S. 3은 `/viewer?lidarParser=worker`에서만 Worker를 선택한다. 데이터 소스 Hook이 parser를 소유하고 세션 cleanup에서 HTTP abort·parser dispose를 실행한다. parser는 한 Worker를 지연 생성하며 buffer를 보내는 쪽은 detached되고, 결과 소유권을 돌려받은 뒤 캐시에 넣는다. Worker는 DOM·Three.js·GPU를 만지지 않는다. `preparePositionsMs`는 왕복 경과 시간, 선택 필드 `workerComputeMs`는 Worker 내부 계산만이며 합계에 중복 가산하지 않는다. 기본 메인 스레드는 Worker를 만들지 않는다.
 
+P.S. 4의 동일 build 교대 비교는 준비의 최초 시작/왕복 비용과 HTTP 변동을 구분했다. 기본 main을 유지하고 Worker는 학습·비교용으로만 남긴다. 현재 Float32 view 생성에서 FPS/Long Tasks 감소를 확인하지 못했으며 일반적인 Worker 효용으로 확대하지 않는다. 실행 조건·개별 표본·수치는 PERFORMANCE에 기록한다.
+
 웹앱은 Vercel에 배포되어 있으며 Public Blob의 실제 scene 파일 79개는 원본 SHA-256·응답 형식·CORS를 검증했다. Config로 설정한 공개 manifest URL을 배포 Viewer가 직접 요청하고 재생·탐색·사진 유지·오류 복구·모바일 표시까지 통과했다. 실제/가상 선택 UI의 공개 반영 뒤 양방향 전환·초기화·오래된 완료 차단·retry·키보드·320/390px 표시도 검사했다. 기존 로컬 API는 미설정 503이지만 공개 모드에서는 요청하지 않는다. 배포 앱은 PC 데이터 디렉터리나 업로드 토큰을 필요로 하지 않는다. 계정의 빌드 로그·Preview 배포와 실제 모바일 기기는 별도 검증이며 1분 영상은 남아 있다. 자세한 결과는 [DEPLOYMENT.md](./DEPLOYMENT.md)에 기록한다.
 
 ego pose 보간·센서 sweeps 재생·누적, 실제 annotation·Planning 연결은 현재 범위 밖이다. 표시용 3D Camera 추종은 구현했고 기록 센서/pose 보간과 구분한다. 실제 모드의 차량 박스 크기는 현재 가상 시나리오 값을 재사용한다. Worker 비교·기본 경로 결정과 Frame 선택 cursor·이진 탐색은 이번 연속 승인 작업의 다음 단계다.
