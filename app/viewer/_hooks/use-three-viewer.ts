@@ -17,9 +17,11 @@ import {
   Raycaster,
   Scene,
   Vector2,
+  Vector3,
   WebGLRenderer,
 } from "three";
 import { findAxisAlignedTrajectoryCollisionSegments } from "../_analysis/find-axis-aligned-trajectory-collision-segments";
+import { dampFollowCamera } from "../_utils/damp-follow-camera";
 import type {
   EgoPoseFrame,
   LidarFrame,
@@ -47,6 +49,7 @@ type UseThreeViewerOptions = {
   pedestrian: ObjectDetection | null;
   egoPoseFrame: EgoPoseFrame | null;
   followEgoVehicle: boolean;
+  isPlaying: boolean;
   trajectoryFrame: TrajectoryFrame | null;
   selectedObjectId: string | null;
   setSelectedObjectId: Dispatch<SetStateAction<string | null>>;
@@ -60,6 +63,7 @@ export function useThreeViewer({
   pedestrian,
   egoPoseFrame,
   followEgoVehicle,
+  isPlaying,
   trajectoryFrame,
   selectedObjectId,
   setSelectedObjectId,
@@ -68,6 +72,13 @@ export function useThreeViewer({
   const lidarGeometryRef = useRef<BufferGeometry | null>(null);
   const lidarPositionAttributeRef = useRef<BufferAttribute | null>(null);
   const cameraRef = useRef<PerspectiveCamera | null>(null);
+  const cameraFollowRef = useRef<{
+    targetPosition: Vector3;
+    targetLookAt: Vector3;
+    currentLookAt: Vector3;
+    initialized: boolean;
+    smoothing: boolean;
+  } | null>(null);
   const pedestrianBoxRef = useRef<Mesh | null>(null);
   const pedestrianMaterialRef = useRef<MeshBasicMaterial | null>(null);
   const vehicleBoxRef = useRef<Mesh | null>(null);
@@ -171,6 +182,14 @@ export function useThreeViewer({
     camera.position.set(...DEFAULT_CAMERA_POSITION);
     camera.lookAt(...DEFAULT_CAMERA_TARGET);
     cameraRef.current = camera;
+    const cameraFollow = {
+      targetPosition: new Vector3(...DEFAULT_CAMERA_POSITION),
+      targetLookAt: new Vector3(...DEFAULT_CAMERA_TARGET),
+      currentLookAt: new Vector3(...DEFAULT_CAMERA_TARGET),
+      initialized: false,
+      smoothing: false,
+    };
+    cameraFollowRef.current = cameraFollow;
 
     const renderer = new WebGLRenderer({ canvas });
     const raycaster = new Raycaster();
@@ -205,7 +224,20 @@ export function useThreeViewer({
     let animationFrameId: number;
     let sampleStartedAt: number | null = null;
     let renderedFrameCount = 0;
+    let previousRenderTime: number | null = null;
     const renderFrame = (timestamp: number) => {
+      const deltaSeconds =
+        previousRenderTime === null ? 0 : (timestamp - previousRenderTime) / 1_000;
+      previousRenderTime = timestamp;
+      if (cameraFollow.smoothing) {
+        dampFollowCamera(
+          camera,
+          cameraFollow.currentLookAt,
+          cameraFollow.targetPosition,
+          cameraFollow.targetLookAt,
+          deltaSeconds,
+        );
+      }
       renderer.render(scene, camera);
 
       if (sampleStartedAt === null) {
@@ -237,6 +269,7 @@ export function useThreeViewer({
       lidarGeometryRef.current = null;
       lidarPositionAttributeRef.current = null;
       cameraRef.current = null;
+      cameraFollowRef.current = null;
       pedestrianBoxRef.current = null;
       pedestrianMaterialRef.current = null;
       vehicleBoxRef.current = null;
@@ -324,15 +357,19 @@ export function useThreeViewer({
     vehicleBox.visible = true;
   }, [egoPoseFrame, scenario.egoVehicleSize]);
 
-  // 실제 데이터에서는 월드 좌표를 바꾸지 않고 가상 카메라만 ego 뒤·위에서 따라간다.
+  // 기록된 ego pose로 시점 목표만 갱신한다. 재생 중 이동은 Three.js rAF가 담당한다.
   useEffect(() => {
     const camera = cameraRef.current;
-    if (!camera) return;
+    const cameraFollow = cameraFollowRef.current;
+    if (!camera || !cameraFollow) return;
 
     if (!followEgoVehicle || !egoPoseFrame) {
       camera.position.set(...DEFAULT_CAMERA_POSITION);
       camera.lookAt(...DEFAULT_CAMERA_TARGET);
       camera.updateMatrixWorld();
+      cameraFollow.currentLookAt.set(...DEFAULT_CAMERA_TARGET);
+      cameraFollow.initialized = false;
+      cameraFollow.smoothing = false;
       return;
     }
 
@@ -341,18 +378,26 @@ export function useThreeViewer({
     const forwardX = -Math.sin(egoPoseFrame.yawRadians);
     const forwardZ = -Math.cos(egoPoseFrame.yawRadians);
 
-    camera.position.set(
+    cameraFollow.targetPosition.set(
       positionX - forwardX * FOLLOW_CAMERA_DISTANCE,
       groundY + FOLLOW_CAMERA_HEIGHT,
       positionZ - forwardZ * FOLLOW_CAMERA_DISTANCE,
     );
-    camera.lookAt(
+    cameraFollow.targetLookAt.set(
       positionX + forwardX * FOLLOW_CAMERA_LOOK_AHEAD,
       groundY + FOLLOW_CAMERA_TARGET_HEIGHT,
       positionZ + forwardZ * FOLLOW_CAMERA_LOOK_AHEAD,
     );
-    camera.updateMatrixWorld();
-  }, [egoPoseFrame, followEgoVehicle]);
+    cameraFollow.smoothing = isPlaying && cameraFollow.initialized;
+    // 최초 표시·정지·seek는 기록 시점에 즉시 맞춰 재생 중의 추종 지연을 남기지 않는다.
+    if (!cameraFollow.smoothing) {
+      camera.position.copy(cameraFollow.targetPosition);
+      cameraFollow.currentLookAt.copy(cameraFollow.targetLookAt);
+      camera.lookAt(cameraFollow.currentLookAt);
+      camera.updateMatrixWorld();
+    }
+    cameraFollow.initialized = true;
+  }, [egoPoseFrame, followEgoVehicle, isPlaying]);
 
   // Planning Frame이 바뀔 때만 예상 경로의 재사용 Buffer를 갱신한다.
   useEffect(() => {

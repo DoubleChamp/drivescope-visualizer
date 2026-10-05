@@ -143,6 +143,7 @@ function ViewerSession({ mode }: { mode: ViewerMode }) {
     pedestrian: currentPedestrian,
     egoPoseFrame,
     followEgoVehicle: isActualData,
+    isPlaying,
     trajectoryFrame: isMockData ? frames.trajectory : null,
     selectedObjectId,
     setSelectedObjectId,

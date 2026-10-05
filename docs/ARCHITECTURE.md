@@ -1,6 +1,6 @@
 # DriveScope 아키텍처
 
-현재 구현 기준: 2026-10-04. 설치·데모 재현은 [README](../README.md), 디스크 계약은 [DATA_FORMAT.md](./DATA_FORMAT.md), 측정 결과는 [PERFORMANCE.md](./PERFORMANCE.md)를 따른다. 구현 순서와 과거 검증은 [ROADMAP.md](./ROADMAP.md)와 [PROGRESS.md](./PROGRESS.md)에 보관한다.
+현재 구현 기준: 2026-10-05. 설치·데모 재현은 [README](../README.md), 디스크 계약은 [DATA_FORMAT.md](./DATA_FORMAT.md), 측정 결과는 [PERFORMANCE.md](./PERFORMANCE.md)를 따른다. 구현 순서와 과거 검증은 [ROADMAP.md](./ROADMAP.md)와 [PROGRESS.md](./PROGRESS.md)에 보관한다.
 
 ## 현재 범위
 
@@ -84,6 +84,7 @@ manifest를 읽으면 Frame 목록과 ego pose를 확보한다. 모든 LiDAR 바
 | [use-buffered-camera-frame.ts](../app/viewer/_hooks/use-buffered-camera-frame.ts), [camera-panel.tsx](../app/viewer/_components/camera-panel.tsx) | 이미지 준비·활성 슬롯 결정, img 표시와 지연·오류 안내 |
 | [use-object-selection.ts](../app/viewer/_hooks/use-object-selection.ts) | 선택 ID state와 현재 인식 Frame의 선택 객체 파생 |
 | [use-three-viewer.ts](../app/viewer/_hooks/use-three-viewer.ts) | Scene·Camera·Renderer·Buffer·Mesh·Raycaster 생성, 갱신, 렌더 루프, 정리 |
+| [damp-follow-camera.ts](../app/viewer/_utils/damp-follow-camera.ts) | 실제 재생 중 경과 시간에 따른 3D Camera 위치·주시점 추종 |
 | [find-axis-aligned-trajectory-collision-segments.ts](../app/viewer/_analysis/find-axis-aligned-trajectory-collision-segments.ts) | 가상 경로와 축 정렬 footprint의 순수 충돌 구간 계산 |
 | [viewer-header.tsx](../app/viewer/_components/viewer-header.tsx), [viewer-scene-panel.tsx](../app/viewer/_components/viewer-scene-panel.tsx), [_components](../app/viewer/_components) | 제목·요약·Canvas 마크업·정보·재생 입력 표시 |
 
@@ -141,7 +142,9 @@ Three.js에서 yaw를 적용한 전방 = [-sin(yaw), 0, -cos(yaw)]
 
 변환기는 JPEG를 그대로 복사한다. 브라우저는 좌표 변환이나 사진 좌우 반전을 다시 수행하지 않는다. 기존 가상 시나리오는 +Z 전방과 고정 3D Camera를 사용한다. 로더는 v2를 거부하므로 이전 파일의 버전 숫자만 v3로 바꾸면 안 된다.
 
-실제 3D Camera는 위 전방 벡터를 기준으로 ego 뒤 18m·위 12m에 놓이고 전방 12m·높이 1.5m를 바라본다. 점군과 Scene은 고정된 시나리오 좌표를 유지하고 Camera만 차량 pose를 따라간다. 현재 이동·yaw를 보간하거나 Camera를 smoothing하지 않는다.
+실제 3D Camera의 목표는 위 전방 벡터를 기준으로 ego 뒤 18m·위 12m이고, 전방 12m·높이 1.5m를 바라본다. 점군과 Scene은 고정된 시나리오 좌표를 유지한다. 재생 중 Camera 위치·주시점은 Three.js rAF에서 `1 - exp(-deltaSeconds / 0.12)` 비율로 목표를 따라간다. 세 Vector3를 런타임 동안 재사용하며 프레임마다 React state를 갱신하지 않는다.
+
+최초 ego 표시·정지·seek에는 Camera를 기록된 pose의 목표 위치·방향으로 즉시 맞춘다. 가상 모드·ego 없음은 기존 고정 시점이다. 소스 전환은 세션 key의 cleanup으로 추종 참조·rAF를 정리한다. 이 동작은 표시용 Camera smoothing이며 실제 ego pose·차량 박스·점군·JPEG timestamp를 보간하지 않는다. 재생 중 시점에는 추종 지연이 생길 수 있고, 사진 자체의 약 0.5초 간격도 그대로다.
 
 ## 재생 시계와 Frame 선택
 

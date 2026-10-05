@@ -1,13 +1,13 @@
 # DriveScope 진행 상황
 
-마지막 갱신: 2026-10-04
+마지막 갱신: 2026-10-05
 
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: Frame 동기화 행의 시간·설명 공간과 줄바꿈을 고정하고, LiDAR의 다음 Frame 준비 중 이전 점군을 유지하도록 수정했다. Chrome에서 패널 높이·카메라 2슬롯·LiDAR 빈 렌더를 비교하고 production·지연·오류·재시도·모드 전환을 검증했다.
-- 다음 한 단계: 목표 Frame과 실제 표시 Frame, 로딩 중 점군 유지와 시간 차이를 설명하고 사용자 이해를 확인한다. 카메라 사진의 keyframe 간격과 보간 없는 3D 시점 이동은 별개이며 후속 개선은 아직 승인·구현하지 않았다. 앞선 로더 구간 측정의 이해 확인, 사용자 push와 새 Vercel build 뒤 공개 반영 확인도 남아 있다. 여러 scene·다중 카메라는 의견만 검토했으며 방화벽은 사용자 요청으로 미룬다.
-- 아직 구현하지 않은 것: ego pose 보간과 Camera smoothing, 실제 scene 선택 목록과 다중 카메라.
+- 현재 작업: 실제 재생 중 3D Camera 위치·주시점을 rAF의 경과 시간으로 점진 이동하도록 바꿨다. 최초 표시·정지·seek는 즉시 기록 목표로 맞춘다. production 시점 행렬 전후 비교·CPU 추종 검사·기존 표시 안정성 회귀를 통과했다.
+- 다음 한 단계: React effect의 기록 pose 기반 목표 갱신과 Three.js rAF의 표시용 추종, 정지/seek 즉시 반영을 설명하고 사용자 이해를 확인한다. 기존 표시 Frame·로더 계측의 이해 확인도 남아 있다. 그 뒤 평균·P95·메인 스레드 측정 또는 사진 재생 개선 중 한 단계를 정한다. 사용자 push·새 Vercel build 뒤 공개 반영을 확인한다. 여러 scene·다중 카메라는 의견만 검토했으며 방화벽은 사용자 요청으로 미룬다.
+- 아직 구현하지 않은 것: 센서·ego pose·사진의 보간, 중간 sweeps, 실제 scene 선택 목록과 다중 카메라.
 - 배포 후 개선: 실제 로더의 세부 시간·P95·메인 스레드 정지를 측정하고 Web Worker + transferable `ArrayBuffer` 버전과 비교한다. Frame 선택 비용도 측정한 뒤 순차 재생은 현재 인덱스 cursor, 임의 seek는 timestamp 이진 탐색으로 바꾼다. keyframe 로더가 안정되면 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적을 별도로 비교한다.
 
 ## 다른 컴퓨터에서 이어서 시작하기
@@ -21,6 +21,18 @@
 7. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.
 8. 현재 Route Handler는 로컬 개발용이다. 배포에서는 로컬 C 드라이브를 읽을 수 없으므로 같은 scene 디렉터리를 정적 파일 서버·CDN·오브젝트 스토리지에 올리고 로더의 기준 URL을 바꿔야 한다.
 9. 실제 센서 연결·오류 처리·Viewer 디자인·README 재현과 아키텍처를 정리했다. 공개 실제 연결과 데모 선택 UI 반영·전환도 검증했다. DEMO_SCRIPT의 촬영 순서·대본·코드 연결을 따라 1분 영상으로 기술 선택과 문제 해결 흐름을 보여준다.
+
+### Viewer: 실제 재생 중 3D 시점 추종 (2026-10-05)
+
+- 사용자가 다음 작업과 이어서 진행을 요청해 앞서 추천한 3D 시점 개선 범위로 진행했다. main은 `34f2d16`이며 최종 원격 읽기 전용 조회에서도 같은 commit을 확인했다. 초기 원격 조회는 자동 승인 검토의 사용량 한도로 실행되지 않았지만 이후 권한 실행·검증·원격 조회가 정상 동작했다. 사용자 push로 이전 두 commit이 원격에 반영된 상태다.
+- 기준 문서와 설치된 Next.js use-client·Server/Client 가이드를 확인했다. 실제 ego 39개는 400~600ms 간격, 인접 위치 변화는 최대 약 4.8m다. 기존 Camera effect의 즉시 위치 변경이 keyframe 사이의 시점 점프를 만들었다. 실제 pose·차량 박스·점군·전방 사진의 보간으로 범위를 넓히지 않았다.
+- `use-three-viewer.ts`에 Camera 목표 위치·주시점·현재 주시점의 Vector3 세 개와 추종 여부를 런타임 참조로 둔다. `viewer-canvas.tsx`는 기존 isPlaying을 전달하고 effect는 기록 pose로 목표만 갱신한다. rAF는 재사용 Vector3와 `damp-follow-camera.ts`의 시간 상수 0.12초 추종으로 Camera를 움직인다. 최초 표시·정지·seek는 즉시 맞추고 가상/ego 없음은 기존 고정 시점이며 cleanup에서 참조를 끊는다. 새 GPU 리소스·매 프레임 React state는 만들지 않는다.
+- 실제 production의 같은 약 8.5초·1초 시작 구간에서 POINTS의 modelViewMatrix로 시점을 읽었다. 변경 전 움직이는 렌더는 17/634, 변경 후 630/634이며 한 렌더 간 최대 위치 변화는 4.8156m→0.5088m다. 셰이더 프로그램별 uniform 캐시를 구분하지 않은 초기 진단은 다른 Mesh 행렬이 섞여 실패했으므로 보정 후 표본만 사용했다. 이는 시점 이동 관찰이며 FPS 향상률·모든 기기 보장은 아니다.
+- 변경 전 production 서버는 sandbox 파일 읽기 제한이 있어 검증 브라우저에서만 기존 개발 API의 같은 자산 응답으로 전달했다. 변경 후는 읽기 권한으로 실행한 production의 실제 API를 직접 사용했다. 환경 파일·센서 파일은 바꾸지 않았다. 기존 서버가 종료된 뒤 개발 3000·production 3100을 다시 실행했으며 최종 확인용으로 유지한다.
+- Chrome에서 정지 후 위치·방향, 12.4→5→19초 seek 후 위치를 기록 pose 목표와 비교했다. 정지 상태 위치 유지·가상 고정 Camera·실제 재진입 초기화를 통과했고 JS runtime exception은 0이었다. 최종 screenshot도 확인했다. 전후 진단은 `DRIVESCOPE_CAMERA_PHASE=before` 또는 `after`를 설정한 뒤 `node node_modules/.cache/drivescope-browser-check/check-camera-follow.mjs`이며 진단기·행렬 표본 JSON·이미지는 Git 제외 캐시에 둔다.
+- `pnpm.cmd build`, `pnpm.cmd verify:camera-follow`, `pnpm.cmd verify:lidar-timings` 통과. 새 CPU 검증은 실제 TS 함수·Three.js Camera로 첫 렌더 점진 이동·시간 0/음수·60/75Hz/불규칙 간격의 결과 일치·목표 수렴·역행 없음을 검사한다. production `check-frame-stability.mjs` 회귀에서도 표본 634개 중 빈 카메라·사진 역행·빈 LiDAR·활성 src 변경·DOM 교체가 모두 0, 1440px 패널 높이 308px 유지였다. 여섯 너비·지연·오류·retry·늦은 완료·모드 전환도 통과했다.
+- 기존 미커밋 `playback-controls.tsx`는 Firefox 새로고침 때 동적 disabled 상태 복원을 끄려는 변경이다. Firefox 157의 개발·production 각각 3회 새로고침에서 hydration 경고가 0이었다. 해당 diff는 수정·이번 3D commit에 포함하지 않는다. Camera smoothing과 Firefox 복원 방지는 다른 목적이다.
+- 재생 중 3D 시점에는 표시용 추종 지연이 있고, 센서·ego pose·차량 박스·JPEG timestamp와 약 0.5초 사진 간격은 그대로다. 사용자 이해 확인·push·공개 반영은 남아 있다. 승인된 단계는 main에 commit까지만 한다.
 
 ### Viewer: Frame 동기화 높이 고정과 깜빡임 점검 (2026-10-04)
 
