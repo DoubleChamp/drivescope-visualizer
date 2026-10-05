@@ -96,14 +96,14 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-converter.txt
 .\.venv\Scripts\python.exe scripts\convert_nuscenes_mini.py `
   --dataroot "C:/DriveScopeData/nuscenes-mini" `
-  --output-root "C:/DriveScopeData/drivescope-output-v3" `
-  --scene-index 0
+  --output-root "C:/DriveScopeData/drivescope-output-sweeps" `
+  --scene-index 0 --include-sweeps
 ```
 
-기본 첫 scene인 `scene-0061`을 다음 구조로 생성합니다. Camera·LiDAR·ego pose는 각각 39개입니다. 변환기는 sample keyframe을 사용하며 중간 sweeps는 출력하지 않습니다. 같은 출력 scene 디렉터리가 이미 있으면 덮어쓰지 않으므로 다시 변환할 때는 다른 출력 루트를 지정합니다.
+첫 scene인 `scene-0061`을 다음 구조로 생성합니다. `--include-sweeps`는 중간 원본 관측을 포함해 LiDAR 382개·Camera 224개·ego pose 382개를 출력합니다. Viewer는 개별 Frame을 원래 timestamp로 선택합니다. 옵션을 빼면 비교 기준인 keyframe 각 39개를 만들 수 있습니다. 같은 출력 scene 디렉터리가 이미 있으면 덮어쓰지 않으므로 새로운 출력 루트를 지정합니다.
 
 ```text
-drivescope-output-v3/
+drivescope-output-sweeps/
 └─ scene-0061/
    ├─ manifest.json
    ├─ camera/
@@ -119,13 +119,13 @@ Python은 원본을 웹 제공용 파일로 만드는 **오프라인 전처리 �
 먼저 실제 manifest를 검사합니다. 경로를 넘기면 JSON 계약뿐 아니라 카메라 파일 존재와 LiDAR 바이너리 크기도 확인합니다.
 
 ```powershell
-pnpm.cmd validate:manifest "C:/DriveScopeData/drivescope-output-v3/scene-0061/manifest.json"
+pnpm.cmd validate:manifest "C:/DriveScopeData/drivescope-output-sweeps/scene-0061/manifest.json"
 ```
 
 프로젝트 루트에 `.env.local`을 만들고 **manifest가 들어 있는 scene 디렉터리**를 지정합니다.
 
 ```dotenv
-DRIVESCOPE_DATA_ROOT="C:/DriveScopeData/drivescope-output-v3/scene-0061"
+DRIVESCOPE_DATA_ROOT="C:/DriveScopeData/drivescope-output-sweeps/scene-0061"
 ```
 
 설정 후 서버를 다시 실행합니다.
@@ -134,14 +134,15 @@ DRIVESCOPE_DATA_ROOT="C:/DriveScopeData/drivescope-output-v3/scene-0061"
 pnpm.cmd dev
 ```
 
-Viewer 상단의 **실제 센서 로그**와 **전방 이미지 39장**을 확인합니다. 연결 여부는 [manifest 응답](http://localhost:3000/api/drivescope-data/manifest.json)에서도 확인할 수 있습니다. 이 서버 전용 설정은 브라우저에 로컬 경로를 전달하지 않습니다. 서버가 파일을 HTTP로 제공하고 브라우저가 필요한 Frame을 요청합니다. `.env.local`은 Git에서 제외합니다.
+Viewer 상단의 **실제 센서 로그**와 **전방 이미지 224장**, LiDAR 목록 382개를 확인합니다. 연결 여부는 [manifest 응답](http://localhost:3000/api/drivescope-data/manifest.json)에서도 확인할 수 있습니다. 서버가 필요한 Frame을 HTTP로 제공하며 로컬 경로는 브라우저에 전달하지 않습니다. `.env.local`과 생성 데이터는 Git에서 제외합니다. `NEXT_PUBLIC_DRIVESCOPE_MANIFEST_URL`이 설정돼 있으면 그 URL을 우선 사용하므로 로컬 데이터를 볼 때는 해당 설정을 비웁니다. 공개 데이터는 별도 업로드/설정 전환이 필요합니다.
 
 현재 로더는 `schemaVersion: 3`만 허용합니다. v2는 좌우 축의 의미가 다르므로 버전 숫자만 수정해서 사용할 수 없습니다. v3 산출물을 복사하거나 원본에서 다시 변환해야 합니다. 파일 계약·좌표계는 [DATA_FORMAT.md](docs/DATA_FORMAT.md)를 참고합니다.
 
 ### 3. 실제 장면 탐색
 
 - 0초에는 카메라 사진이 있지만 첫 LiDAR·ego Frame은 35ms여서 점군과 차량 위치가 대기 상태일 수 있습니다. 재생하거나 타임라인을 이동하면 표시됩니다.
-- 12.4초 등으로 탐색해 전방 이미지·점군·차량 위치를 함께 봅니다. 3D Camera는 실제 ego 차량을 따라갑니다. pose 보간과 Camera smoothing은 아직 적용하지 않았습니다.
+- 실제 모드는 50ms마다 실제 경과 시간을 반영해 약 20Hz LiDAR와 각자 주기의 카메라를 선택합니다. 센서 사이의 가짜 중간 Frame을 만들지 않으며 실행/네트워크 지연 시 일부 관측은 건너뛸 수 있습니다. 가상 모드는 100ms 갱신을 유지합니다.
+- 12.4초 등으로 탐색해 전방 이미지·점군·차량 위치를 함께 봅니다. 표시용 3D Camera는 ego 차량의 목표를 부드럽게 따라가며 정지/seek는 즉시 맞춥니다. 기록 pose·점군·사진의 보간은 하지 않습니다.
 - 오른쪽 **차량 위치** 패널에서 위치·방향을, **Frame 동기화** 패널에서 표시 Frame의 시각과 재생 시각의 차이를 비교합니다.
 - 다음 이미지 다운로드·디코딩 중에는 기존 사진과 촬영 시각을 유지합니다. 정상 교체는 조용히 진행하고, 같은 사진을 500ms 이상 유지하며 준비 중일 때 헤더에 **이미지 지연**을 표시합니다.
 
@@ -178,6 +179,7 @@ pnpm.cmd benchmark:lidar-parsers
 pnpm.cmd verify:lidar-worker
 pnpm.cmd verify:frame-selection
 pnpm.cmd benchmark:frame-selection
+pnpm.cmd verify:sweep-playback
 ```
 
 Worker 검사는 위 production 서버와 Chrome이 필요합니다. Frame 선택 검사는 CPU에서, 탐색 benchmark는 실제 manifest를 읽은 뒤 Node CPU에서 실행합니다. 기본 Viewer는 main 경로이고 `/viewer?lidarParser=worker`는 학습·비교용입니다. 실제 비교에서 FPS/Long Tasks 개선을 확인하지 못해 기본을 유지했습니다. 실행 조건·원본·한계는 [PERFORMANCE.md](docs/PERFORMANCE.md)에 기록합니다. 탐색 CPU 결과를 화면 FPS 향상으로 해석하지 않습니다.

@@ -10,7 +10,7 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과, 예상 주행 경로를 �
 
 목표는 특정 사고 위험 장면에서 센서 인식, 객체 인식, Planning 반응, 차량 제어 사이의 시간 관계를 빠르게 파악하는 것이다. Rerun 전체를 복제하거나 새로운 렌더링 엔진을 만드는 것은 목표가 아니다.
 
-현재는 Next.js App Router·TypeScript·Three.js로 가상 급제동 분석 데모와 실제 nuScenes mini 센서 Viewer를 구현했다. 가상 모드는 보행자 등장·인식·예상 충돌·급제동과 객체 선택을 다루고, 실제 모드는 전방 JPEG·LiDAR keyframe·ego 위치와 방향을 같은 재생 시각에서 탐색한다. 중간 sweeps 개별 재생/5개 누적 비교 후 개별 sweep 변환을 명시적 분석 옵션으로 포함했다. 기본 Viewer는 keyframe을 유지하며 실제 객체 인식·Planning·급제동 이벤트는 아직 연결하지 않았다.
+현재는 Next.js App Router·TypeScript·Three.js로 가상 급제동 분석 데모와 실제 nuScenes mini 센서 Viewer를 구현했다. 가상 모드는 보행자 등장·인식·예상 충돌·급제동과 객체 선택을 다루고, 실제 모드는 전방 JPEG·LiDAR·ego 위치와 방향을 같은 재생 시각에서 탐색한다. sweeps 비교 후 로컬 Viewer에 중간 원본 관측을 개별 Frame으로 연결하고 실제 모드의 갱신을 50ms로 맞췄다. 공개 데이터는 별도 교체 전까지 keyframe이며 실제 객체 인식·Planning·급제동 이벤트는 아직 연결하지 않았다.
 
 timestamp 기반 Frame 선택, 최대 5개 CPU 캐시와 양옆 prefetch, Three.js Buffer 재사용, 디코딩 완료 후 이미지 교체와 오류 재시도를 검증했다. 성능 기준선·설치와 데모 재현·아키텍처를 정리하고 공개 Viewer의 실제 Blob 데이터 연결·재생·복구·모바일 표시를 확인했다. 실제/가상 데모 선택과 전환 시 초기화를 추가하고 로컬 production·공개 Viewer 양쪽의 브라우저에서 검증했다. [1분 촬영 대본](./DEMO_SCRIPT.md)을 따라 [60초 자막 영상](../public/demo/drivescope-demo.mp4)을 만들고 전체 디코딩·브라우저 재생·탐색을 검증했다. 현재 코드의 책임과 흐름은 [ARCHITECTURE.md](./ARCHITECTURE.md)를 따른다.
 

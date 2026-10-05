@@ -26,7 +26,7 @@ import { useDriveScopeDataSource } from "./_hooks/use-drivescope-data-source";
 import { useLidarFrameCache } from "./_hooks/use-lidar-frame-cache";
 import type { LidarFrameSource } from "./_data/lidar-frame-source";
 import { useObjectSelection } from "./_hooks/use-object-selection";
-import { usePlayback } from "./_hooks/use-playback";
+import { ACTUAL_PLAYBACK_STEP_MS, PLAYBACK_STEP_MS, usePlayback } from "./_hooks/use-playback";
 import { useThreeViewer } from "./_hooks/use-three-viewer";
 import { formatSeconds } from "./_utils/format-time";
 import styles from "./viewer-canvas.module.css";
@@ -82,8 +82,10 @@ function ViewerSession({ mode }: { mode: ViewerMode }) {
       : "mock";
   const durationMs =
     actualDataSource?.manifest.durationMs ?? mockScenario.durationMs;
+  const playbackStepMs = isActualData ? ACTUAL_PLAYBACK_STEP_MS : PLAYBACK_STEP_MS;
   const { currentTimeMs, isPlaying, seek, togglePlayback } = usePlayback(
     durationMs,
+    playbackStepMs,
   );
 
   // 모든 센서가 같은 currentTimeMs를 입력으로 사용하되 각자의 주기대로 Frame을 선택한다.
@@ -256,6 +258,7 @@ function ViewerSession({ mode }: { mode: ViewerMode }) {
             onSeek={seek}
             onTogglePlayback={togglePlayback}
             disabled={isActualDataLoading}
+            stepMs={playbackStepMs}
           />
         </ViewerScenePanel>
 

@@ -5,12 +5,21 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: P.S. 1~5에 이어 사용자가 별도로 승인한 6번 sweeps 비교를 완료했다. 개별 sweep 변환 옵션을 포함하고 과거 5개 누적은 비교용으로 남긴다. 기본 main 파싱·keyframe 변환/Viewer·100ms 재생 갱신을 유지한다.
-- 다음 한 단계: 데이터 주기와 재생 갱신 주기·자차 좌표 보정과 객체 잔상·전송량/캐시의 차이를 설명하고 이해를 확인한다. 앞선 평균/P95·Worker/cursor의 이해 확인도 남아 있으며 구현 승인을 사용자 이해 완료로 기록하지 않는다. 실제 sweep Viewer 적용과 50ms 갱신은 후속 한 단계로 정한다. main에 commit하고 push는 사용자가 GitHub Desktop에서 직접 수행한다.
-- 아직 구현하지 않은 것: 센서·ego pose·사진의 보간, 기본/공개 Viewer의 중간 sweeps 연결과 50ms 갱신, 실제 scene 선택 목록과 다중 카메라.
+- 현재 작업: P.S. 6의 비교 이후 사용자 승인으로 개별 sweep을 로컬 실제 Viewer에 연결했다. LiDAR 382개·CAM_FRONT 224개·ego 382개, 실제 모드 50ms·가상 100ms 갱신/seek step이다. 기본 main 파싱·LRU 5·사진 2슬롯을 유지한다.
+- 다음 한 단계: 사용자에게 실제 50ms 시계가 각 센서 최신 과거 timestamp를 선택하며 점군 누적/보간과 다르다는 점을 설명하고 이해를 확인한다. 앞선 Worker/cursor 이해 확인도 남아 있으며 구현 승인을 이해 완료로 기록하지 않는다. main에 commit하고 push는 사용자가 직접 수행한다. 공개 sweep 업로드/URL 교체는 별도 단계다.
+- 아직 구현하지 않은 것: 센서·ego pose·사진의 보간, 공개 sweep 데이터 업로드/URL 전환, 실제 scene 선택 목록과 다중 카메라.
 - 배포 후 개선: 로더 계측·Worker·탐색과 sweeps의 시간 해상도/밀도/전송/캐시/객체 잔상 비교를 마쳤다. 원본·한계·재현은 PERFORMANCE에 기록한다. 현재 데이터에서 sweep 개별 재생의 이점과 누적의 비용을 확인했으며 인터넷/모바일 성능을 localhost 결과로 보장하지 않는다.
 
-## P.S. 6: sweeps 비교와 포함 결정 (2026-10-05)
+## 개별 sweep의 실제 Viewer 적용 (2026-10-05)
+
+- 사용자에게 앞선 비교/변환과 화면 연결의 차이를 설명한 뒤 이번 실제 연결 승인을 받았다. 기존 keyframe 출력과 원본을 보존하며 별도 sweep 출력에 변환하고 Git에서 제외된 로컬 데이터 루트를 전환했다. 개발 3000·production 3100 manifest가 실제 LiDAR 382개·Camera 224개를 응답한다. 공개 Blob/배포 설정은 바꾸지 않았다.
+- usePlayback에 stepMs를 전달하며 실제 데이터 연결 시 50ms, 가상/fallback은 100ms를 쓴다. 실제 경과 시간·끝 제한·정지/seek·모드 cleanup을 유지한다. 타임라인 step도 전달하고 19185ms처럼 배수가 아닌 종료 시각을 마지막 입력 위치에서 선택한다.
+- 실제 production에서 interval/데이터 교체 주입 없이 10초 × 3회 검사했다. LiDAR 표시 200/200/199개, Camera 각 117개(초기 포함), LiDAR 표시 간격 평균 50.38ms·P95 54.60ms, FPS 평균 74.9·P95 75·최저 72, Long Tasks 0이었다. 빈 사진/점군·표시 역행·사진 DOM 교체 0, 308px 유지. [원본](./benchmarks/sweep-playback-2026-10-05.json)
+- 실제 50ms interval/seek와 가상 100ms, 정지 유지·첫 LiDAR 이전 빈 상태·마지막 timestamp 도달·끝에서 play 재시작·모드 전환의 interval 제거/0초 초기화를 확인했다. 모든 표시 LiDAR timestamp가 원본 목록에 있음을 검증했다. 일부 관측의 건너뜀을 없는 중간 Frame 생성으로 채우지 않는다.
+- 추가 sweep 회귀 634개 rAF에서 빈 사진/점군·사진 역행·활성 src 교체·DOM 교체 0. 320/390/768/1024/1440/2236px의 정상/로딩/빈 상태 높이 유지·가로 넘침 없음, JPEG 650ms 지연/늦은 완료·LiDAR 유지/실패/retry·소스 전환 통과. build·실제 manifest 파일 검사·3910개 Frame 선택·Camera 추종 단위 검증도 통과했다.
+- playback-controls.tsx의 원래 form/autocomplete 변경은 그대로 보존하고 새 step/끝 seek 부분만 커밋한다. 원본 데이터와 로컬 환경변수는 Git에 넣지 않는다. README는 개별 sweep 변환/실행을 기본 재현 예시로 안내한다.
+
+## P.S. 6: sweeps 비교와 포함 결정 (2026-10-05, 실제 적용 전 기록)
 
 - 요청한 같은 scene-0061에서 기본 keyframe, LiDAR·CAM_FRONT 개별 sweep, 현재와 과거 4개 LiDAR 누적을 변환했다. 각각 자신의 calibration/ego pose를 적용해 첫 LiDAR ego 기준으로 옮기며 미래/scene 이전 sweep을 제외한다. 같은 원본 keyframe의 좌표 바이트가 개별 변환과 기존 HTTP 데이터 모두에서 같았다.
 - 변환기 기본 동작·v3 계약은 유지하며 `--include-sweeps`, `--lidar-sweeps`를 추가했다. 새 sweep 산출물의 `conversion.json`은 객체 이동 보정/포인트별 시각 저장이 없음을 기록한다. 기존 출력은 덮어쓰지 않는다. 실험 데이터 약 1GB는 node_modules/.cache에만 두며 Git에 넣지 않는다.
@@ -23,8 +32,8 @@
 
 1. GitHub Desktop에서 `main`의 원격 변경을 먼저 확인하고 pull한다.
 2. `pnpm validate:manifest`와 `pnpm build`로 현재 기준선을 확인한다.
-3. 현재 컴퓨터의 `drivescope-output-v3/scene-0061` 디렉터리 전체를 개인 저장장치로 다른 컴퓨터에 복사하면 nuScenes 원본 다운로드와 Python 변환을 반복할 필요가 없다. 현재 로더는 `schemaVersion: 3`인 v3만 허용한다. 이전 v2 결과의 버전 숫자만 바꾸면 안 된다.
-4. v3 산출물을 복사하지 않을 때만 nuScenes mini 원본과 [DATA_FORMAT.md](./DATA_FORMAT.md)의 명령으로 첫 scene을 다시 변환한다. 원본이 있으면 다시 다운로드할 필요는 없다. `.venv`는 Git에 없으므로 필요하면 새로 만들고 의존성을 설치한다.
+3. 현재 개별 sweep 출력의 `scene-0061` 디렉터리 전체를 개인 저장장치로 다른 컴퓨터에 복사하면 원본 다운로드/변환을 반복할 필요가 없다. manifest의 LiDAR 382개·Camera 224개를 확인한다. 기존 keyframe 출력(각 39개)을 복사하면 중간 관측이 빠진다. 로더는 schemaVersion 3만 허용하며 이전 v2 버전 숫자만 바꾸면 안 된다.
+4. 산출물을 복사하지 않을 때만 nuScenes mini 원본과 [DATA_FORMAT.md](./DATA_FORMAT.md)의 `--include-sweeps` 명령으로 새 출력 루트에 변환한다. 기존 원본을 다시 다운로드할 필요는 없다. `.venv`는 Git에 없으므로 필요하면 새로 만들고 의존성을 설치한다.
 5. Python 변환기는 브라우저 런타임이나 API 요청마다 실행하지 않는다. 개발 시 원본 로그를 한 번 전처리해 `manifest.json`, `camera/*`, `lidar/*.bin`을 만드는 축소된 ingestion pipeline이다.
 6. 로컬에서는 산출물 scene 디렉터리를 `.env.local`의 `DRIVESCOPE_DATA_ROOT`로 지정한다. 절대 경로는 Git과 브라우저 bundle에 포함되지 않는다.
 7. 브라우저 실제 로더는 작은 manifest를 먼저 읽고 현재 Frame과 주변 Frame만 비동기로 가져와 기존 Promise 공유·prefetch·최대 5개 LRU 캐시 뒤에 연결한다. 모든 바이너리를 처음부터 JS bundle이나 메모리에 넣지 않는다.

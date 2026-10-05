@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 
 export const PLAYBACK_STEP_MS = 100;
+export const ACTUAL_PLAYBACK_STEP_MS = 50;
 const INITIAL_TIME_MS = 0;
 
-export function usePlayback(durationMs: number) {
+export function usePlayback(durationMs: number, stepMs = PLAYBACK_STEP_MS) {
   const playbackStartedAtRef = useRef(0);
   const playbackTimeAtStartRef = useRef(INITIAL_TIME_MS);
   const [currentTimeMs, setCurrentTimeMs] = useState(INITIAL_TIME_MS);
@@ -22,10 +23,10 @@ export function usePlayback(durationMs: number) {
 
       setCurrentTimeMs(nextTimeMs);
       if (nextTimeMs >= durationMs) setIsPlaying(false);
-    }, PLAYBACK_STEP_MS);
+    }, stepMs);
 
     return () => window.clearInterval(intervalId);
-  }, [durationMs, isPlaying]);
+  }, [durationMs, isPlaying, stepMs]);
 
   const togglePlayback = () => {
     if (isPlaying) {

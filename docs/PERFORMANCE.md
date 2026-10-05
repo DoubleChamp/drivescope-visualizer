@@ -282,6 +282,8 @@ pnpm.cmd benchmark:frame-selection
 
 ## sweeps 비교와 포함 결정 (P.S. 6)
 
+아래는 실제 화면 적용 전 비교 기록이다. 이후 사용자 승인으로 로컬 Viewer에 개별 sweep·50ms 갱신을 적용했다. 현재 동작과 검증은 [개별 sweep Viewer 적용](#개별-sweep-viewer-적용)을 따른다.
+
 **결정: 개별 sweep 변환을 분석용 명시적 옵션으로 포함한다. 최근 5개 누적은 비교용으로 남기며 기본값으로 채택하지 않는다.** 기본 변환/공개 Viewer는 keyframe·100ms 재생 갱신을 유지한다. 이번 작업은 비교와 선택이며 공개 데이터 교체나 재생 주기 변경은 아니다. 개별 sweep은 같은 점 수로 시간 해상도를 높인다. 누적은 밀도가 늘지만 움직이는 객체의 과거 점과 더 큰 payload를 함께 가져온다.
 
 ### 조건과 파일
@@ -356,3 +358,34 @@ pnpm.cmd build
 ```
 
 9개 Python tests는 축/시간/ego pose뿐 아니라 실제 파일 변환의 장면 경계·연결 순환/단절/다른 센서 거부·고정 물체의 자차 보정·움직이는 점의 잔상·과거만 누적·초기 부족·기본 keyframe 바이트 동일·덮어쓰기 거부·sidecar도 검증한다. 두 sweep v3 manifest의 모든 LiDAR 크기/카메라 존재·production 비교·최종 build가 통과했다. sweep 파일의 공개 업로드나 실제 Viewer 50ms 갱신·인터넷 검증은 이 비교의 범위 밖이다.
+
+## 개별 sweep Viewer 적용
+
+비교 뒤 사용자가 실제 연결을 승인했다. `--include-sweeps`로 새 출력에 LiDAR 382개·Camera 224개·ego 382개를 만들고 로컬 서버의 데이터 루트를 전환했다. 실제 모드 usePlayback과 타임라인 step은 50ms, 가상/fallback은 기존 100ms다. 센서·ego pose·JPEG의 보간/누적을 하지 않으며, 각 센서의 최신 과거 원본 timestamp를 선택한다. 마지막 센서 시각 19185ms가 step의 배수가 아니어도 타임라인 마지막 위치에서 해당 Frame을 고른다.
+
+새 production을 localhost:3100에서 실행하고 [verify-sweep-playback.mjs](../scripts/verify-sweep-playback.mjs)로 1초 seek/1.2초 준비 뒤 10초 재생을 3회 관찰했다. **자산 proxy·interval 교체 없이 제품 경로를 사용**하고 interval 호출은 기록만 한다. HTTP 캐시 비활성·OS 파일 캐시 미초기화·1440×1100·Chrome 154·LRU 5다. [원본 JSON](./benchmarks/sweep-playback-2026-10-05.json)을 공유한다.
+
+| 실제 제품 재생 지표 | 결과 |
+| --- | ---: |
+| LiDAR 표시 수 / 10초, 초기 포함 | 200 / 200 / 199 |
+| Camera 표시 수 / 10초, 초기 포함 | 117 / 117 / 117 |
+| LiDAR 표시 간격 평균 / P95 / 최대 | 50.38 / 54.60 / 106.70ms |
+| FPS 30개 평균 / P95 / 최저 | 74.9 / 75 / 72 |
+| 재생 Long Tasks | 0 |
+| 사진·점군 빈 화면, 시각 역행, 사진 DOM 교체 | 모두 0 |
+| 패널 높이 | 308px 유지 |
+
+표시 횟수는 초기 Frame을 포함하며 모든 원본을 반드시 한 번씩 재생했다는 뜻은 아니다. 원본 간격·실행/네트워크 지연에 따라 건너뛸 수 있다. 일부 표시 간격은 약 107ms까지 관찰됐다. 센서 주기와 rAF FPS는 서로 다른 값이다. 앞선 keyframe/실험과 실행 환경이 다르므로 FPS 향상률을 주장하지 않는다. 인터넷 성능이나 공개 자산 교체를 검증한 결과도 아니다.
+
+정지 때 시계 고정과 interval 제거, 50ms seek, 첫 LiDAR 이전 빈 상태, 마지막 timestamp 선택, 끝에서 play의 0초 재시작, 가상 전환의 100ms interval/step, 실제 재진입의 0초/정지와 이전 interval 제거를 검증했다. 표시 LiDAR timestamp는 모두 manifest 원본 목록에 있어야 한다.
+
+추가 회귀에서 sweep 재생 634개 rAF의 빈 사진/점군·사진 역행·활성 src 쓰기·DOM 교체 0이었다. 320/390/768/1024/1440/2236px 정상·로딩·빈 상태의 동일 너비 내 높이 유지·가로 넘침 없음, 650ms 사진 지연/늦은 완료, 점군 유지/실패/retry·오래된 완료·모드 전환을 통과했다. 화면 너비에 따른 패널 높이는 308/290/304px로 다를 수 있으나 내용/상태에 따른 레이아웃 변화는 없었다. build·실제 산출물 계약·3910개 Frame 선택·Camera 추종 단위 검사도 통과했다.
+
+```powershell
+pnpm.cmd build
+pnpm.cmd start --port 3100
+# 다른 터미널
+pnpm.cmd verify:sweep-playback
+```
+
+로컬 `.env.local`과 센서 파일은 Git에서 제외한다. 다른 컴퓨터에서는 새 sweep scene 디렉터리를 복사하거나 [README](../README.md)의 변환 명령을 사용하고 새 데이터 루트를 지정해야 한다. 공개 Viewer는 별도 sweep 업로드/URL 설정 전까지 기존 keyframe 자산을 읽는다. 과거 비교 스크립트는 keyframe 또는 개별 sweep 로컬 소스 양쪽에서 공통 keyframe 바이트를 검증하고, 비교 조건별 100/50ms를 격리 브라우저에 주입하도록 호환했다.

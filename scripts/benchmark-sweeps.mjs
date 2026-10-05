@@ -17,8 +17,8 @@ const manifests = Object.fromEntries(await Promise.all(variants.map(async varian
   JSON.parse(await readFile(path.join(root, variant, offline.scenarioId, "manifest.json"), "utf8"))])));
 // 기존 실제 keyframe 출력과 같은 좌표/시간 기준인지 HTTP 원본까지 비교한다.
 const original = await (await fetch(new URL("/api/drivescope-data/manifest.json", upstream))).json();
-assert.deepEqual(original, manifests.keyframes);
-for (const frame of original.lidar.frames) {
+assert.deepEqual(original, original.lidar.frames.length === manifests.keyframes.lidar.frames.length ? manifests.keyframes : manifests.individual);
+for (const frame of manifests.keyframes.lidar.frames) {
   const originalBytes = Buffer.from(await (await fetch(new URL(`/api/drivescope-data/${frame.positionsFile}`, upstream))).arrayBuffer());
   assert.deepEqual(originalBytes, await readFile(path.join(root, "keyframes", offline.scenarioId, frame.positionsFile)));
 }
@@ -59,7 +59,7 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 
 function installDrawProbe() {
   window.__sweepDraw = { points: 0 };
-  // range.value는 step=100 규칙으로 반올림된다. React가 대입한 원래 재생 시각을 보존한다.
+  // range.value는 step 규칙으로 반올림된다. React가 대입한 원래 재생 시각을 보존한다.
   // 반올림된 값에 sync 차이를 더하면 실제 표시 timestamp가 흔들리는 것처럼 잘못 관찰된다.
   const valueDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
   Object.defineProperty(HTMLInputElement.prototype, "value", { ...valueDescriptor,
@@ -76,10 +76,11 @@ function installDrawProbe() {
       return draw.call(this, mode, start, count);
     };
   }
-  // 50ms는 비교용 주입이다. 제품 usePlayback의 100ms interval은 이 실험으로 변경되지 않는다.
+  // 이전 100ms/현재 50ms 빌드 모두 같은 조건으로 비교한다. 이 브라우저의 interval만 변경한다.
   const setInterval = window.setInterval;
   window.setInterval = function(handler, ms, ...args) {
-    return setInterval.call(this, handler, ms === 100 ? Number(new URLSearchParams(location.search).get("probeTick") ?? 100) : ms, ...args);
+    const tick = new URLSearchParams(location.search).get("probeTick");
+    return setInterval.call(this, handler, tick !== null && (ms === 50 || ms === 100) ? Number(tick) : ms, ...args);
   };
 }
 
@@ -214,10 +215,10 @@ try {
       environment, viewport, source:{scenarioId:offline.scenarioId,schemaVersion:3}, originalKeyframeHttpBytesEqual:true,
       protocol:{ orders, startTimeMs, playbackSecondsPerTrial:5, preparationMs:1200, httpCache:"disabled", osFileCache:"not reset",
         lidarLruCapacity:5, dataServer:"local same-origin readFile/no-store proxy; production UI unchanged",
-        timingIntervention:"50ms configuration patches only 100ms setInterval in isolated browser; product stays 100ms",
+        timingIntervention:"patches playback setInterval (50/100ms builds) to configuration tick in isolated browser; product code unchanged",
         loadMeasurementScope:"unique UI-published current/prefetch measurements observed each rAF, started after playback monitor first sample; not every network request",
         percentile:"nearest-rank ceil(.95*N)", networkScope:"requests started during playback; payload bytes from server, excludes headers/manifest and startup/settling; not actual internet throughput",
-        displayLagScope:"React-assigned range value captured before native step=100 sanitization, minus displayed timestamp; includes delivery delay but not sub-tick wall time", expectedNetwork:"unthrottled localhost" },
+        displayLagScope:"React-assigned range value captured before native step sanitization, minus displayed timestamp; includes delivery delay but not sub-tick wall time", expectedNetwork:"unthrottled localhost" },
       summaries,trials,runtimeExceptionCount:exceptions.length };
     await writeFile(path.join(root,"browser.json"),JSON.stringify(result,null,2)+"\n");
     console.log(JSON.stringify(summaries,null,2));

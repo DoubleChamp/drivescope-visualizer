@@ -123,7 +123,7 @@ python -m venv .venv
 
 v3 manifest·바이너리 계약은 같다. sweep 옵션은 별도 `conversion.json`에 개수·시간 창·객체 이동 보정 없음·포인트별 시각 저장 없음도 기록한다. Viewer는 이 sidecar를 읽지 않으므로 누적 파일을 단일 시각의 관측으로 해석하지 말아야 한다. 포인트별 시간 분석은 원본/비교 기록을 사용한다.
 
-**채택 범위는 개별 sweep의 명시적 변환 옵션이다.** 기본 변환과 공개 Viewer는 keyframe을 유지한다. 5개 누적은 비교용이며 기본값으로 채택하지 않는다. 현재 Viewer의 재생 갱신은 100ms여서 약 50ms 간격의 모든 LiDAR Frame을 표시하지 않는다. 50ms 주기는 브라우저 비교용 주입만 실행했다. [수치·제약·재현](./PERFORMANCE.md#sweeps-비교와-포함-결정-ps-6)
+**현재 로컬 Viewer는 개별 sweep을 연결해 실제 모드 50ms 갱신으로 재생한다.** 변환기 기본은 재현 기준 keyframe이며 현재 Viewer용 변환에는 `--include-sweeps`를 사용한다. 5개 누적은 비교용이다. Viewer가 선택하는 원본 시각은 센서마다 다르며 지연 때 일부 관측을 건너뛸 수 있다. 공개 데이터는 별도 업로드/설정 전환 전까지 keyframe이다. [비교](./PERFORMANCE.md#sweeps-비교와-포함-결정-ps-6)와 [실제 적용 검증](./PERFORMANCE.md#개별-sweep-viewer-적용)을 구분한다.
 
 ### 산출물 검증
 

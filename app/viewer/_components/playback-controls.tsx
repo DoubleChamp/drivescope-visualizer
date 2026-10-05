@@ -12,6 +12,7 @@ type PlaybackControlsProps = {
   onSeek: (timeMs: number) => void;
   onTogglePlayback: () => void;
   disabled?: boolean;
+  stepMs?: number;
 };
 
 const EVENT_TYPE_LABELS: Record<ScenarioEvent["type"], string> = {
@@ -33,6 +34,7 @@ export function PlaybackControls({
   onSeek,
   onTogglePlayback,
   disabled = false,
+  stepMs = PLAYBACK_STEP_MS,
 }: PlaybackControlsProps) {
   const progressPercent = durationMs > 0 ? (currentTimeMs / durationMs) * 100 : 0;
   const isDisabled = disabled || durationMs <= 0;
@@ -79,11 +81,16 @@ export function PlaybackControls({
             className={styles.timeline}
             min={0}
             max={durationMs}
-            step={PLAYBACK_STEP_MS}
+            step={stepMs}
             value={currentTimeMs}
             disabled={isDisabled}
             aria-valuetext={`${formatSeconds(currentTimeMs)}초`}
-            onChange={(event) => onSeek(event.currentTarget.valueAsNumber)}
+            onChange={(event) => {
+              const timeMs = event.currentTarget.valueAsNumber;
+              // 마지막 센서 시각이 step 배수가 아니어도 타임라인 끝에서 마지막 Frame을 고른다.
+              const lastStepMs = Math.floor(durationMs / stepMs) * stepMs;
+              onSeek(timeMs > 0 && timeMs === lastStepMs ? durationMs : timeMs);
+            }}
           />
           <div className={styles.timelineEvents}>
             {events.map((event) => {

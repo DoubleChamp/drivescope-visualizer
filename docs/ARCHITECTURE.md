@@ -8,7 +8,7 @@ DriveScope는 Next.js App Router·React·TypeScript로 UI와 재생 상태를 �
 
 | 모드 | 현재 연결된 데이터 | 표시와 분석 |
 | --- | --- | --- |
-| 실제 | nuScenes mini의 LIDAR_TOP·CAM_FRONT keyframe과 ego pose | 점군, 전방 JPEG, 차량 위치·방향, 차량을 따라가는 3D Camera |
+| 실제 | 로컬 nuScenes mini의 LIDAR_TOP·CAM_FRONT 개별 sweep과 ego pose (공개는 기존 keyframe 자산) | 점군, 전방 JPEG, 차량 위치·방향, 차량을 따라가는 3D Camera |
 | 가상 | 0~15초 급제동 시나리오의 센서·인식·경로·차량 상태·이벤트 | 보행자 선택, 예상 경로·충돌 구간, 12.4초 급제동 이벤트 |
 | 연결 중 | manifest 요청·검증 진행 | 빈 센서 상태와 연결 안내, 재생 입력 비활성화 |
 
@@ -159,7 +159,7 @@ Three.js에서 yaw를 적용한 전방 = [-sin(yaw), 0, -cos(yaw)]
 | `frame.timestampMs` | 센서·계획 데이터 | 해당 데이터의 기록·생성 시각 |
 | `performance.now()`·rAF timestamp | 브라우저 | 재생 경과 시간·로딩 시간·FPS 측정 |
 
-재생 중에는 100ms interval이 UI 갱신 기회를 제공하고, 실제 재생 시간은 `시작 시나리오 시간 + performance.now()의 경과 시간`으로 계산한다. 고정 `+100ms`를 누적하지 않는다. seek는 재생을 정지하고 목표 시간을 설정한다. 종료 시각은 소스의 duration으로 제한하고 끝에서 다시 재생하면 0초로 돌아간다. 실제 duration은 manifest를 따르고 가상 duration은 15초다.
+재생 중 실제 모드는 50ms, 가상/실패 fallback은 100ms interval로 UI 갱신 기회를 제공한다. `usePlayback(durationMs, stepMs)`는 시나리오 시작 시각에 performance.now()의 실제 경과를 더하며 고정 step을 누적하지 않는다. 선택은 각 센서 원본 timestamp의 최신 과거 Frame이다. 일부 실행 지연/원본 간격에 따라 관측을 건너뛸 수 있고 없는 중간 관측을 만들지 않는다. 타임라인 step도 같은 값이며 끝의 step 배수가 아닌 duration은 마지막 위치에서 정확히 선택한다. seek는 정지하고 목표 시각을 설정하며 끝에서 play는 0초로 돌아간다. 실제 duration은 manifest, 가상은 15초다.
 
 Three.js rAF는 재생·정지와 별도로 계속 장면을 그린다. 재생 시각이 바뀌면 선택된 데이터에 대한 effect가 Buffer·transform을 갱신하고, rAF는 그 결과를 렌더링한다. 매 rAF마다 센서 좌표를 React state에 복사하지 않는다. 로딩 Hook의 state에는 완료된 Frame 참조와 표시 상태를 보관한다.
 
@@ -341,4 +341,4 @@ ego pose 보간·실제 annotation·Planning 연결은 현재 범위 밖이다. 
 
 P.S. 6은 실제 scene의 sweep 변환과 비교를 완료했다. 기본은 keyframe이다. `--include-sweeps`는 센서별 첫/마지막 keyframe 사이의 원본 시각을 사용하고 LiDAR마다 자기 calibration/ego pose를 적용한다. `--lidar-sweeps N`은 공통 첫 LiDAR ego 기준 좌표에서 현재와 최대 N-1개 과거를 누적한다. 결과 timestamp/ego pose는 기준 Frame이며 객체 이동 보정과 포인트별 시각 저장은 없다. v3 계약·GPU 코드·개수 5 LRU는 그대로다.
 
-개별 sweep 변환 옵션은 채택하고 누적은 비교용으로 둔다. 현재 UI interval 100ms는 일부 50ms LiDAR sweep을 건너뛴다. 비교 스크립트는 production UI/자산을 같은 localhost origin으로 제공하고 50ms 주기를 격리 Chrome에서만 주입했다. 공개 자산·환경변수·기본 재생 주기와 기본 데이터는 바꾸지 않았다. 실제 적용과 모바일/인터넷 검증은 후속 단계다. [판단·원본·한계](./PERFORMANCE.md#sweeps-비교와-포함-결정-ps-6)
+개별 sweep은 비교 후 사용자 승인으로 로컬 실제 Viewer에 연결했다. 새 출력에 LiDAR 382개·CAM_FRONT 224개·ego 382개를 만들고 서버 전용 데이터 루트를 지정했다. 실제 모드 50ms와 가상 100ms의 재생/입력 step을 전달하며 두 모드 전환 시 이전 interval/GPU/요청 cleanup과 0초 초기화를 유지한다. 사진 2슬롯·점군 유지·Camera damping·LRU 5 코드는 같다. 공개 데이터 업로드/설정 전환은 별도이며 지연/모바일 너비 검사와 인터넷 실속도 측정을 구분한다. [비교](./PERFORMANCE.md#sweeps-비교와-포함-결정-ps-6)·[실제 적용](./PERFORMANCE.md#개별-sweep-viewer-적용)
