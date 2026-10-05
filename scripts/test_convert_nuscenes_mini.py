@@ -1,4 +1,7 @@
 import unittest
+import json
+import tempfile
+from pathlib import Path
 
 import numpy as np
 
@@ -6,10 +9,83 @@ from convert_nuscenes_mini import (
     relative_timestamp_ms,
     scenario_ego_matrix_to_viewer_pose,
     source_xyz_to_viewer_xyz,
+    collect_sensor_sweeps,
+    convert_scene,
 )
 
 
 class ConvertNuScenesMiniTest(unittest.TestCase):
+    def test_scene_sweeps_are_bounded_and_validated(self) -> None:
+        frames = [{"token": str(i), "timestamp": i * 50_000,
+                   "next": str(i + 1) if i < 3 else "", "calibrated_sensor_token": "lidar"}
+                  for i in range(4)]
+        class Records:
+            def get(self, table, token):
+                return frames[int(token)]
+        nusc = Records()
+        self.assertEqual(collect_sensor_sweeps(nusc, [frames[0], frames[2]]), frames[:3])
+        frames[1]["next"] = "0"
+        with self.assertRaises(ValueError):
+            collect_sensor_sweeps(nusc, [frames[0], frames[2]])
+        frames[1]["next"] = ""
+        with self.assertRaises(ValueError):
+            collect_sensor_sweeps(nusc, [frames[0], frames[2]])
+        frames[1]["next"] = "2"
+        frames[1]["calibrated_sensor_token"] = "camera"
+        with self.assertRaises(ValueError):
+            collect_sensor_sweeps(nusc, [frames[0], frames[2]])
+
+    def test_conversion_compensates_ego_but_preserves_object_trail(self) -> None:
+        # ego는 매 sweep 1m 전진한다. 정적 점은 10m, 움직이는 점은 매번 0.5m 이동한다.
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            identity = [1, 0, 0, 0]
+            tables = {"sample": {}, "sample_data": {}, "ego_pose": {}, "calibrated_sensor": {}}
+            for channel in ["lidar", "camera"]:
+                tables["calibrated_sensor"][channel] = {"translation": [1, 0, 0], "rotation": identity}
+                for i in range(5):
+                    token = f"{channel}{i}"
+                    filename = token + (".bin" if channel == "lidar" else ".jpg")
+                    tables["sample_data"][token] = {
+                        "token": token, "timestamp": i * 50_000, "next": f"{channel}{i+1}" if i < 4 else "",
+                        "calibrated_sensor_token": channel, "ego_pose_token": str(i), "filename": filename,
+                    }
+                    if channel == "lidar":
+                        np.array([[9-i, 0, 0, 1, 0], [9-i+i*.5, 2, 0, 1, 0]], dtype=np.float32).tofile(root / filename)
+                    else:
+                        (root / filename).write_bytes(b"test camera")
+                    tables["ego_pose"][str(i)] = {"translation": [i, 0, 0], "rotation": identity}
+            for i in [0, 4]:
+                tables["sample"][str(i)] = {"data": {"LIDAR_TOP": f"lidar{i}", "CAM_FRONT": f"camera{i}"},
+                    "next": "4" if i == 0 else ""}
+            class Records:
+                scene = [{"name": "test-scene", "token": "scene", "first_sample_token": "0", "nbr_samples": 2}]
+                def get(self, table, token):
+                    return tables[table][token]
+            nusc = Records()
+            baseline = convert_scene(nusc, root, root / "keyframes", 0)
+            native = convert_scene(nusc, root, root / "native", 0, include_sweeps=True)
+            stacked = convert_scene(nusc, root, root / "stacked", 0, include_sweeps=True, lidar_sweeps=3)
+            manifest = json.loads((stacked / "manifest.json").read_text())
+            provenance = json.loads((stacked / "conversion.json").read_text())
+            self.assertEqual(provenance["lidarSweeps"], 3)
+            self.assertFalse(provenance["objectMotionCompensated"])
+            self.assertFalse(provenance["perPointTimestampsStored"])
+            self.assertFalse((baseline / "conversion.json").exists())
+            self.assertEqual([f["pointCount"] for f in manifest["lidar"]["frames"]], [2, 4, 6, 6, 6])
+            self.assertEqual([f["timestampMs"] for f in manifest["lidar"]["frames"]], [0, 50, 100, 150, 200])
+            for index, frame in enumerate(manifest["lidar"]["frames"]):
+                xyz = np.fromfile(stacked / frame["positionsFile"], dtype="<f4").reshape(-1, 3)
+                np.testing.assert_allclose(xyz[::2], np.tile([0, 0, -10], (len(xyz)//2, 1)))
+                np.testing.assert_allclose(xyz[1::2, 2], [-10-j*.5 for j in range(max(0, index-2), index+1)])
+            for filename in ["000000.bin", "000200.bin"]:
+                self.assertEqual((baseline / "lidar" / filename).read_bytes(), (native / "lidar" / filename).read_bytes())
+            self.assertEqual(len(json.loads((native / "manifest.json").read_text())["camera"]["frames"]), 5)
+            with self.assertRaises(FileExistsError):
+                convert_scene(nusc, root, root / "native", 0, include_sweeps=True)
+            with self.assertRaises(ValueError):
+                convert_scene(nusc, root, root / "invalid", 0, lidar_sweeps=3)
+
     def test_relative_timestamp_uses_integer_floor(self) -> None:
         self.assertEqual(relative_timestamp_ms(1_500_999, 1_000_000), 500)
 

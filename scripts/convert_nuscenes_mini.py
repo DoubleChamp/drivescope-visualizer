@@ -6,6 +6,7 @@ import math
 import os
 import shutil
 import tempfile
+from collections import deque
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -112,6 +113,31 @@ def get_sensor_frames(
     return lidar_frames, camera_frames
 
 
+def collect_sensor_sweeps(nusc: NuScenes, keyframes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """첫/마지막 keyframe 사이의 같은 센서 sample_data만 원본 순서로 읽는다."""
+    frames: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    frame = keyframes[0]
+    last_token = keyframes[-1]["token"]
+    while True:
+        if frame["token"] in seen:
+            raise ValueError("sample_data next 연결에 순환이 있습니다.")
+        if frames and int(frame["timestamp"]) <= int(frames[-1]["timestamp"]):
+            raise ValueError("sweep timestamp는 엄격하게 증가해야 합니다.")
+        if frame["calibrated_sensor_token"] != keyframes[0]["calibrated_sensor_token"]:
+            raise ValueError("다른 센서의 sweep이 연결되어 있습니다.")
+        seen.add(frame["token"])
+        frames.append(frame)
+        if frame["token"] == last_token:
+            break
+        if not frame["next"]:
+            raise ValueError("마지막 keyframe 전에 sample_data 연결이 끝났습니다.")
+        frame = nusc.get("sample_data", frame["next"])
+    if not all(frame["token"] in seen for frame in keyframes):
+        raise ValueError("sample_data 연결에 keyframe이 빠져 있습니다.")
+    return frames
+
+
 def require_source_file(dataroot: Path, relative_path: str) -> Path:
     source_path = dataroot / Path(relative_path)
     if not source_path.is_file():
@@ -132,16 +158,24 @@ def convert_scene(
     dataroot: Path,
     output_root: Path,
     scene_index: int,
+    *,
+    include_sweeps: bool = False,
+    lidar_sweeps: int = 1,
 ) -> Path:
     from nuscenes.utils.data_classes import LidarPointCloud
 
     if scene_index < 0 or scene_index >= len(nusc.scene):
         raise IndexError(f"scene-index는 0 이상 {len(nusc.scene) - 1} 이하여야 합니다.")
+    if lidar_sweeps < 1 or (lidar_sweeps > 1 and not include_sweeps):
+        raise ValueError("누적 개수는 양수이며, 2개 이상 누적은 --include-sweeps가 필요합니다.")
 
     scene = nusc.scene[scene_index]
     scenario_id = scene["name"]
     samples = collect_scene_samples(nusc, scene)
     lidar_source_frames, camera_source_frames = get_sensor_frames(nusc, samples)
+    if include_sweeps:
+        lidar_source_frames = collect_sensor_sweeps(nusc, lidar_source_frames)
+        camera_source_frames = collect_sensor_sweeps(nusc, camera_source_frames)
 
     timestamp_origin_us = min(
         int(frame["timestamp"])
@@ -176,6 +210,7 @@ def convert_scene(
         ego_vehicle_frames: list[dict[str, Any]] = []
         used_lidar_names: set[str] = set()
         used_camera_names: set[str] = set()
+        recent_points: deque[np.ndarray] = deque(maxlen=lidar_sweeps)
 
         for source_frame in lidar_source_frames:
             timestamp_ms = relative_timestamp_ms(
@@ -194,6 +229,11 @@ def convert_scene(
             )
             point_cloud.transform(sensor_to_scenario)
             viewer_points = source_xyz_to_viewer_xyz(point_cloud.points[:3])
+            # 각 sweep 자신의 calibration/ego pose를 적용한 공통 기준 좌표다.
+            # 미래 sweep/장면 이전 sweep은 포함하지 않으며 객체 자체의 이동은 보정하지 않는다.
+            recent_points.append(viewer_points)
+            if lidar_sweeps > 1:
+                viewer_points = np.concatenate(list(recent_points), axis=0)
             ego_position, ego_yaw_radians = scenario_ego_matrix_to_viewer_pose(
                 scenario_from_current_ego
             )
@@ -286,6 +326,13 @@ def convert_scene(
             json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
+        if include_sweeps:
+            (temporary_output / "conversion.json").write_text(json.dumps({
+                "includeSweeps": True, "lidarSweeps": lidar_sweeps,
+                "window": "current and up to N-1 past sweeps, bounded by first scene keyframe",
+                "coordinates": "each sweep own calibration/ego pose to first LiDAR ego reference",
+                "objectMotionCompensated": False, "perPointTimestampsStored": False,
+            }, indent=2) + "\n", encoding="utf-8")
         temporary_output.rename(destination)
     except Exception:
         shutil.rmtree(temporary_output, ignore_errors=True)
@@ -311,6 +358,14 @@ def parse_args() -> argparse.Namespace:
         help="scene 디렉터리를 생성할 출력 루트",
     )
     parser.add_argument(
+        "--include-sweeps", action="store_true",
+        help="첫/마지막 keyframe 사이의 LiDAR·CAM_FRONT 중간 sample_data도 변환",
+    )
+    parser.add_argument(
+        "--lidar-sweeps", type=int, default=1,
+        help="현재와 과거 LiDAR sweep 누적 개수(기본 1, 2 이상은 include-sweeps 필요)",
+    )
+    parser.add_argument(
         "--scene-index",
         type=int,
         default=0,
@@ -332,7 +387,8 @@ def main() -> None:
         )
 
     nusc = NuScenes(version=NUSCENES_VERSION, dataroot=str(dataroot), verbose=False)
-    destination = convert_scene(nusc, dataroot, output_root, args.scene_index)
+    destination = convert_scene(nusc, dataroot, output_root, args.scene_index,
+                                include_sweeps=args.include_sweeps, lidar_sweeps=args.lidar_sweeps)
     manifest = json.loads((destination / "manifest.json").read_text(encoding="utf-8"))
 
     print(f"DriveScope 변환 완료: {destination}")

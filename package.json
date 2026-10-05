@@ -11,6 +11,7 @@
     "benchmark:viewer": "node scripts/benchmark-viewer.mjs",
     "benchmark:lidar-parsers": "node scripts/benchmark-lidar-parsers.mjs",
     "benchmark:frame-selection": "node scripts/benchmark-frame-selection.mjs",
+    "benchmark:sweeps": "node scripts/benchmark-sweeps.mjs",
     "verify:lidar-timings": "node scripts/verify-lidar-load-timings.mjs",
     "verify:camera-follow": "node scripts/verify-camera-follow.mjs",
     "verify:frame-selection": "node scripts/verify-frame-selection.mjs",

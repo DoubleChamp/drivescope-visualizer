@@ -103,7 +103,27 @@ python -m venv .venv
   --scene-index 0
 ```
 
-현재 변환기는 scene의 sample keyframe `LIDAR_TOP`과 `CAM_FRONT`, LiDAR keyframe 시점의 ego vehicle pose만 출력하며 중간 sweep은 포함하지 않는다. 좌표 기준은 첫 sample의 LiDAR ego pose이고 timestamp origin은 포함한 LiDAR·Camera Frame 중 가장 이른 원본 timestamp다.
+기본 변환은 scene의 sample keyframe `LIDAR_TOP`과 `CAM_FRONT`, LiDAR keyframe 시점의 ego vehicle pose를 출력한다. 좌표 기준은 첫 sample의 LiDAR ego pose이고 timestamp origin은 포함한 LiDAR·Camera Frame 중 가장 이른 원본 timestamp다.
+
+### 중간 sweep 비교 옵션
+
+`--include-sweeps`를 추가하면 각 센서의 첫/마지막 keyframe 사이 `sample_data.next`를 따라 중간 LiDAR·CAM_FRONT를 개별 Frame으로 출력한다. LiDAR sweep마다 자신의 calibration과 ego pose를 적용하고 같은 시각의 ego Frame을 기록한다. scene-0061에서는 LiDAR 382개·Camera 224개·ego 382개이며 duration은 그대로 19185ms다. 센서 배열 인덱스로 시간을 묶지 않는다.
+
+```powershell
+.\.venv\Scripts\python.exe scripts\convert_nuscenes_mini.py `
+  --dataroot "<nuScenes mini 루트>" `
+  --output-root "<새 개별 sweep 출력 루트>" --include-sweeps
+# 비교용 누적은 반드시 다른 새 출력 루트를 쓴다.
+.\.venv\Scripts\python.exe scripts\convert_nuscenes_mini.py `
+  --dataroot "<nuScenes mini 루트>" `
+  --output-root "<새 누적 출력 루트>" --include-sweeps --lidar-sweeps 5
+```
+
+누적은 현재와 직전 최대 N-1개만 사용한다. 각각을 공통 첫 LiDAR ego 기준 좌표로 변환한 뒤 이어 붙이며, 시작 시 부족한 과거는 실제 존재하는 만큼만 사용한다. 미래·scene 이전 sweep을 섞지 않는다. 센서/자차 이동 보정은 움직이는 객체의 이동 보정이 아니므로 과거 객체 점이 남는다. [공식 devkit의 multisweep 좌표 변환](https://github.com/nutonomy/nuscenes-devkit/blob/master/python-sdk/nuscenes/utils/data_classes.py)
+
+v3 manifest·바이너리 계약은 같다. sweep 옵션은 별도 `conversion.json`에 개수·시간 창·객체 이동 보정 없음·포인트별 시각 저장 없음도 기록한다. Viewer는 이 sidecar를 읽지 않으므로 누적 파일을 단일 시각의 관측으로 해석하지 말아야 한다. 포인트별 시간 분석은 원본/비교 기록을 사용한다.
+
+**채택 범위는 개별 sweep의 명시적 변환 옵션이다.** 기본 변환과 공개 Viewer는 keyframe을 유지한다. 5개 누적은 비교용이며 기본값으로 채택하지 않는다. 현재 Viewer의 재생 갱신은 100ms여서 약 50ms 간격의 모든 LiDAR Frame을 표시하지 않는다. 50ms 주기는 브라우저 비교용 주입만 실행했다. [수치·제약·재현](./PERFORMANCE.md#sweeps-비교와-포함-결정-ps-6)
 
 ### 산출물 검증
 

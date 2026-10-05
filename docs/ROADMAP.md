@@ -28,7 +28,8 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 - **로더 구간 측정 — 구현·검증 완료:** 실제 LiDAR의 응답 헤더·본문 읽기·좌표 준비를 나누고 현재 요청과 prefetch의 최초 시작 주체를 기록한다. cache hit는 새 측정이 없으며, 공유된 Promise는 최초 시작의 종류·시간을 유지한다. 기존 전체 로딩 지표와 13.9ms 기준선은 유지한다.
 - **Frame 표시 안정성 — 수정·점검 완료:** 동기화 행의 두 줄 공간·숫자 줄바꿈을 고정하고, 다음 LiDAR 준비 중 마지막 점군을 유지한다. production 재생·320~2236px·지연·오류·재시도·모드 전환을 검증했다. 카메라 2슬롯의 사진 역행·빈 사진은 검사 표본에서 없었다. 점군·사진의 keyframe 간격은 그대로다.
 - **3D 시점 이동 — 구현·검증 완료:** 실제 재생 중 Camera 위치·주시점의 경과 시간 기반 추종을 추가했다. 정지·seek·최초 표시는 기록된 목표로 즉시 맞춘다. Camera 이동 전후·60/75Hz 일치·소스 전환과 기존 표시 안정성을 검증했다. 센서·ego pose·JPEG 보간은 이번 범위 밖이다.
-- **다음 단계:** 기록된 ego pose로 목표를 정하는 React effect와, 재생 중 그 목표를 따라가는 Three.js rAF의 차이·정지/seek 즉시 반영을 설명하고 이해를 확인한다. 앞선 표시 Frame·로더 계측의 이해 확인도 남아 있다. 그 뒤 평균·P95·메인 스레드 측정 또는 사진 재생 개선 중 한 단계를 승인받는다. 사용자 push와 새 Vercel build 뒤 공개 반영을 확인한다. 실제 scene 목록·다중 카메라는 의견만 검토했으며 방화벽은 사용자 요청으로 미뤘다.
+- **P.S. 1~6 — 구현·비교 완료:** 구간·평균/P95·메인 스레드 관찰, Worker 유지 판단, cursor/이진 탐색과 sweeps 비교를 마쳤다. 개별 sweep 변환은 명시적 옵션으로 포함하고 누적 5개는 비교용으로 둔다. 기본 Viewer·변환은 keyframe을 유지한다. [측정과 판단](./PERFORMANCE.md)
+- **다음 단계:** 기록된 센서/ego pose와 표시용 Camera smoothing, 데이터 주기와 재생 갱신 주기, 누적 좌표 보정과 객체 잔상의 차이를 설명하고 이해를 확인한다. 평균/P95·Worker/cursor의 이해 확인도 남아 있다. sweep Viewer 적용과 50ms 재생 갱신은 별도 한 단계로 정한다. 사용자 push와 새 Vercel build 뒤 공개 반영을 확인한다. scene 목록·다중 카메라와 방화벽은 현재 구현 범위 밖이다.
 
 ---
 
@@ -207,7 +208,7 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 3. [x] 학습·비교용 Web Worker 파싱 버전을 만들고 transferable `ArrayBuffer`로 결과를 전달한다. (공통 좌표 준비 함수·한 세션 한 Worker·양방향 transfer·종료/오류/timeout/retry·production byte 일치 검증. 기본 경로 결정은 4번 비교에서 수행)
 4. [x] 메인 스레드 버전과 Worker 버전의 수치를 비교해 Worker 유지 여부와 효과를 문서화한다. (동일 build 교대 각 3회·현재 30/prefetch 60·FPS/Long Tasks/지연 비교. 기본 main 유지·Worker는 학습용 opt-in. [결정과 원본](./PERFORMANCE.md))
 5. [x] 실제 데이터에서 Frame 선택 비용을 측정한 뒤, 순차 재생은 현재 인덱스 cursor로 전진하고 임의 seek는 정렬된 timestamp 배열의 이진 탐색을 사용해 매번 수행하는 `O(n)` 선형 탐색을 제거한다. (실제 3종 각 39개 CPU 전후·3910개 선택 비교·중복/seek/역행·production 표시/복구·홈 예시 검증. 현재 scene은 작은 목록이라 FPS 향상을 주장하지 않음. [범위와 원본](./PERFORMANCE.md))
-6. [ ] keyframe 실제 로더가 안정된 뒤 nuScenes 중간 `sweeps`를 센서 원래 timestamp의 개별 Frame으로 재생할지, 여러 LiDAR sweep을 기준 시점 좌표로 보정해 누적할지 비교한다. 시간 해상도·점 밀도·네트워크·캐시·움직이는 객체 잔상을 측정해 포함 여부를 결정한다.
+6. [x] keyframe 실제 로더가 안정된 뒤 nuScenes 중간 `sweeps`를 센서 원래 timestamp의 개별 Frame으로 재생할지, 여러 LiDAR sweep을 기준 시점 좌표로 보정해 누적할지 비교한다. 시간 해상도·점 밀도·네트워크·캐시·움직이는 객체 잔상을 측정해 포함 여부를 결정한다. (scene-0061 개별/과거 5개 누적 비교 완료. 개별 sweep 변환 옵션 채택, 누적은 비교용. 기본 keyframe·100ms Viewer 유지, 50ms는 격리 브라우저 실험. [수치·한계·결정](./PERFORMANCE.md#sweeps-비교와-포함-결정-ps-6))
 
 ### 실제 데이터 확장 검토 의견 (미구현)
 

@@ -5,10 +5,19 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: 사용자가 연속 승인한 P.S. 2~5를 구현·검증·문서화했다. 2번 `d7829b0`, 3번 `92c3994`, 4번 `71e72cd` 이후 5번 실제 탐색 비용 측정·cursor/이진 탐색·production 회귀를 완료했다. 기본 main 유지·Worker는 학습/비교용 opt-in이다.
-- 다음 한 단계: 사용자에게 평균/P95·비동기 경과와 UI 정지·Worker 소유권 이전/유지 결정·cursor/seek의 원리를 설명하고 이해를 확인한다. 이번 2~5 연속 구현 승인을 사용자 이해 완료로 기록하지 않는다. main 로컬 commit까지 수행하고 push는 사용자가 GitHub Desktop에서 직접 수행한다. 공개 반영 검사는 push 뒤 별도 진행한다. P.S. 6 sweeps와 scene/다중 카메라는 이번 승인 범위에 포함하지 않았다.
-- 아직 구현하지 않은 것: 센서·ego pose·사진의 보간, 중간 sweeps, 실제 scene 선택 목록과 다중 카메라.
-- 배포 후 개선: 실제 로더 구간·평균/P95·메인 스레드 관찰·transferable Worker 비교와 Frame 선택 cursor/이진 탐색까지 완료했다. 원본·한계·재현은 PERFORMANCE에 기록한다. 센서 원래 주기의 `sweeps` 개별 재생과 여러 LiDAR sweep 누적은 후속 승인 후보로 남긴다.
+- 현재 작업: P.S. 1~5에 이어 사용자가 별도로 승인한 6번 sweeps 비교를 완료했다. 개별 sweep 변환 옵션을 포함하고 과거 5개 누적은 비교용으로 남긴다. 기본 main 파싱·keyframe 변환/Viewer·100ms 재생 갱신을 유지한다.
+- 다음 한 단계: 데이터 주기와 재생 갱신 주기·자차 좌표 보정과 객체 잔상·전송량/캐시의 차이를 설명하고 이해를 확인한다. 앞선 평균/P95·Worker/cursor의 이해 확인도 남아 있으며 구현 승인을 사용자 이해 완료로 기록하지 않는다. 실제 sweep Viewer 적용과 50ms 갱신은 후속 한 단계로 정한다. main에 commit하고 push는 사용자가 GitHub Desktop에서 직접 수행한다.
+- 아직 구현하지 않은 것: 센서·ego pose·사진의 보간, 기본/공개 Viewer의 중간 sweeps 연결과 50ms 갱신, 실제 scene 선택 목록과 다중 카메라.
+- 배포 후 개선: 로더 계측·Worker·탐색과 sweeps의 시간 해상도/밀도/전송/캐시/객체 잔상 비교를 마쳤다. 원본·한계·재현은 PERFORMANCE에 기록한다. 현재 데이터에서 sweep 개별 재생의 이점과 누적의 비용을 확인했으며 인터넷/모바일 성능을 localhost 결과로 보장하지 않는다.
+
+## P.S. 6: sweeps 비교와 포함 결정 (2026-10-05)
+
+- 요청한 같은 scene-0061에서 기본 keyframe, LiDAR·CAM_FRONT 개별 sweep, 현재와 과거 4개 LiDAR 누적을 변환했다. 각각 자신의 calibration/ego pose를 적용해 첫 LiDAR ego 기준으로 옮기며 미래/scene 이전 sweep을 제외한다. 같은 원본 keyframe의 좌표 바이트가 개별 변환과 기존 HTTP 데이터 모두에서 같았다.
+- 변환기 기본 동작·v3 계약은 유지하며 `--include-sweeps`, `--lidar-sweeps`를 추가했다. 새 sweep 산출물의 `conversion.json`은 객체 이동 보정/포인트별 시각 저장이 없음을 기록한다. 기존 출력은 덮어쓰지 않는다. 실험 데이터 약 1GB는 node_modules/.cache에만 두며 Git에 넣지 않는다.
+- LiDAR는 39→382개, Camera는 39→224개다. LiDAR 평균 간격 504→50ms, 공통 38개 시점의 고정 ROI 밀도는 개별 12.77→누적 63.87점/m²다. 0.25m voxel 점유는 7585→16213으로 늘어 5배 점 수를 5배 공간 정보로 해석하지 않는다.
+- 15개 browser trial·5657개 rAF 관찰에서 빈 사진/점군·시각 역행·이미지 DOM 교체 0, 패널 308px 유지, FPS 표본 전부 75, Long Tasks 0이었다. 100ms에서 개별 sweep 약 50장/5초, 비교용 50ms에서 약 100장/5초를 표시했다. 100ms에서도 prefetch가 약 99~100개를 읽어 5초 LiDAR 본문 약 41MB를 요청했다. 5개 누적은 약 208MB였다.
+- 움직이는 box의 과거 점이 현재 box(+0.25m) 밖에 남는 proxy는 8741/43378점(20.15%), center trail P95 1.25m·최대 2.26m였다. 과거 box는 devkit 보간이므로 semantic ghost 정답이 아니다. [측정 원본·그림·검증·한계](./PERFORMANCE.md#sweeps-비교와-포함-결정-ps-6)
+- 개별 sweep 변환을 분석용 명시적 옵션으로 채택한다. 누적 5개를 기본값으로 채택하지 않으며 공개 Viewer/환경변수/재생 코드를 바꾸지 않았다. 50ms interval은 격리 브라우저 주입만 실행했다. 기존 playback-controls.tsx의 미커밋 변경도 보존한다.
 
 ## 다른 컴퓨터에서 이어서 시작하기
 

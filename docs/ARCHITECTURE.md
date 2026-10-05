@@ -74,7 +74,7 @@ manifest를 읽으면 Frame 목록과 ego pose를 확보한다. 모든 LiDAR 바
 | [prepare-lidar-positions.ts](../app/viewer/_data/prepare-lidar-positions.ts) | 두 파싱 경로가 공유하는 크기 검사·little-endian Float32Array 준비 |
 | [lidar-positions-worker-client.ts](../app/viewer/_workers/lidar-positions-worker-client.ts), [Worker 본문](../app/viewer/_workers/lidar-positions.worker.ts) | 선택한 학습 경로의 양방향 transfer·ID·pending Promise·timeout·종료 |
 | [lidar-load-details.tsx](../app/viewer/_components/lidar-load-details.tsx) | 실제 현재 Frame과 마지막 주변 prefetch의 구간 시간 표시 |
-| [convert_nuscenes_mini.py](../scripts/convert_nuscenes_mini.py) | keyframe 추출, 센서·ego 좌표 변환, 상대 시간 정규화, v3 scene 출력 |
+| [convert_nuscenes_mini.py](../scripts/convert_nuscenes_mini.py) | 기본 keyframe/명시적 sweep 추출, 센서·ego 좌표 변환, 상대 시간 정규화, v3 scene 출력 |
 | [Route Handler](../app/api/drivescope-data/[...assetPath]/route.ts) | 서버 파일 읽기, 허용 경로 검사, JSON·바이너리·JPEG HTTP 응답 |
 | [drivescope-manifest.ts](../app/viewer/_data/drivescope-manifest.ts) | 디스크 계약·timestamp·상대 경로·pose 검증 |
 | [load-drivescope-data-source.ts](../app/viewer/_data/load-drivescope-data-source.ts) | manifest로 소스 생성, 상대 URL 해석, LiDAR 요청·바이너리 해석 |
@@ -263,7 +263,7 @@ void image.decode().then(() => {
 
 `requestAttempt`가 effect 의존성에 있어 번호를 증가시키면 동일 URL·timestamp에서도 다시 실행된다. 번호는 네트워크 재시도 횟수의 자동 정책이 아니라 수동 요청을 다시 실행하는 신호다.
 
-manifest effect는 cleanup에서 AbortController를 abort하고 이후 결과도 검사한다. LiDAR의 `ignoreResult`와 이미지의 `cancelled`는 오래된 결과의 **state 반영**을 차단한다. 현재 LiDAR fetch에는 AbortSignal을 전달하지 않으므로 seek·unmount가 모든 HTTP 요청을 취소하는 것은 아니다. 늦은 LiDAR 완료는 캐시에 들어갈 수 있으나 폐기된 요청이 표시 state를 바꾸지 않는다.
+실제 소스 effect는 cleanup에서 AbortController를 abort하고 이후 결과도 검사한다. 같은 세션 signal을 manifest와 LiDAR fetch에 전달해 모드 전환/unmount 때 세션 요청을 취소한다. 개별 seek는 요청을 취소하지 않으며 LiDAR의 `ignoreResult`와 이미지의 `cancelled`가 오래된 결과의 **state 반영**을 차단한다. 늦은 LiDAR 완료는 같은 세션 캐시에 들어갈 수 있으나 폐기된 요청이 표시 state를 바꾸지 않는다.
 
 LiDAR 반환 state는 소스 참조와 목표 timestamp가 모두 일치해야 사용한다. 이미지도 sourceId가 일치하는 표시 Frame만 사용한다. 실패한 Promise를 진행 중 Map에서 제거해 다음 요청이 실패 결과를 계속 공유하지 않게 한다.
 
@@ -337,4 +337,8 @@ P.S. 4의 동일 build 교대 비교는 준비의 최초 시작/왕복 비용과
 
 웹앱은 Vercel에 배포되어 있으며 Public Blob의 실제 scene 파일 79개는 원본 SHA-256·응답 형식·CORS를 검증했다. Config로 설정한 공개 manifest URL을 배포 Viewer가 직접 요청하고 재생·탐색·사진 유지·오류 복구·모바일 표시까지 통과했다. 실제/가상 선택 UI의 공개 반영 뒤 양방향 전환·초기화·오래된 완료 차단·retry·키보드·320/390px 표시도 검사했다. 기존 로컬 API는 미설정 503이지만 공개 모드에서는 요청하지 않는다. 배포 앱은 PC 데이터 디렉터리나 업로드 토큰을 필요로 하지 않는다. 계정의 빌드 로그·Preview 배포와 실제 모바일 기기는 별도 검증이며 1분 영상은 남아 있다. 자세한 결과는 [DEPLOYMENT.md](./DEPLOYMENT.md)에 기록한다.
 
-ego pose 보간·센서 sweeps 재생·누적, 실제 annotation·Planning 연결은 현재 범위 밖이다. 표시용 3D Camera 추종은 구현했고 기록 센서/pose 보간과 구분한다. 실제 모드의 차량 박스 크기는 현재 가상 시나리오 값을 재사용한다. P.S. 1~5의 구간/평균/P95/메인 스레드 관찰·Worker 비교·Frame 선택 cursor/이진 탐색은 완료했다. 현재 작은 scene에서 Frame 선택이 FPS 병목이었다고 주장하지 않는다.
+ego pose 보간·실제 annotation·Planning 연결은 현재 범위 밖이다. 표시용 3D Camera 추종은 구현했고 기록 센서/pose 보간과 구분한다. 실제 모드의 차량 박스 크기는 현재 가상 시나리오 값을 재사용한다. P.S. 1~5의 계측·Worker 비교·cursor/이진 탐색은 완료했으며 현재 작은 scene에서 Frame 선택이 FPS 병목이었다고 주장하지 않는다.
+
+P.S. 6은 실제 scene의 sweep 변환과 비교를 완료했다. 기본은 keyframe이다. `--include-sweeps`는 센서별 첫/마지막 keyframe 사이의 원본 시각을 사용하고 LiDAR마다 자기 calibration/ego pose를 적용한다. `--lidar-sweeps N`은 공통 첫 LiDAR ego 기준 좌표에서 현재와 최대 N-1개 과거를 누적한다. 결과 timestamp/ego pose는 기준 Frame이며 객체 이동 보정과 포인트별 시각 저장은 없다. v3 계약·GPU 코드·개수 5 LRU는 그대로다.
+
+개별 sweep 변환 옵션은 채택하고 누적은 비교용으로 둔다. 현재 UI interval 100ms는 일부 50ms LiDAR sweep을 건너뛴다. 비교 스크립트는 production UI/자산을 같은 localhost origin으로 제공하고 50ms 주기를 격리 Chrome에서만 주입했다. 공개 자산·환경변수·기본 재생 주기와 기본 데이터는 바꾸지 않았다. 실제 적용과 모바일/인터넷 검증은 후속 단계다. [판단·원본·한계](./PERFORMANCE.md#sweeps-비교와-포함-결정-ps-6)

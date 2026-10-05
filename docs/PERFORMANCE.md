@@ -279,3 +279,80 @@ pnpm.cmd benchmark:frame-selection
 [검증](../scripts/verify-frame-selection.mjs)은 3910개 시각에서 선형 기준과 같은 Frame 참조인지 비교한다. 빈/단일/중복·미래 선택 금지·NaN/무한·순차/반복/앞뒤 seek·가상 5종·소스 초기화, 가상 로더 정확 조회/좌표 복사를 확인했다. 합성 100,000개와 같은 timestamp 100,000개에서도 읽기 횟수가 이진 탐색 상한 안에 있음을 확인했다. 큰 합성 목록은 위 실제 비용 표에 포함하지 않는다.
 
 최종 build·production에서 Worker byte 비교, 실제 재생 635개 표본의 빈 카메라·사진 역행·빈 LiDAR·DOM 교체 0, 여섯 너비와 panel 높이 유지·지연/실패/retry·seek/모드 전환을 통과했다. 오류 DOM을 읽은 직후 이전 GPU draw가 남아 있던 검증기는 다음 rAF의 빈 draw를 기다리도록 관찰을 보정했다. 제품의 오류 처리 코드를 바꾸지는 않았다. 3D Camera 행렬 검사와 홈의 선택 예시/네 개 너비/SPA 전환 포함 8개 검사도 통과했다. 이전 Camera 최대 이동 약 0.51m는 유지됐으며 탐색의 FPS 효과로 재해석하지 않는다.
+
+## sweeps 비교와 포함 결정 (P.S. 6)
+
+**결정: 개별 sweep 변환을 분석용 명시적 옵션으로 포함한다. 최근 5개 누적은 비교용으로 남기며 기본값으로 채택하지 않는다.** 기본 변환/공개 Viewer는 keyframe·100ms 재생 갱신을 유지한다. 이번 작업은 비교와 선택이며 공개 데이터 교체나 재생 주기 변경은 아니다. 개별 sweep은 같은 점 수로 시간 해상도를 높인다. 누적은 밀도가 늘지만 움직이는 객체의 과거 점과 더 큰 payload를 함께 가져온다.
+
+### 조건과 파일
+
+같은 nuScenes mini scene-0061·19185ms에서 keyframe, LiDAR/CAM_FRONT 개별 sweep, 개별 시각마다 현재와 과거 최대 4개 LiDAR 누적을 비교했다. 센서별 첫/마지막 keyframe 사이만 사용하고 시작 시 부족한 과거는 잘라낸다. 좌표는 각 sweep 자신의 calibration·ego pose → global → 첫 LiDAR ego → Viewer다. 고정 시나리오 기준을 공유하므로 브라우저에서 추가 좌표 보정을 하지 않는다. 객체 이동 보정·센서 보간·포인트별 수집 시각 저장은 하지 않는다. [공식 devkit의 multisweep 변환](https://github.com/nutonomy/nuscenes-devkit/blob/master/python-sdk/nuscenes/utils/data_classes.py)
+
+[오프라인 원본](./benchmarks/sweeps-offline-2026-10-05.json)은 Python 3.12.10·NumPy 1.26.4·nuScenes devkit 1.2.0, [브라우저 원본](./benchmarks/sweeps-browser-2026-10-05.json)은 2026-10-05 14:35 KST·Chrome 154·GTX 1050 Ti·1440×1400·Node 24.19.0이다. UI는 `45f8517` production과 기존 미커밋 playback-controls 변경으로 실행했다. 새 TS/UI 코드는 없으며 최종 build도 통과했다. 기존 실제 manifest와 39개 LiDAR HTTP 바이트가 재변환 keyframe과 같고 개별 출력의 해당 keyframe과도 같았다.
+
+### 시간 해상도·밀도·캐시
+
+MB는 1,000,000바이트다. 전체 파일 합계는 중복 없이 모든 산출물을 한 번 읽은 경우이며 브라우저의 실제 요청량과 구분한다.
+
+| 데이터 | keyframe | 개별 sweep | 5개 누적 sweep |
+| --- | ---: | ---: | ---: |
+| LiDAR / Camera Frame 수 | 39 / 39 | 382 / 224 | 382 / 224 |
+| LiDAR 평균 간격 / ms | 503.95 | 50.26 | 50.26 |
+| LiDAR 간격 P95 / ms | 599 | 51 | 51 |
+| Camera 평균 간격 / ms | 503.95 | 85.87 | 85.87 |
+| Frame 평균 점 수 | 34,721 | 34,720 | 172,691 |
+| 전체 LiDAR payload / MB | 16.25 | 159.16 | 791.62 |
+| 전체 Camera payload / MB | 5.71 | 32.77 | 32.77 |
+| 가장 큰 5개 CPU 좌표 buffer 합 / MB | 2.086 | 2.087 | 10.433 |
+| GPU position capacity에 해당하는 xyz bytes / MB | 0.417 | 0.417 | 2.087 |
+
+5개 LRU는 **개수 제한**이다. 위 CPU 값은 완료 Frame 5개 좌표의 상한이며 전체 JS heap·진행 중 요청·복사·렌더러 메모리가 아니다. GPU 값도 위치 buffer만 계산한 것이며 전체 GPU 메모리를 측정하지 않았다. 누적의 oldest point age는 평균 199.73ms·P95 200.72ms·최대 250.53ms였다.
+
+공통 keyframe 38개(시작 제외)에서 자차 위치 중심 X/Z ±25m, 상대 높이 -3~8m의 2500m² ROI를 비교했다. 평균 밀도는 개별 **12.77점/m²**, 누적 **63.87점/m²**였다. 0.25m 3D voxel 점유 평균은 **7585→16213**(약 2.14배)다. 점 수 약 5배를 독립 정보 5배로 해석하지 않는다. 이 ROI에는 정적 표면·움직이는 객체 모두 포함된다.
+
+### 실제 표시 주기·전송
+
+[benchmark-sweeps.mjs](../scripts/benchmark-sweeps.mjs)는 같은 localhost origin에서 production UI를 proxy하고 자산만 세 출력으로 교체한다. 자산은 Next route와 같은 `readFile`/no-store로 제공하지만 Next route 자체의 성능 측정은 아니다. HTTP 캐시를 끄고 OS 파일 캐시는 초기화하지 않는다. 1초로 seek·1.2초 준비 후 5초 재생을 조건마다 3회 실행한다. 정순·역순·회전 순서로 총 15 trials, 같은 LRU 5·양옆 prefetch다. 최종 실행은 다른 무거운 작업 없이 단독 수행했다.
+
+50ms 조건은 격리 Chrome에서 제품의 100ms setInterval만 50ms로 바꾼 실험이다. 제품은 100ms로 남았다. 매 rAF에서 표시 timestamp·JPEG·GPU POINTS draw·패널 높이를 관찰했다. `range.value`가 step=100으로 반올림되므로 React가 대입한 원래 값을 잡아 sync 차이와 합쳤다. 처음의 반올림 관찰 오류와 동시 오프라인 작업이 있던 진단 실행은 최종 원본에서 제외했다.
+
+| 조건 | LiDAR 표시 수 / 5초 범위 | 표시 간격 P95 / ms | 요청 LiDAR 본문 평균 / MB | 요청 Camera 본문 평균 / MB |
+| --- | ---: | ---: | ---: | ---: |
+| keyframe · 현재 100ms | 11 | 506.8 | 4.17 | 1.56 |
+| 개별 sweep · 현재 100ms | 50 | 107.3 | 41.24 | 6.95 |
+| 5개 누적 · 현재 100ms | 50~51 | 119.3 | 207.58 | 6.95 |
+| 개별 sweep · 비교용 50ms | 100~101 | 53.5 | 41.65 | 8.38 |
+| 5개 누적 · 비교용 50ms | 100~101 | 54.7 | 208.97 | 8.38 |
+
+표시 수는 관찰 시작의 기존 Frame도 포함하며 정확한 센서 Hz 추정치는 아니다. keyframe의 첫 표시 간격은 seek의 남은 일부 구간이다. 네트워크는 재생 관찰 동안 **시작한 요청**의 본문 크기이며 prefetch를 포함한다. 헤더·manifest·초기 준비·종료 뒤 시작한 요청은 제외한다. 서버 `finish`는 socket 송신 완료이고 Chrome 수신/GPU 완료와 다르다.
+
+100ms 개별 sweep은 약 50장을 표시하면서 약 99개를 요청했다. 건너뛴 Frame도 주변 prefetch가 읽는다. 50ms 개별은 약 100개를 요청해 약 100장을 표시했다. Camera는 keyframe 12장, 개별 100ms 49장, 개별 50ms 59~60장(초기 포함)을 관찰했다. 50ms 개별의 LiDAR+Camera payload를 5초로 나눈 환산 요구량은 약 **80Mbps**다. 로컬 파일 서버 결과이며 인터넷 속도/모바일 동작을 검증한 수치가 아니다.
+
+현재 로딩은 100ms 개별 147개 평균/P95 **6.06/8.30ms**, 100ms 누적 148개 **11.71/15.40ms**였다. 50ms 개별/누적은 관찰한 새 current miss가 없었고 prefetch 각각 298/299개 **5.52/6.60ms**, **11.78/17.50ms**였다. 빈 current 표본을 0ms로 해석하지 않는다. rAF마다 UI에 공개된 측정의 timestamp/start 조합을 한 번씩 모으며 모든 HTTP 요청을 수집한 로딩 통계는 아니다.
+
+각 조건 FPS 15개 표본은 모두 **75**, 재생 Long Tasks **0**이었다. 5657개 rAF 관찰에서 빈 사진/점군·표시 시각 역행·사진 DOM 교체 **0**, 패널 **308px** 유지다. 빠른 GPU에서는 이 점 수 차이가 FPS로 드러나지 않았지만 모든 장치에서 동일하다는 뜻은 아니다. 이번 sweep 비교의 viewport는 하나이며 앞선 keyframe 모바일 회귀를 sweep 모바일 검증으로 확대하지 않는다. 3D Camera damping 코드와 이미지 2슬롯은 그대로다.
+
+### 움직이는 객체 잔상
+
+자차 좌표를 맞춰도 과거 객체 점은 현재 객체 위치로 옮겨지지 않는다. keyframe box를 현재 기준으로 삼고, 과거 devkit 보간 box 안에 있던 같은 instance의 점이 현재 box 각 면 +0.25m 밖에 남는지 계산했다. 추정 수평 속도 ≥1m/s, 758개 object/time 표본에서 과거 box 점 43,378개 중 **8741개(20.15%)**가 밖에 있었다. 과거 box center의 최대 이동은 표본 P95 **1.25m**, 전체 최대 **2.26m**였다. 과거 box는 devkit의 중심/방향 보간이며 point semantic 정답이 아니므로 box 오차·가림·겹침·보간을 포함한 **잔상 위험 proxy**다. [공식 get_boxes/box_velocity](https://github.com/nutonomy/nuscenes-devkit/blob/master/python-sdk/nuscenes/nuscenes.py)
+
+![단일 sweep과 과거 객체 점 누적 비교](./benchmarks/sweeps-object-trail-2026-10-05.png)
+
+그림은 outside point 수가 가장 큰 차량 예시다. 왼쪽 파란 점은 현재 sweep 전체 ROI, 오른쪽 색 점은 과거 각 box 안의 객체 후보 점만 추가했다. 다른 과거 배경 점은 생략했다. 검은 box는 현재 annotation이고 숫자 462는 +0.25m box 밖의 과거 점 수다. 차량 윤곽 뒤에 과거 점이 남는 모습을 확인할 수 있다.
+
+이번 누적은 **오프라인에서 합친 v3 파일**이라 인접 결과 사이의 같은 sweep을 반복 전송한다. 원본 sweep을 한 번씩 받아 브라우저 ring buffer에서 누적하면 중복 전송을 줄일 수 있다. 그 방법의 CPU/GPU 갱신·시간별 점 관리·메모리는 이번에 구현/측정하지 않았으므로 모든 누적 방식이 같은 네트워크 비용이라는 결론은 아니다. 객체 이동 보정 없이 누적할 때의 잔상은 별도 문제다.
+
+### 재현과 검증
+
+원본 nuScenes mini와 기존 production 서버가 필요하다. 생성된 자산은 약 1GB이며 Git에 넣지 않는다. 기존 출력은 덮어쓰지 않으므로 재실행은 `--output-root`에 새로운 위치를 주거나 기존 결과의 분석만 `--analyze-only`로 수행한다. 다른 출력 위치는 브라우저 측정의 `DRIVESCOPE_SWEEPS_OUTPUT`에도 설정한다.
+
+```powershell
+.\.venv\Scripts\python.exe scripts/benchmark_nuscenes_sweeps.py --dataroot "<nuScenes mini 루트>"
+pnpm.cmd benchmark:sweeps
+.\.venv\Scripts\python.exe -m unittest discover -s scripts -p test_convert_nuscenes_mini.py
+pnpm.cmd validate:manifest node_modules/.cache/drivescope-sweeps/individual/scene-0061/manifest.json
+pnpm.cmd validate:manifest node_modules/.cache/drivescope-sweeps/accumulated5/scene-0061/manifest.json
+pnpm.cmd build
+```
+
+9개 Python tests는 축/시간/ego pose뿐 아니라 실제 파일 변환의 장면 경계·연결 순환/단절/다른 센서 거부·고정 물체의 자차 보정·움직이는 점의 잔상·과거만 누적·초기 부족·기본 keyframe 바이트 동일·덮어쓰기 거부·sidecar도 검증한다. 두 sweep v3 manifest의 모든 LiDAR 크기/카메라 존재·production 비교·최종 build가 통과했다. sweep 파일의 공개 업로드나 실제 Viewer 50ms 갱신·인터넷 검증은 이 비교의 범위 밖이다.
