@@ -203,7 +203,7 @@ DriveScope는 카메라, LiDAR, 객체 인식 결과와 예상 주행 경로를 
 이 항목은 이력서 지원을 위한 첫 배포를 막지 않는다.
 
 1. [x] 실제 LiDAR 로더의 응답 헤더·본문 읽기·좌표 준비·전체 시간을 분리하고 현재 Frame 요청과 background prefetch를 구분한다. (로더 검증·Chrome 요청 공유/복구·벤치마크 완료. 브라우저 계측이며 서버 디스크 읽기만의 시간·GPU 시간은 별도 미측정. [구간 정의와 기록](./PERFORMANCE.md))
-2. [ ] 평균·P95 로딩 시간, FPS와 메인 스레드 정지를 같은 데이터로 기록한다.
+2. [x] 평균·P95 로딩 시간, FPS와 메인 스레드 정지를 같은 데이터로 기록한다. (같은 production 회차에서 요청별 평균·nearest-rank P95·FPS·Long Tasks·타이머 지연·rAF 간격 수집, 90ms 양성 대조 통과. [결과와 한계](./PERFORMANCE.md))
 3. [ ] 학습·비교용 Web Worker 파싱 버전을 만들고 transferable `ArrayBuffer`로 결과를 전달한다.
 4. [ ] 메인 스레드 버전과 Worker 버전의 수치를 비교해 Worker 유지 여부와 효과를 문서화한다.
 5. [ ] 실제 데이터에서 Frame 선택 비용을 측정한 뒤, 순차 재생은 현재 인덱스 cursor로 전진하고 임의 seek는 정렬된 timestamp 배열의 이진 탐색을 사용해 매번 수행하는 `O(n)` 선형 탐색을 제거한다.

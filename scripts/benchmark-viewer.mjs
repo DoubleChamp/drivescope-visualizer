@@ -3,6 +3,8 @@ import { spawn } from "node:child_process";
 import { access, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { summarize, summarizeMainThread } from "./lib/performance-summary.mjs";
+import { installPerformanceProbe } from "./lib/browser-performance-probe.mjs";
 
 // Production 서버를 먼저 실행한다. 실패 응답은 이 브라우저의 manifest 요청에만 적용한다.
 const baseUrl = new URL(process.env.DRIVESCOPE_BENCHMARK_URL ?? "http://localhost:3000");
@@ -86,6 +88,7 @@ try {
   };
   // UI와 로더가 기록한 요청별 측정값을 읽는다. Three.js 루프는 계측하지 않는다.
   await send("Page.enable");
+  await send("Page.addScriptToEvaluateOnNewDocument", { source: `(${installPerformanceProbe.toString()})()` });
   await send("Runtime.enable");
   await send("Network.enable");
   await send("Network.setCacheDisabled", { cacheDisabled: true });
@@ -152,6 +155,7 @@ try {
       })()`);
       const misses = [];
       const prefetchLoads = [];
+      assert.equal(await evaluate("window.__drivescopePerformance.start()"), true, "Long Tasks API 지원이 필요합니다.");
       for (const time of seekTimesMs) {
         await seek(time);
         const measurement = await readMetrics();
@@ -193,8 +197,10 @@ try {
       assert.equal(hit.cacheStatus, "hit");
       assert.equal(hit.loadLabel, "캐시로 생략");
       assert.equal(hit.loadMeasurement, null, "cache hit는 과거 측정값을 새 측정처럼 표시하지 않습니다.");
+      const seekMainThread = await evaluate("window.__drivescopePerformance.stop()");
       await seek(0);
       await delay(2200); // 초기 리소스 준비와 첫 FPS 집계 구간을 측정에서 제외한다.
+      await evaluate("window.__drivescopePerformance.start()");
       await evaluate(`document.querySelector('button[aria-pressed]').click()`);
       const playback = [];
       for (let index = 0; index < playbackSamples; index++) {
@@ -205,24 +211,25 @@ try {
         playback.push({ currentTimeMs: measurement.currentTimeMs, pointCount: measurement.pointCount, fps: measurement.fps });
       }
       await evaluate(`document.querySelector('button[aria-pressed]').click()`);
+      const playbackMainThread = await evaluate("window.__drivescopePerformance.stop()");
       assert.ok(playback.at(-1).currentTimeMs >= 9000 && playback.at(-1).currentTimeMs < 13000);
       trials.push({ round: roundIndex + 1, mode, misses, prefetchLoads,
-        hit: { targetTimeMs: lastTime, cacheStatus: hit.cacheStatus, loadLabel: hit.loadLabel }, playback });
+        hit: { targetTimeMs: lastTime, cacheStatus: hit.cacheStatus, loadLabel: hit.loadLabel }, playback,
+        mainThread: { seek: seekMainThread, playback: playbackMainThread } });
       console.log(`round ${roundIndex + 1} ${mode}: seek miss ${misses.map(value => value.loadDurationMs).join(', ')}ms; FPS ${playback.map(value => value.fps).join(', ')}`);
     }
   }
   assert.equal(exceptions.length, 0, JSON.stringify(exceptions));
-  const summarize = values => {
-    const sorted = values.toSorted((a, b) => a - b);
-    const middle = sorted.length / 2;
-    return { count: sorted.length, min: sorted[0], median: sorted.length % 2 ? sorted[Math.floor(middle)] : (sorted[middle - 1] + sorted[middle]) / 2, max: sorted.at(-1) };
-  };
   const summaries = Object.fromEntries(["mock", "actual"].map(mode => {
     const matching = trials.filter(trial => trial.mode === mode);
     return [mode, {
       seekMissLoadDurationMs: summarize(matching.flatMap(trial => trial.misses.map(value => value.loadDurationMs))),
       seekPointCount: summarize(matching.flatMap(trial => trial.misses.map(value => value.pointCount))),
       playbackFps: summarize(matching.flatMap(trial => trial.playback.map(value => value.fps))),
+      mainThread: {
+        seek: summarizeMainThread(matching.map(trial => trial.mainThread.seek)),
+        playback: summarizeMainThread(matching.map(trial => trial.mainThread.playback)),
+      },
       cacheHitChecksPassed: matching.length,
     }];
   }));
@@ -237,12 +244,20 @@ try {
     current: summarizeLoads(actualTrials.flatMap(trial => trial.misses.map(miss => miss.loadMeasurement))),
     prefetch: summarizeLoads(actualTrials.flatMap(trial => trial.prefetchLoads)),
   };
+  // 실제 데이터 통계와 분리한 양성 대조: 실제 90ms 작업을 관찰하는지 확인한다.
+  await evaluate("window.__drivescopePerformance.start()");
+  await evaluate("new Promise(resolve => setTimeout(() => { const end = performance.now() + 90; while (performance.now() < end) {} resolve(); }, 0))");
+  await delay(120);
+  const positiveControl = await evaluate("window.__drivescopePerformance.stop()");
+  assert.ok(positiveControl.longTasks.some(task => task.durationMs >= 80), "Long Task 양성 대조 실패");
   const result = {
     measuredAt: new Date().toISOString(), nodeVersion: process.version,
     platform: `${os.platform()} ${os.release()} ${os.arch()}`,
     environment, viewport, source: { actualScenarioId: manifest.scenarioId, schemaVersion: manifest.schemaVersion },
-    protocol: { rounds: 3, seekTimesMs, playbackSamplesPerRound: playbackSamples, fpsSampleIntervalMs: 1000, uiLoadDurationPrecisionMs: 0.01, browserHttpCache: "disabled", lidarLruCapacity: 5 },
-    summaries, detailedActualLoads, trials, runtimeExceptionCount: exceptions.length,
+    protocol: { rounds: 3, seekTimesMs, playbackSamplesPerRound: playbackSamples, fpsSampleIntervalMs: 1000, uiLoadDurationPrecisionMs: 0.01, browserHttpCache: "disabled", lidarLruCapacity: 5,
+      percentile: "nearest-rank ceil(0.95 * N)", mainThreadTimerIntervalMs: 50, longTaskThresholdMs: 50,
+      measurementWindows: "seek requests + cache hit checks; separately 10-second playback after 2.2-second preparation", positiveControlExcluded: true },
+    summaries, detailedActualLoads, trials, positiveControl, runtimeExceptionCount: exceptions.length,
   };
   await writeFile(path.join(outputDirectory, "latest.json"), JSON.stringify(result, null, 2) + "\n");
   console.log(JSON.stringify({ environment, summaries, detailedActualLoads, result: "node_modules/.cache/drivescope-benchmark/latest.json" }, null, 2));

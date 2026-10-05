@@ -167,3 +167,28 @@ pnpm.cmd build
 [로더 검증 스크립트](../scripts/verify-lidar-load-timings.mjs)는 실제 TS를 메모리에서 실행하고 가짜 clock·fetch로 헤더 40ms와 본문 70ms를 따로 준다. 구간 분리·좌표 보존, 없는 timestamp의 요청 생략, HTTP 실패, 잘린 바이너리의 4개 검사를 통과했다. 이 합성 시간은 위 실제 표본에 포함하지 않는다.
 
 격리 Chrome의 기능 검사 6개 묶음에서는 현재/prefetch 분리·현재 값 유지, 1440/390/320px 표시, cache hit의 과거 값 제거, 진행 중 prefetch 공유 시 HTTP 한 번·최초 종류 유지, HTTP 실패·재시도, 모드 전환 뒤 늦은 완료 차단을 확인했다. 브라우저 오류는 0개였으며 실제 모바일 기기 검증으로 확대하지 않는다. 해당 보조 도구·프로필·스크린샷은 Git 제외 캐시에 보관한다.
+
+## 평균·P95와 메인 스레드 관찰 (P.S. 2)
+
+[benchmark-viewer.mjs](../scripts/benchmark-viewer.mjs)는 같은 seek·재생 회차에서 평균·P95와 메인 스레드 관찰을 함께 수집한다. 통계 함수는 [performance-summary.mjs](../scripts/lib/performance-summary.mjs), 브라우저 관찰기는 [browser-performance-probe.mjs](../scripts/lib/browser-performance-probe.mjs)에 둔다. 관찰기는 CDP로 검증 브라우저에만 주입하며 제품의 React state·렌더 루프에 누적 계측을 추가하지 않는다.
+
+- 평균은 표본 합 ÷ 개수, P95는 오름차순 N개 중 `ceil(0.95 × N)`번째 값이다. 현재 요청 15개에서는 P95가 최대값이므로 큰 표본의 안정된 백분위수처럼 해석하지 않는다. 빈 표본의 시간 통계는 `null`이며 개수·합계는 0이다.
+- seek 구간은 다섯 miss·양옆 prefetch·hit 검사를 포함한다. 재생 구간은 2.2초 준비 뒤 약 10초를 따로 관찰한다. 페이지 최초 로드·준비·두 구간 사이 seek는 제외한다.
+- Long Tasks API로 메인 UI 스레드를 50ms 이상 차지한 작업의 개수·합계·최대와 `sum(max(duration − 50, 0))`를 기록한다. 후자는 측정 구간의 50ms 초과분이며 Lighthouse의 페이지 TBT 점수가 아니다. 50ms 미만 작업은 여기에 나오지 않는다. [MDN 정의](https://developer.mozilla.org/en-US/docs/Web/API/PerformanceLongTaskTiming)
+- 50ms 타이머의 예정 시각 대비 지연, rAF 사이 간격도 별도로 수집한다. OS 스케줄링·브라우저·렌더 대기 영향을 포함하므로 LiDAR 파싱 CPU 시간이나 GPU 실행 시간으로 단정하지 않는다. FPS는 기존 Three.js의 약 1초 집계값을 읽는다.
+- 결과의 `positiveControl`은 브라우저 타이머에서 의도적으로 90ms 작업을 실행한 관찰기 검사다. 실제 데이터·FPS·지연 통계에서 제외한다. DevTools 직접 evaluate에서 실행한 busy loop는 Long Task로 관찰되지 않아 타이머 작업으로 수정했다. 평균/P95 계산은 고정 표본·100개 표본·빈 표본·50ms 초과분으로 별도 확인했다.
+
+### P.S. 2 측정 결과
+
+`677fad3` production에서 Windows·Chrome 154·GTX 1050 Ti·1440×1400·scene-0061로 실행했다. 가상/실제 각 3회, 기존 다섯 seek와 10초 재생, HTTP 캐시 비활성·LRU 5개를 유지했다. OS 파일 캐시는 초기화하지 않았다. [원본 JSON](./benchmarks/main-thread-performance-2026-10-05.json)에 표본·관찰 구간·양성 대조를 보존한다. 기존 홈의 13.9ms와 앞의 과거 기준선은 갱신하지 않는다.
+
+| 지표 | 표본 수 | 평균 | P95 | 최대 |
+| --- | ---: | ---: | ---: | ---: |
+| 실제 현재 요청 전체 / ms | 15 | 15.65 | 37.30 | 37.30 |
+| 실제 prefetch 전체 / ms | 30 | 12.42 | 23.40 | 24.00 |
+| 실제 현재 좌표 준비 / ms | 15 | 0.02 | 0.10 | 0.10 |
+| 실제 재생 FPS | 30 | 75 | 75 | 75 |
+| 실제 재생 타이머 지연 / ms | 567 | 3.34 | 5.20 | 7.60 |
+| 실제 재생 rAF 간격 / ms | 2270 | 13.33 | 13.50 | 14.20 |
+
+실제 seek 약 1.10초·재생 합계 약 30.31초에서 50ms 이상 Long Task는 각각 0개였고 합계·50ms 초과분도 0ms였다. 가상도 두 구간 모두 0개, 재생 FPS 30개는 모두 75였다. 90ms 양성 대조가 관찰돼 수집기 동작을 확인했다. 관찰한 조건에서의 결과이며 모든 기기의 정지 없음이나 파싱 최적화 효과를 보장하지 않는다. 다음 Worker 비교는 별도 같은 빌드·동일 프로토콜의 쌍으로 측정한다.
