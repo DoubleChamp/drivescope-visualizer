@@ -48,9 +48,22 @@ export function PlaybackControls({
         disabled={isDisabled}
         onClick={onTogglePlayback}
       >
-        <span className={styles.playbackIcon} aria-hidden="true">
-          {isPlaying ? "Ⅱ" : "▶"}
-        </span>
+        <svg
+          className={styles.playbackIcon}
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          aria-hidden="true"
+          focusable="false"
+        >
+          {isPlaying ? (
+            <>
+              <rect x="6" y="4" width="4" height="16" rx="1" />
+              <rect x="14" y="4" width="4" height="16" rx="1" />
+            </>
+          ) : (
+            <path d="M8 4.5v15l12-7.5z" />
+          )}
+        </svg>
         {isPlaying ? "정지" : "재생"}
       </button>
       <div className={styles.timelineControl}>

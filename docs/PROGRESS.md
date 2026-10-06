@@ -1,14 +1,22 @@
 # DriveScope 진행 상황
 
-마지막 갱신: 2026-10-05
+마지막 갱신: 2026-10-06
 
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: 사용자 요청으로 프로젝트 설명 페이지의 코드 영역과 파일별 코드 링크를 제거하고, Viewer 진입 문구·쉬운 설명·본문/모바일 가독성을 개선했다. Worker 선택 설정은 뒤로 미룬다.
+- 현재 작업: 사용자 요청으로 Viewer 재생/정지 아이콘을 SVG로 교체하고 버튼 폭과 좌우 여백을 줄였다. 실제/가상 재생과 모바일 표시를 검증했다. Worker 선택 설정은 뒤로 미룬다.
 - 다음 한 단계: 사용자에게 실제 50ms 시계가 각 센서 최신 과거 timestamp를 선택하며 점군 누적/보간과 다르다는 점을 설명하고 이해를 확인한다. 앞선 Worker/cursor 이해 확인도 남아 있으며 구현 승인을 이해 완료로 기록하지 않는다. main에 commit하고 push는 사용자가 직접 수행한다. 공개 sweep 업로드/URL 교체는 별도 단계다.
 - 아직 구현하지 않은 것: 센서·ego pose·사진의 보간, 공개 sweep 데이터 업로드/URL 전환, 실제 scene 선택 목록과 다중 카메라.
 - 배포 후 개선: 로더 계측·Worker·탐색과 sweeps의 시간 해상도/밀도/전송/캐시/객체 잔상 비교를 마쳤다. 원본·한계·재현은 PERFORMANCE에 기록한다. 현재 데이터에서 sweep 개별 재생의 이점과 누적의 비용을 확인했으며 인터넷/모바일 성능을 localhost 결과로 보장하지 않는다.
+
+## Viewer 재생/정지 아이콘과 버튼 여백 (2026-10-06)
+
+- 사용자가 정지 아이콘과 큰 좌우 여백 수정을 요청했다. GitHub Desktop 내장 Git의 읽기 전용 원격 조회에서 main과 원격 main이 `6cbb1b9`로 일치했다. 설치된 Next.js CSS Modules·use-client 가이드를 확인하고 기존 표시 컴포넌트와 CSS만 수정했다.
+- playback-controls.tsx의 로마 숫자 `Ⅱ`와 문자 `▶`를 currentColor SVG의 두 막대/삼각형으로 교체했다. 아이콘은 aria-hidden이며 버튼의 재생/정지 텍스트와 aria-pressed를 유지한다. 기존 미커밋 form·autoComplete 변경은 보존하고 이번 commit에서 제외한다.
+- viewer-canvas.module.css의 최소 폭을 112→88px, 좌우 패딩을 16→12px, 아이콘과 글자 간격을 10→6px로 줄였다. 최소 높이 44px를 유지하며 600px 이하에서도 전체 폭 대신 내용에 맞는 버튼을 표시한다.
+- `pnpm.cmd build`의 컴파일·TypeScript 검사 통과. `node node_modules/.cache/drivescope-browser-check/check-playback-button.mjs`로 production Chrome의 실제/가상 × 1440/390/320px 여섯 조합을 통과했다. 버튼 폭 88px·높이 44px 이상·SVG 상태 전환·Space 키 재생/정지·정지 후 시간 유지·가로 넘침 없음·runtime exception 0을 확인했다. 390px 스크린샷도 직접 확인했다. 검증 스크립트와 결과는 Git 제외 캐시에 둔다.
+- `git diff --check` 통과. 이번 수정과 검증 기록만 main에 commit하며 push는 사용자가 GitHub Desktop에서 수행한다. 다음 기능 구현이나 사용자 원리 이해 확인을 완료한 것으로 기록하지 않는다.
 
 ## 프로젝트 설명 가독성과 문구 개선 (2026-10-05)
 
