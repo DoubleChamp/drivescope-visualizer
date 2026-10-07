@@ -74,7 +74,7 @@ export function ViewerSceneStage({
         ref={canvasRef}
         className={styles.canvas}
         data-selectable={isMock}
-        aria-label="DriveScope 3D 뷰어"
+        aria-label="DriveScope 3D Viewer"
         aria-describedby="scene-input-help"
       >
         {isMock

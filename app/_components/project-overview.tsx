@@ -9,7 +9,7 @@ export function ProjectOverview() {
       <div className={styles.heroCopy}>
         <p className={styles.eyebrow}>프로젝트 개요</p>
         <h1 id="project-title">DriveScope</h1>
-        <p className={styles.heroSubtitle}>센서 로그를 같은 시간축에서 살펴보는 3D 뷰어</p>
+        <p className={styles.heroSubtitle}>센서 로그를 같은 시간축에서 살펴보는 3D Viewer</p>
         <p className={styles.heroDescription}>
           카메라 사진과 LiDAR 점군, 차량 위치를 함께 재생합니다.
           실제 센서 기록을 화면으로 옮기는 과정과 끊김을 줄이기 위해 적용한 설계를 소개합니다.

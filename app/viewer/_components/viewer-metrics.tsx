@@ -45,7 +45,7 @@ export function ViewerMetrics({
             : `${lidarLoadDurationMs.toFixed(2)}ms`;
 
   return (
-    <dl className={styles.metrics} aria-label="뷰어 통계">
+    <dl className={styles.metrics} aria-label="Viewer 통계">
       <div className={styles.metric}>
         <dt>포인트 수</dt>
         <dd>{isDataLoading ? "—" : pointCount.toLocaleString("ko-KR")}</dd>

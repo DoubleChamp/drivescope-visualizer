@@ -1,6 +1,6 @@
 # DriveScope 아키텍처
 
-현재 구현 기준: 2026-10-05. 설치·데모 재현은 [README](../README.md), 디스크 계약은 [DATA_FORMAT.md](./DATA_FORMAT.md), 측정 결과는 [PERFORMANCE.md](./PERFORMANCE.md)를 따른다. 구현 순서와 과거 검증은 [ROADMAP.md](./ROADMAP.md)와 [PROGRESS.md](./PROGRESS.md)에 보관한다.
+현재 구현 기준: 2026-10-07. 설치·데모 재현은 [README](../README.md), 디스크 계약은 [DATA_FORMAT.md](./DATA_FORMAT.md), 측정 결과는 [PERFORMANCE.md](./PERFORMANCE.md)를 따른다. 구현 순서와 과거 검증은 [ROADMAP.md](./ROADMAP.md)와 [PROGRESS.md](./PROGRESS.md)에 보관한다.
 
 ## 현재 범위
 
@@ -20,7 +20,7 @@ DriveScope는 Next.js App Router·React·TypeScript로 UI와 재생 상태를 �
 
 홈(`/`)의 [app/page.tsx](../app/page.tsx)는 간단한 카드와 `/viewer`·`/project` 두 링크만 표시하는 Server Component다. [landing.module.css](../app/landing.module.css)에 이전 어두운 카드 스타일과 모바일 버튼 배치를 둔다. 두 링크 모두 `prefetch={false}`이며 홈에 센서·영상·Frame 예시를 연결하지 않는다.
 
-프로젝트 소개(`/project`)는 데이터 처리·성능 측정을 보여주는 포트폴리오다. [app/project/page.tsx](../app/project/page.tsx)는 메타데이터와 섹션을 조합하는 Server Component이고, 소개·구조·최적화·측정·영상은 [app/_components](../app/_components)의 표시 컴포넌트로 나눈다. 설명은 원본 로그 처리 흐름과 문제·해결 방법·확인한 결과로 구성하며, 코드 펼치기와 파일별 코드 링크는 제공하지 않는다. 구조·측정·검증 문서와 GitHub 링크는 유지한다. 모든 Viewer 진입 문구는 “Viewer 열기”로 통일한다.
+프로젝트 소개(`/project`)는 데이터 처리·성능 측정을 보여주는 포트폴리오다. [app/project/page.tsx](../app/project/page.tsx)는 메타데이터와 섹션을 조합하는 Server Component이고, 소개·구조·최적화·측정·영상은 [app/_components](../app/_components)의 표시 컴포넌트로 나눈다. 설명은 원본 로그 처리 흐름과 문제·해결 방법·확인한 결과로 구성하며, 코드 펼치기와 파일별 코드 링크는 제공하지 않는다. 공개 화면의 GitHub 저장소·구조·측정·검증·로드맵 링크는 제거했다. 관련 문서는 저장소에 유지하며 측정 조건은 소개 본문에 남긴다. 홈과 소개의 진입 문구는 “Viewer 열기”로 통일하고 제목·본문·접근성 이름에도 Viewer 표기를 사용한다.
 
 프로젝트 소개에서 `"use client"`가 필요한 부분은 [frame-selection-demo.tsx](../app/_components/frame-selection-demo.tsx)뿐이다. 작은 `timeMs` state와 다섯 timestamp로 기존 `findLatestFrameAtOrBefore`를 재사용한다. Three.js·manifest 로더·센서 파일·rAF는 소개에 연결하지 않는다. Viewer 링크는 `prefetch={false}`로 조작 화면의 미리 로딩도 생략한다.
 

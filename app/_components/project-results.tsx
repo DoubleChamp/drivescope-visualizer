@@ -5,7 +5,6 @@ export function ProjectResults() {
     <section id="results" className={styles.section} aria-labelledby="results-title">
       <div className={styles.sectionHeading}>
         <div><p className={styles.eyebrow}>03 · 성능 측정</p><h2 id="results-title">측정 결과와 해석</h2></div>
-        <a className={styles.textLink} href="https://github.com/DoubleChamp/drivescope-visualizer/blob/main/docs/PERFORMANCE.md">측정 조건·원본 기록 <span aria-hidden="true">↗</span></a>
       </div>
       <div className={styles.resultsGrid}>
         <div className={styles.measurements}>
@@ -45,7 +44,6 @@ export function ProjectResults() {
           <li><span aria-hidden="true">✓</span>이전 3D 화면의 렌더링 중지 · GPU 리소스 해제</li>
           <li><span aria-hidden="true">✓</span>320px·390px 브라우저 viewport · 키보드 입력</li>
         </ul>
-        <a className={styles.textLink} href="https://github.com/DoubleChamp/drivescope-visualizer/blob/main/docs/PROGRESS.md">검증 기록 <span aria-hidden="true">↗</span></a>
       </div>
     </section>
   );

@@ -58,16 +58,12 @@ export default function ProjectPage() {
             <p className={styles.eyebrow}>개선 기록</p>
             <h2 id="next-title">측정에서 다음 개선까지</h2>
             <p>데이터 로딩 시간과 화면의 반응을 측정하고,
-              파싱 방식과 프레임 선택, 센서 원본 주기 재생을 비교했습니다. 결과와 남은 작업은 로드맵에서 확인할 수 있습니다.</p>
+              파싱 방식과 프레임 선택, 센서 원본 주기 재생을 비교했습니다.</p>
           </div>
-          <a className={styles.textLink} href="https://github.com/DoubleChamp/drivescope-visualizer/blob/main/docs/ROADMAP.md">
-            개선 계획 읽기 <span aria-hidden="true">↗</span>
-          </a>
         </section>
       </main>
       <footer className={styles.footer}>
         <p>DriveScope <span>데이터 흐름을 설계하고, 결과를 검증하는 프로젝트.</span></p>
-        <a href="https://github.com/DoubleChamp/drivescope-visualizer">GitHub <span aria-hidden="true">↗</span></a>
       </footer>
     </div>
   );

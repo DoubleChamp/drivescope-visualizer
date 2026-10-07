@@ -38,7 +38,6 @@ export function ProjectDemo() {
         <div><h3>센서 로그를 Viewer에서 확인하세요</h3><p>실제 로그를 탐색하거나 가상 10 → 11 → 12 → 12.4초를 비교해 보세요.</p></div>
         <div className={styles.actions}>
           <Link className={styles.primaryLink} href="/viewer" prefetch={false}>Viewer 열기 <span aria-hidden="true">↗</span></Link>
-          <a className={styles.secondaryLink} href="https://github.com/DoubleChamp/drivescope-visualizer">GitHub <span aria-hidden="true">↗</span></a>
         </div>
       </div>
     </section>

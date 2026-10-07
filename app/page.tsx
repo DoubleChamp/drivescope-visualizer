@@ -3,13 +3,13 @@ import Link from "next/link";
 import styles from "./landing.module.css";
 
 const description =
-  "카메라와 LiDAR를 하나의 시간축에서 살펴보는 DriveScope. 센서 로그 뷰어를 열거나 프로젝트의 구조와 성능 설계를 확인하세요.";
+  "카메라와 LiDAR를 하나의 시간축에서 살펴보는 DriveScope. 센서 로그 Viewer를 열거나 프로젝트의 구조와 성능 설계를 확인하세요.";
 
 export const metadata: Metadata = {
-  title: "DriveScope · 자율주행 로그 뷰어",
+  title: "DriveScope · 자율주행 로그 Viewer",
   description,
   openGraph: {
-    title: "DriveScope · 자율주행 로그 뷰어",
+    title: "DriveScope · 자율주행 로그 Viewer",
     description,
     url: "https://drivescope-visualizer.vercel.app/",
     locale: "ko_KR",
@@ -40,7 +40,7 @@ export default function Home() {
         </div>
         <nav className={styles.actions} aria-label="시작하기">
           <Link href="/viewer" className={styles.viewerLink} prefetch={false}>
-            뷰어 열기 <span aria-hidden="true">→</span>
+            Viewer 열기 <span aria-hidden="true">→</span>
           </Link>
           <Link href="/project" className={styles.projectLink} prefetch={false}>
             프로젝트 개요 <span aria-hidden="true">→</span>

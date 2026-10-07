@@ -1,14 +1,22 @@
 # DriveScope 진행 상황
 
-마지막 갱신: 2026-10-06
+마지막 갱신: 2026-10-07
 
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: 사용자 요청으로 Viewer 재생/정지 아이콘을 SVG로 교체하고 버튼 폭과 좌우 여백을 줄였다. 실제/가상 재생과 모바일 표시를 검증했다. Worker 선택 설정은 뒤로 미룬다.
+- 현재 작업: 사용자 요청으로 공개 화면의 GitHub 저장소·문서 링크 6개를 제거하고 홈·소개·접근성 이름의 뷰어 표기를 Viewer로 통일했다. production build와 모바일·영상·Viewer 왕복을 검증했다. Worker 선택 설정은 뒤로 미룬다.
 - 다음 한 단계: 사용자에게 실제 50ms 시계가 각 센서 최신 과거 timestamp를 선택하며 점군 누적/보간과 다르다는 점을 설명하고 이해를 확인한다. 앞선 Worker/cursor 이해 확인도 남아 있으며 구현 승인을 이해 완료로 기록하지 않는다. main에 commit하고 push는 사용자가 직접 수행한다. 공개 sweep 업로드/URL 교체는 별도 단계다.
 - 아직 구현하지 않은 것: 센서·ego pose·사진의 보간, 공개 sweep 데이터 업로드/URL 전환, 실제 scene 선택 목록과 다중 카메라.
 - 배포 후 개선: 로더 계측·Worker·탐색과 sweeps의 시간 해상도/밀도/전송/캐시/객체 잔상 비교를 마쳤다. 원본·한계·재현은 PERFORMANCE에 기록한다. 현재 데이터에서 sweep 개별 재생의 이점과 누적의 비용을 확인했으며 인터넷/모바일 성능을 localhost 결과로 보장하지 않는다.
+
+## 공개 화면의 GitHub 링크 제거와 Viewer 표기 통일 (2026-10-07)
+
+- 사용자가 포트폴리오 공개 화면에서 GitHub로 이동하는 버튼 제거와 Viewer 영어 표기를 요청했다. GitHub Desktop 내장 Git의 원격 조회에서 origin/main은 `6cbb1b9`, 로컬 main은 `8f94ffa`로 직전 commit 1개 앞섰으며 기존 playback-controls.tsx 변경을 보존했다. 설치된 Next.js Server/Client Components·Link 가이드를 읽었다.
+- project/page.tsx와 소개의 architecture·results·demo 컴포넌트에서 저장소·구조·측정·검증·로드맵 링크 6개를 제거하고 로드맵 이동 안내 문장을 정리했다. 홈 버튼·페이지 제목/OG 제목/설명·소개 부제·Viewer 통계와 Canvas 접근성 이름을 Viewer로 통일했다. 핵심 변경은 외부 a 요소 제거와 표시 문자열 수정이다.
+- `pnpm.cmd build` 컴파일·TypeScript·정적 페이지 생성 통과. `node node_modules/.cache/drivescope-browser-check/check-project-links.mjs`로 production Chrome 검사 10개 묶음 통과·runtime exception 0. 소개의 GitHub 링크 0개, 모든 app 소스의 github.com·한글 뷰어 문자열 0개를 확인했다.
+- 320/390/768/1024px 가로 넘침 없음, 390px 소개 스크린샷 확인. Frame 예시 방향키·60초 영상 재생/35초 seek·실제/가상 Viewer·홈/소개 왕복·색상 복귀를 검증했다. 최초 검사에서는 제한된 서버가 저장소 밖 센서 파일을 읽지 못해 EPERM이 발생했으며 기존 센서 데이터 읽기가 허용된 서버 실행에서 재검사했다. 임시 스크립트와 결과는 Git 제외 캐시에 둔다.
+- README·PROJECT_BRIEF·ARCHITECTURE를 현재 공개 링크 구성에 맞췄다. 기존 사용자 변경은 commit에서 제외하며 main에 commit까지만 한다. 공개 반영은 사용자의 push와 새 Vercel build 뒤 확인한다. 다음 기능 구현과 사용자 원리 이해 확인은 진행하지 않았다.
 
 ## Viewer 재생/정지 아이콘과 버튼 여백 (2026-10-06)
 
