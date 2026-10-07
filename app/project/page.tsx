@@ -34,8 +34,7 @@ export default function ProjectPage() {
       <a className={styles.skipLink} href="#project">본문으로 건너뛰기</a>
       <header className={styles.header}>
         <Link className={styles.brand} href="/" prefetch={false} aria-label="DriveScope 홈으로 이동">
-          <span className={styles.brandMark} aria-hidden="true">+</span>
-          DriveScope<span className={styles.brandNote}>홈으로</span>
+          DriveScope
         </Link>
         <nav className={styles.nav} aria-label="프로젝트 소개">
           <a href="#architecture">구조</a>
@@ -56,14 +55,18 @@ export default function ProjectPage() {
         <section className={styles.nextSection} aria-labelledby="next-title">
           <div>
             <p className={styles.eyebrow}>개선 기록</p>
-            <h2 id="next-title">측정에서 다음 개선까지</h2>
+            <h2 id="next-title">계속 살펴보고 있는 것들</h2>
             <p>데이터 로딩 시간과 화면의 반응을 측정하고,
               파싱 방식과 프레임 선택, 센서 원본 주기 재생을 비교했습니다.</p>
           </div>
+          <a className={styles.textLink} href="https://github.com/DoubleChamp/drivescope-visualizer/blob/main/docs/ROADMAP.md">
+            개선 계획 읽기 <span aria-hidden="true">↗</span>
+          </a>
         </section>
       </main>
       <footer className={styles.footer}>
-        <p>DriveScope <span>데이터 흐름을 설계하고, 결과를 검증하는 프로젝트.</span></p>
+        <p>DriveScope <span>자율주행 센서 로그를 탐색하는 웹 프로젝트</span></p>
+        <a href="https://github.com/DoubleChamp/drivescope-visualizer">GitHub <span aria-hidden="true">↗</span></a>
       </footer>
     </div>
   );

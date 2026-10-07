@@ -13,7 +13,8 @@ export function ProjectArchitecture() {
   return (
     <section id="architecture" className={styles.section} aria-labelledby="architecture-title">
       <div className={styles.sectionHeading}>
-        <div><p className={styles.eyebrow}>01 · 데이터 흐름</p><h2 id="architecture-title">원본 로그가 화면에 도착하기까지</h2></div>
+        <div><p className={styles.eyebrow}>데이터 흐름</p><h2 id="architecture-title">기록을 읽고, 화면에 보여주기까지</h2></div>
+        <a className={styles.textLink} href="https://github.com/DoubleChamp/drivescope-visualizer/blob/main/docs/ARCHITECTURE.md">구조 설명 문서 <span aria-hidden="true">↗</span></a>
       </div>
       <p className={styles.sectionIntro}>원본 센서 기록은 시간과 좌표, 파일 형식이 서로 다릅니다.
         데이터를 준비하는 과정과 화면에 그리는 과정을 나누어, 문제가 생겼을 때 어느 단계에서 발생했는지 확인할 수 있게 했습니다.</p>

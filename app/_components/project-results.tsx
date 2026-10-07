@@ -4,7 +4,8 @@ export function ProjectResults() {
   return (
     <section id="results" className={styles.section} aria-labelledby="results-title">
       <div className={styles.sectionHeading}>
-        <div><p className={styles.eyebrow}>03 · 성능 측정</p><h2 id="results-title">측정 결과와 해석</h2></div>
+        <div><p className={styles.eyebrow}>성능 측정</p><h2 id="results-title">직접 재생하고 측정했습니다</h2></div>
+        <a className={styles.textLink} href="https://github.com/DoubleChamp/drivescope-visualizer/blob/main/docs/PERFORMANCE.md">측정 조건·원본 기록 <span aria-hidden="true">↗</span></a>
       </div>
       <div className={styles.resultsGrid}>
         <div className={styles.measurements}>
@@ -28,7 +29,7 @@ export function ProjectResults() {
         </div>
         <div className={styles.measurementMeaning}>
           <span className={styles.miniLabel}>측정 구간</span>
-          <h3><span>13.9ms</span>는<br />데이터 요청부터 좌표 준비까지입니다.</h3>
+          <h3><span>13.9ms</span><br />데이터 요청부터 좌표 준비까지</h3>
           <p>HTTP 응답 대기, 파일 전송과 좌표 준비를 포함한 시간입니다.
             GPU 업로드·React 화면 반영·이미지 디코딩은 이 측정 구간에 포함되지 않습니다.</p>
           <div className={styles.measurementRange}><span>요청 시작</span><i /><span>좌표 배열 준비</span></div>
@@ -44,6 +45,7 @@ export function ProjectResults() {
           <li><span aria-hidden="true">✓</span>이전 3D 화면의 렌더링 중지 · GPU 리소스 해제</li>
           <li><span aria-hidden="true">✓</span>320px·390px 브라우저 viewport · 키보드 입력</li>
         </ul>
+        <a className={styles.textLink} href="https://github.com/DoubleChamp/drivescope-visualizer/blob/main/docs/PROGRESS.md">검증 기록 <span aria-hidden="true">↗</span></a>
       </div>
     </section>
   );

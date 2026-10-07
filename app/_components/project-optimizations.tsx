@@ -25,7 +25,7 @@ export function ProjectOptimizations() {
   return (
     <section id="optimizations" className={styles.section} aria-labelledby="optimizations-title">
       <div className={styles.sectionHeading}>
-        <div><p className={styles.eyebrow}>02 · 문제 해결</p><h2 id="optimizations-title">재생 화면을 안정적으로 유지하는 방법</h2></div>
+        <div><p className={styles.eyebrow}>문제 해결</p><h2 id="optimizations-title">다음 장면을 기다리는 동안에도</h2></div>
       </div>
       <p className={styles.sectionIntro}>데이터를 다시 읽는 비용과 화면을 새로 만드는 작업을 줄였습니다.
         다음 프레임을 준비하는 동안에도 현재 표시를 유지하도록 설계했습니다.</p>
@@ -33,13 +33,12 @@ export function ProjectOptimizations() {
         {decisions.map(item => (
           <article className={styles.decision} key={item.number}>
             <div className={styles.decisionHeading}>
-              <span className={styles.decisionNumber}>{item.number}</span>
               <span className={styles.miniLabel}>{item.label}</span>
               <h3>{item.title}</h3>
             </div>
             <div className={styles.decisionBody}>
-              <p><strong>어떤 문제가 있었나</strong>{item.problem}</p>
-              <p><strong>어떻게 해결했나</strong>{item.decision}</p>
+              <p>{item.problem}</p>
+              <p>{item.decision}</p>
               <p className={styles.decisionEvidence}><strong>확인한 결과</strong>{item.evidence}</p>
             </div>
           </article>

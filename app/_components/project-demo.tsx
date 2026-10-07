@@ -12,7 +12,7 @@ export function ProjectDemo() {
   return (
     <section id="demo" className={styles.section} aria-labelledby="demo-title">
       <div className={styles.sectionHeading}>
-        <div><p className={styles.eyebrow}>04 · 데모</p><h2 id="demo-title">1분 영상으로 보는 DriveScope</h2></div>
+        <div><p className={styles.eyebrow}>직접 살펴보기</p><h2 id="demo-title">실제 화면을 1분에 담았습니다</h2></div>
         <p className={styles.headingAside}>60초 · 한글 자막<br />실제 공개 Viewer 촬영</p>
       </div>
       <div className={styles.demoGrid}>
@@ -38,6 +38,7 @@ export function ProjectDemo() {
         <div><h3>센서 로그를 Viewer에서 확인하세요</h3><p>실제 로그를 탐색하거나 가상 10 → 11 → 12 → 12.4초를 비교해 보세요.</p></div>
         <div className={styles.actions}>
           <Link className={styles.primaryLink} href="/viewer" prefetch={false}>Viewer 열기 <span aria-hidden="true">↗</span></Link>
+          <a className={styles.secondaryLink} href="https://github.com/DoubleChamp/drivescope-visualizer">GitHub <span aria-hidden="true">↗</span></a>
         </div>
       </div>
     </section>

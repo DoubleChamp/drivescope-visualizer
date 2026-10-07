@@ -5,10 +5,19 @@
 ## 현재 위치
 
 - 현재 Phase: Phase 7 — 실제 데이터와 결과물 진행 중
-- 현재 작업: 사용자 요청으로 공개 화면의 GitHub 저장소·문서 링크 6개를 제거하고 홈·소개·접근성 이름의 뷰어 표기를 Viewer로 통일했다. production build와 모바일·영상·Viewer 왕복을 검증했다. Worker 선택 설정은 뒤로 미룬다.
+- 현재 작업: 사용자 요청으로 프로젝트 소개의 GitHub 링크 6개를 복원하고 흰 배경·큰 제목·여백·넓은 실제 화면으로 UI를 간결하게 정리했다. production build·브라우저 회귀·localhost:3000 반영을 확인했다. Worker 선택 설정은 뒤로 미룬다.
 - 다음 한 단계: 사용자에게 실제 50ms 시계가 각 센서 최신 과거 timestamp를 선택하며 점군 누적/보간과 다르다는 점을 설명하고 이해를 확인한다. 앞선 Worker/cursor 이해 확인도 남아 있으며 구현 승인을 이해 완료로 기록하지 않는다. main에 commit하고 push는 사용자가 직접 수행한다. 공개 sweep 업로드/URL 교체는 별도 단계다.
 - 아직 구현하지 않은 것: 센서·ego pose·사진의 보간, 공개 sweep 데이터 업로드/URL 전환, 실제 scene 선택 목록과 다중 카메라.
 - 배포 후 개선: 로더 계측·Worker·탐색과 sweeps의 시간 해상도/밀도/전송/캐시/객체 잔상 비교를 마쳤다. 원본·한계·재현은 PERFORMANCE에 기록한다. 현재 데이터에서 sweep 개별 재생의 이점과 누적의 비용을 확인했으며 인터넷/모바일 성능을 localhost 결과로 보장하지 않는다.
+
+## GitHub 링크 복원과 프로젝트 소개 UI 정리 (2026-10-07)
+
+- 사용자가 `/project`의 GitHub 링크를 이전처럼 복원하고 토스 UI를 떠올리는 간결한 디자인으로 수정하도록 요청했다. GitHub Desktop 내장 Git의 읽기 전용 원격 조회에서 origin/main은 `6cbb1b9`, 로컬 main은 `d475a0a`로 2개 commit 앞섰다. 기존 playback-controls.tsx 변경을 보존했다. 설치된 Next.js CSS Modules·Server/Client Components 가이드를 확인했다.
+- 소개의 GitHub 저장소·구조·측정·검증·로드맵 링크 6개를 복원했다. 헤더 장식 마크·섹션 번호·미리보기 장식·상단 숫자 요약을 제거하고 중앙 소개 문장과 최대 960px 실제 화면을 배치했다. hero 이미지 sizes도 새 표시 폭에 맞췄다. 문제 해결은 카드 대신 제목/설명의 행으로 정리하고 문장과 제목의 반복을 줄였다.
+- home.module.css를 현재 사용 클래스 중심으로 정리했다. 흰 배경·큰 제목·100px desktop/60px mobile 섹션 여백·중립적인 회색·주요 동작과 선택 상태의 파란색을 사용한다. 본문 18px/mobile 17px와 1.8배 줄 간격, 키보드 focus·모바일 영상 여백을 유지했다. Viewer 표기는 영어로 유지하며 센서 처리·재생 코드는 수정하지 않았다.
+- `pnpm.cmd build` 컴파일·TypeScript·정적 페이지 생성 통과. `node node_modules/.cache/drivescope-browser-check/check-project-simple-ui.mjs` production Chrome 10개 묶음 통과·runtime exception 0. GitHub 링크 6개·문서 대상 4개 확인, 320/390/768/1024px 가로 넘침 없음, Frame 예시 방향키·60초 영상/35초 seek·실제/가상 Viewer 왕복·루트 색상 복귀를 확인했다. desktop·390px 소개와 문제 해결 화면 스크린샷을 직접 확인했다.
+- 모바일에서 줄바꿈을 숨길 때 문장 사이 공백이 유지되도록 다듬었다. `node node_modules/.cache/drivescope-browser-check/check-simple-ui-dev.mjs`로 사용자의 기존 localhost:3000 개발 서버에서도 링크·흰 배경·desktop 제목 64px·1440/390/320px 가로 넘침 없음·문장 공백·runtime exception 0을 확인했다. 처음 개발 서버 실행 시 이미 실행 중인 서버를 발견해 기존 서버로 확인했다. 임시 검사와 결과는 Git 제외 캐시에 둔다.
+- README·PROJECT_BRIEF·ARCHITECTURE·ROADMAP·LEARNING_NOTES를 현재 화면에 맞춰 갱신했다. 기존 사용자 변경은 commit에서 제외하고 main에 commit까지만 진행한다. 공개 반영은 사용자 push와 새 Vercel build 뒤 확인한다. 새 기능 구현과 사용자의 원리 이해 확인은 진행하지 않았다.
 
 ## 공개 화면의 GitHub 링크 제거와 Viewer 표기 통일 (2026-10-07)
 
